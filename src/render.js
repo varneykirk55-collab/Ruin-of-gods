@@ -20,14 +20,24 @@ in vec3 aPos; in vec3 aCol; in float aGlow; uniform mat4 uVP; out vec3 vCol; out
 void main(){ vW=aPos; vCol=aCol; vGlow=aGlow; gl_Position=uVP*vec4(aPos,1.0); }`;
 const TERR_FS = `#version 300 es
 precision highp float; in vec3 vCol; in vec3 vW; in float vGlow; out vec4 o;
-uniform vec4 uMark,uMarkC,uShadow; uniform float uTime;` + COMMON + `
+uniform vec4 uMark,uMarkC,uShadow; uniform float uTime,uBrush;` + COMMON + `
 void main(){ vec3 n=normalize(cross(dFdx(vW),dFdy(vW))); if(n.y<0.0) n=-n;
   vec3 c=shade(vCol,n,vW);
   float fl=0.75+0.25*sin(uTime*13.0+vW.x*3.1+vW.z*2.3);
   c+=vec3(1.0,0.42,0.06)*vGlow*fl*0.9;
   float sd=distance(vW.xz,uShadow.xy); c*=1.0-uShadow.w*smoothstep(uShadow.z,uShadow.z*0.45,sd);
-  float md=distance(vW.xz,uMark.xy); float ring=smoothstep(0.22,0.0,abs(md-uMark.z));
-  c=mix(c,uMarkC.rgb,clamp(ring+(md<uMark.z?0.13:0.0),0.0,1.0)*uMarkC.a);
+  float md=distance(vW.xz,uMark.xy);
+  if(uBrush>0.5){
+    float pulse=0.78+0.22*sin(uTime*6.0);
+    float edge=1.0-smoothstep(0.0,0.62,abs(md-uMark.z));
+    float disc=1.0-smoothstep(max(uMark.z-0.45,0.0), uMark.z, md);
+    vec3 glow=vec3(1.0,0.9,0.32)*(1.25+0.7*pulse);
+    c=mix(c, glow, clamp(disc*0.5+edge, 0.0, 0.9)*uMarkC.a);
+    c+=glow*edge*0.85*pulse;
+  }else{
+    float ring=smoothstep(0.22,0.0,abs(md-uMark.z));
+    c=mix(c,uMarkC.rgb,clamp(ring+(md<uMark.z?0.13:0.0),0.0,1.0)*uMarkC.a);
+  }
   o=vec4(fog(c,vW),1.0); }`;
 const WAT_VS = `#version 300 es
 in vec3 aPos; in vec2 aDF; uniform mat4 uVP; out vec3 vW; out vec2 vDF;
@@ -95,7 +105,7 @@ class Particles {
         case 'glow': this.one(x, y, z, 0, 0, 0, sp, 0, 0.09, 0.65, 0.75, 1, 0.55, 1, 0, 0, 0); break;
         case 'ember': this.one(x + ox, y, z + oz, (R() - .5), 1 + R() * 2.5, (R() - .5), 0.1 + R() * 0.08, 0, 1.5 + R() * 2, 1, 0.6, 0.2, 1, 1, 0.3, 0.2, 1.5); break;
         case 'swirl': { const l = Math.hypot(ox, oz) || 0.25, tx = -oz / l, tz = ox / l, tcol = 0.52 + R() * 0.22; this.one(x + ox, y + R() * sp * 0.45, z + oz, tx * (2.4 + R() * 4.2) * pw - ox * 0.45, (0.35 + R() * 1.7) * pw, tz * (2.4 + R() * 4.2) * pw - oz * 0.45, 0.4 + R() * 0.75, 0.7, 0.65 + R() * 0.85, tcol, tcol * 0.93, tcol * 0.82, 0.48, 0, 0.15, 1.15, 0.15); break; }
-        case 'vanish': this.one(x + ox * 0.22, y + R() * sp, z + oz * 0.22, (R() - .5) * 0.3, 0.65 + R() * 1.05, (R() - .5) * 0.3, 0.26 + R() * 0.38, -0.32, 0.36 + R() * 0.28, 1, 0.92, 0.62, 0.78, 1, 0.12, 1.3, 0.08); break;
+        case 'vanish': this.one(x + ox * 0.4, y + R() * sp * 0.35, z + oz * 0.4, (R() - .5) * 0.5, 1.3 + R() * 2.1, (R() - .5) * 0.5, 0.55 + R() * 0.85, -0.12, 0.58 + R() * 0.22, 1, 0.96, 0.5, 0.95, 1, 0.55, 0.45, 0.04); break;
       }
     }
   }
@@ -138,7 +148,7 @@ class Renderer {
     this.parts = new Particles(7000);
     this.cam = { tx: 80, tz: 100, yaw: 0.6, pitch: 0.75, dist: 70, gtx: 80, gtz: 100, gyaw: 0.6, gpitch: 0.75, gdist: 70, shake: 0 };
     this.eye = [0, 0, 0]; this.fov = 0.7; this.lights = new Float32Array(24); this.mark = [0, 0, 0, 0]; this.markC = [1, 1, 1, 0]; this.shadow = [0, 0, 1, 0];
-    this.time = 0; this.sel = null; this.extra = null;
+    this.time = 0; this.sel = null; this.extra = null; this.brush = 0;
   }
   resize() { const c = this.canvas, dpr = Math.min(window.devicePixelRatio || 1, 1.5), w = Math.max(2, (c.clientWidth * dpr) | 0), h = Math.max(2, (c.clientHeight * dpr) | 0); if (c.width !== w || c.height !== h) { c.width = w; c.height = h; } }
 
@@ -263,7 +273,7 @@ class Renderer {
       B.push(t.x, gy + 0.35, t.z, t.R * 0.55 * fade, 0.12, t.R * 0.55 * fade, 0, t.spin, 0, 0.55, 0.5, 0.42, 0.08);
       for (let i = 0; i < 8; i++) { const a = t.spin * 1.7 + i * 0.8, u = (i % 5) / 5, rad = t.R * (0.2 + u * 0.72) * fade; B.push(t.x + Math.cos(a) * rad, gy + 0.5 + u * H * 0.72, t.z + Math.sin(a) * rad, 0.18 + u * 0.12, 0.1, 0.32, a, t.spin, 0.5, 0.4, 0.3, 0.2, 0); }
     }
-    for (const f of w.fades || []) { const u = Math.max(0, 1 - f.t / f.T), s = Math.max(0.02, u * u); D[f.g || 0].push(f.x, f.y + (1 - u) * 0.85, f.z, f.sx * s, f.sy * s, f.sz * s, f.rx, f.ry + (1 - u) * 1.6, f.rz, f.c[0] * u + (1 - u), f.c[1] * u + 0.9 * (1 - u), f.c[2] * u + 0.55 * (1 - u), 0.2 + 0.75 * (1 - u)); }
+    for (const f of w.fades || []) { const u = Math.max(0, 1 - f.t / f.T), s = Math.max(0.02, u * u), hot = 1 - u; D[f.g || 0].push(f.x, f.y + hot * 1.15, f.z, f.sx * s, f.sy * s, f.sz * s, f.rx, f.ry, f.rz, f.c[0] * u + hot, f.c[1] * u + 0.95 * hot, f.c[2] * u + 0.42 * hot, 0.7); }
     if (this.extra) this.extra(B, P);
     for (const b of D) b.upload();
   }
@@ -298,7 +308,7 @@ class Renderer {
     gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.disable(gl.BLEND); gl.disable(gl.CULL_FACE);
     const fogD = 0.0000028 + (w.rain > 0 ? 0.000004 : 0);
     const common = p => { gl.useProgram(p); gl.uniformMatrix4fv(p.u.uVP, false, this.VP); if (p.u.uSun) gl.uniform3fv(p.u.uSun, this.sun); if (p.u.uSunC) gl.uniform3fv(p.u.uSunC, this.sunC); if (p.u.uAmb) gl.uniform3fv(p.u.uAmb, this.amb); if (p.u.uFog) gl.uniform3fv(p.u.uFog, this.fogC); if (p.u.uCam) gl.uniform3fv(p.u.uCam, this.eye); if (p.u.uFogD) gl.uniform1f(p.u.uFogD, fogD); if (p.u.uLights) gl.uniform4fv(p.u.uLights, this.lights); if (p.u.uTime) gl.uniform1f(p.u.uTime, this.time); };
-    common(this.pT); gl.uniform4fv(this.pT.u.uMark, this.mark); gl.uniform4fv(this.pT.u.uMarkC, this.markC); gl.uniform4fv(this.pT.u.uShadow, this.shadow);
+    common(this.pT); gl.uniform4fv(this.pT.u.uMark, this.mark); gl.uniform4fv(this.pT.u.uMarkC, this.markC); gl.uniform4fv(this.pT.u.uShadow, this.shadow); if (this.pT.u.uBrush) gl.uniform1f(this.pT.u.uBrush, this.brush || 0);
     gl.bindVertexArray(this.tm.vao); gl.drawElements(gl.TRIANGLES, this.ic, gl.UNSIGNED_INT, 0);
     common(this.pI); for (const b of this.st) b.draw(); for (const b of this.dy) b.draw();
     gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);

@@ -105,10 +105,9 @@ const ok = (c, m) => { if (c) { pass++; console.log('  ok   ' + m); } else { fai
   await shot('ability_deletion_hover.png');
   const trees0 = await ev(() => __game.world.tree.reduce((a, b) => a + (b ? 1 : 0), 0));
   await p.mouse.click(a[0], a[1]); await p.waitForTimeout(200); await shot('ability_deletion.png');
-  const gone = await ev(id => { const b = __game.world.buildings[id]; return { gone: !!b.gone, map: __game.world.bmap[__game.world.ci(b.x, b.z)], debris: __game.world.debris.length }; }, target.id);
+  const gone = await ev(id => { const b = __game.world.buildings[id]; const i = __game.world.ci(b.x, b.z); return { gone: !!b.gone, map: __game.world.bmap[i], debris: __game.world.debris.length, h: __game.world.h[i], w: __game.world.w[i] }; }, target.id);
   ok(gone.gone && gone.map === 0, 'click deleted the house and cleared its collider');
-  const hw = await ev(id => { const b = __game.world.buildings[id], i = __game.world.ci(b.x, b.z); return [__game.world.h[i], __game.world.w[i]]; }, target.id);
-  ok(Math.abs(hw[0] - target.h) < 0.001 && Math.abs(hw[1] - target.water) < 0.001, 'deletion left terrain and water alone');
+  ok(gone.h < target.h - 3 && Math.abs(gone.w - target.water) < 0.001, 'the brush cut a void and did not invent water (' + target.h.toFixed(1) + ' -> ' + gone.h.toFixed(1) + ')');
   const grove = await ev(() => { const w = __game.world; for (let i = 0; i < w.tree.length; i++) if (w.tree[i] === 1) { const x = i % 160, z = (i / 160) | 0; let n = 0; for (let k = 0; k < 6; k++) if (w.tree[i + k] === 1) n++; if (n >= 3) return [x, z]; } return null; });
   if (grove) {
     await cam({ tx: grove[0], tz: grove[1], dist: 30, pitch: 0.85, yaw: 0.2 }); await p.waitForTimeout(250);

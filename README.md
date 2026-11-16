@@ -22,7 +22,7 @@ Open `index.html` in any WebGL2 browser. It is one self-contained file, with no 
 
 Lightning darkens the sky, blasts one huge bolt down, then hurls a barrage of forks that seek the tallest buildings and trees; strikes on water electrocute anyone wading.
 
-Tornado (8) drops a spinning funnel you steer with the mouse. It pulls villagers, trees, and debris in, lifts them, and throws them back out, and it tears buildings down harder the closer they are to the core. Divine Deletion (9) highlights one building, tree, prop, or villager and unmakes it — drag to take several. It does not dig the ground, move the water, or splash damage onto neighbors. Deleted things stay gone in a Save.
+Tornado (8) drops a spinning funnel you steer with the mouse. It pulls villagers, trees, and debris in, lifts them, and throws them back out, and it tears buildings down harder the closer they are to the core. Divine Deletion (9) shows a glowing brush. Click or drag to drop the land inside that ring to a sheer void and unmake whatever was standing on it. Water runs into the hole. The dam and the map edge cannot be erased. `[` `]` changes the brush. Deleted land and objects stay gone in a Save.
 
 The dam upstream of the village can be breached with the Flood power. Save and Load keep terrain, water, scorch, fractures, rubble, building damage, villagers and tents (browser local storage).
 

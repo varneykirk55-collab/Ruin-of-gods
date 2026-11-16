@@ -894,7 +894,7 @@ class World {
 
   // ------------------------------------------------------------ divine deletion (no blast, no debris, no collateral)
   decayFades(dt) { const F = this.fades; for (let k = F.length - 1; k >= 0; k--) { F[k].t += dt; if (F[k].t >= F[k].T) { F[k] = F[F.length - 1]; F.pop(); } } }
-  pushFade(g, x, y, z, sx, sy, sz, rx, ry, rz, c) { if (this.fades.length > 100) this.fades.splice(0, 25); this.fades.push({ g: g || 0, x, y, z, sx, sy, sz, rx: rx || 0, ry: ry || 0, rz: rz || 0, c: c || [0.9, 0.85, 0.6], t: 0, T: 0.45 }); }
+  pushFade(g, x, y, z, sx, sy, sz, rx, ry, rz, c) { if (this.fades.length > 140) this.fades.splice(0, 30); this.fades.push({ g: g || 0, x, y, z, sx, sy, sz, rx: rx || 0, ry: ry || 0, rz: rz || 0, c: c || [1, 0.92, 0.45], t: 0, T: 0.7 }); }
   rayBox(ex, ey, ez, dx, dy, dz, x0, y0, z0, x1, y1, z1) {
     let t0 = 0, t1 = 160;
     const slab = (o, d, a, b) => {
@@ -983,7 +983,7 @@ class World {
       if (n.inside) { n.inside = false; n.x = b.doorX; n.z = b.doorZ; n.y = this.walkH(this.ci(n.x, n.z)); }
       if (b.home !== false) { n.homeless = true; n.goal = ''; n.path = null; n.working = false; }
     }
-    this.fx.burst('vanish', b.x, b.y + b.hgt * 0.5, b.z, 22, Math.max(b.w, b.d) * 0.35, 1);
+    this.fx.burst('vanish', b.x, b.y + b.hgt * 0.5, b.z, 40, Math.max(b.w, b.d) * 0.45, 1.6);
     this.fx.sound('unmake', b.x, b.z, 0.75);
     this.fx.log(this.bname(b) + ' is unmade');
     this.staticDirty = true;
@@ -1050,6 +1050,63 @@ class World {
     if (rec.kind === 'well') return this.eraseWell();
     if (rec.kind === 'camp') return this.eraseCamp(rec.c);
     return false;
+  }
+  eraseRadius(I) { return 1.35 + 2.85 * clamp(I == null ? 0.6 : I, 0.1, 1); }
+  canEraseLand(i) {
+    const x = i % N, z = (i / N) | 0;
+    if (x < 3 || z < 3 || x >= N - 3 || z >= N - 3) return false;
+    if (this.kind[i] === K.DAM) return false;
+    if (this.flag[i] & 2) return false;
+    return true;
+  }
+  eraseLand(x, z, I) {
+    const R = this.eraseRadius(I), xi = Math.round(x), zi = Math.round(z), RR = Math.ceil(R), FLOOR = -7, R2 = R * R;
+    const dug = [];
+    for (let dz = -RR; dz <= RR; dz++) for (let dx = -RR; dx <= RR; dx++) {
+      if (dx * dx + dz * dz > R2) continue;
+      const X = xi + dx, Z = zi + dz;
+      if (X < 0 || Z < 0 || X >= N || Z >= N) continue;
+      const i = Z * N + X;
+      if (this.canEraseLand(i)) dug.push(i);
+    }
+    if (!dug.length) return false;
+    const y0 = this.hAt(x, z), dugSet = new Set(dug), seen = new Set();
+    for (const i of dug) {
+      if (this.tree[i]) this.eraseTree(i);
+      const bi = this.bmap[i];
+      if (bi && !seen.has(bi)) { seen.add(bi); const b = this.buildings[bi - 1]; if (b) this.eraseBuilding(b); }
+      if (this.bridge[i] && this.bridgeB && !this.bridgeB.gone) this.eraseBuilding(this.bridgeB);
+    }
+    for (const n of this.npcs) {
+      if (n.erased || n.inside || (n.st === DEAD && n.deadT >= 999)) continue;
+      const i = this.ci(n.x, n.z);
+      if (dugSet.has(i) || (Math.hypot(n.x - x, n.z - z) <= R && this.canEraseLand(i))) this.eraseNPC(n);
+    }
+    if (this.well && !this.well.gone && Math.hypot(this.well.x - x, this.well.z - z) <= R + 0.6 && this.canEraseLand(this.ci(this.well.x, this.well.z))) this.eraseWell();
+    for (const c of this.camps) if (c && !c.dead && Math.hypot(c.x - x, c.z - z) <= R + 0.4 && this.canEraseLand(this.ci(c.x, c.z))) this.eraseCamp(c);
+    for (let k = this.rubble.length - 1; k >= 0; k--) { const r = this.rubble[k]; if (Math.hypot(r[0] - x, r[2] - z) <= R + 0.35) this.eraseRubble(k); }
+    for (let k = this.debris.length - 1; k >= 0; k--) { const d = this.debris[k]; if (Math.hypot(d.x - x, d.z - z) <= R + 0.4) this.eraseDebris(k); }
+    let n = 0, cleared = false;
+    for (const i of dug) {
+      if (this.burn[i] > 0) { this.burn[i] = 0; cleared = true; }
+      this.fuel[i] = 0; this.scorch[i] = Math.max(this.scorch[i], 200);
+      if (this.h[i] > FLOOR + 0.04) { this.h[i] = FLOOR; n++; }
+    }
+    if (cleared) { const F = this.fires; for (let k = F.length - 1; k >= 0; k--) if (this.burn[F[k]] <= 0) { F[k] = F[F.length - 1]; F.pop(); } }
+    if (!n) return false;
+    for (let k = 0; k < 5; k++) { const a = k * 1.2566; this.pushFade(0, x + Math.cos(a) * R * 0.45, y0 + 0.15, z + Math.sin(a) * R * 0.45, Math.max(0.5, R * 0.42), 0.16, Math.max(0.4, R * 0.32), 0, a, 0, [0.95, 0.9, 0.4]); }
+    this.fx.burst('vanish', x, y0 + 0.5, z, 36, Math.max(0.9, R * 0.7), 1.7);
+    this.fx.sound('unmake', x, z, 0.85);
+    if (this.clock - (this._landLog || -10) > 1.4) { this._landLog = this.clock; this.fx.log('The land is unmade'); }
+    this.terrDirty = true; this.staticDirty = true;
+    return true;
+  }
+  eraseStroke(x0, z0, x1, z1, I) {
+    const step = Math.max(0.45, this.eraseRadius(I) * 0.42);
+    const d = Math.hypot(x1 - x0, z1 - z0), n = Math.max(1, Math.ceil(d / step));
+    let any = false;
+    for (let k = 0; k <= n; k++) any = this.eraseLand(x0 + (x1 - x0) * k / n, z0 + (z1 - z0) * k / n, I) || any;
+    return any;
   }
 
   // ------------------------------------------------------------ main tick

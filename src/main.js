@@ -12,13 +12,13 @@
     { id: 'fire', icon: '🔥', name: 'Firestorm', hint: 'Click or drag to set the land alight. Fire follows the wind.' },
     { id: 'lightning', icon: '⚡', name: 'Lightning', hint: 'Click to blast a storm of lightning down. Bolts seek the tallest things.' },
     { id: 'tornado', icon: '🌪️', name: 'Tornado', hint: 'Click to touch down a tornado. Move the mouse to steer it. It pulls, lifts, and throws.' },
-    { id: 'delete', icon: '✧', name: 'Deletion', hint: 'Divine Deletion: hover a building, tree, prop, or villager — it glows. Click or drag to unmake it. The land and the river stay.' }
+    { id: 'delete', icon: '✧', name: 'Deletion', hint: 'Divine Deletion: the ring is the brush. Click or drag to unmake land, and anything standing on it, into a void. The dam and the map edge stay. [ ] changes the brush.' }
   ];
   let R, world, audio = new AudioEngine(), tool = 'observe', intensity = 0.6, paused = false, speed = 1, started = false, memSave = null;
   let last = 0, acc = 0, frameN = 0, hudT = 0, follow = false, lastHour = -1;
   const mouse = { nx: 0, ny: 0, px: 0, py: 0, down: false, mode: '', hit: null, moved: 0, inside: false };
   const keys = {}; const ptrs = new Map(); let gest = null;
-  let qStart = null, lastCarve = null, fireT = 0, fing = { ph: 0, t: 0, x: 0, z: 0, cd: 0 }, delHover = null, delStroke = null;
+  let qStart = null, lastCarve = null, fireT = 0, fing = { ph: 0, t: 0, x: 0, z: 0, cd: 0 }, delHover = null, delStroke = null, delCarve = null;
   const fps = { n: 0, acc: 0, ms: 16, fps: 60, worst: 16 };
   const mix = { wind: 0, river: 0, fire: 0, quake: 0, rain: 0, flood: 0, village: 0, day: 1, calm: true, near: 1 };
 
@@ -53,7 +53,7 @@
     else if (tool === 'delete') { delStroke = new Set(); tryDelete(true); }
     else if (tool === 'fire') fireT = 0;
   }
-  function endAction() { if (tool === 'quake' && qStart) { const h = mouse.hit; if (h) world.quake(qStart.x, qStart.z, h.x, h.z, intensity); qStart = null; } lastCarve = null; delStroke = null; }
+  function endAction() { if (tool === 'quake' && qStart) { const h = mouse.hit; if (h) world.quake(qStart.x, qStart.z, h.x, h.z, intensity); qStart = null; } lastCarve = null; delStroke = null; delCarve = null; }
   function deletionTarget() {
     if (!mouse.hit && !mouse.inside) return null;
     const d = R.ray(mouse.nx, mouse.ny), h = mouse.hit;
@@ -69,20 +69,31 @@
     return o.kind + (o.x * 10 | 0) + '_' + (o.z * 10 | 0);
   }
   function tryDelete(force) {
-    const o = deletionTarget(); delHover = o;
+    delHover = deletionTarget();
     if (!force && !(mouse.down && mouse.mode === 'act')) return;
+    const h = mouse.hit;
+    if (h) {
+      if (delCarve) world.eraseStroke(delCarve.x, delCarve.z, h.x, h.z, intensity);
+      else world.eraseLand(h.x, h.z, intensity);
+      delCarve = { x: h.x, z: h.z };
+    }
+    const o = delHover;
     if (!o) return;
     const k = delKey(o); if (delStroke && delStroke.has(k)) return;
     if (world.applyDelete(o)) { if (delStroke) delStroke.add(k); if (o.kind === 'n' && R.sel === o.n) { R.sel = null; follow = false; } }
   }
   function frameTarget(B, o) {
-    const x0 = o.x - o.sx * 0.5, x1 = o.x + o.sx * 0.5, y0 = o.y - o.sy * 0.5, y1 = o.y + o.sy * 0.5, z0 = o.z - o.sz * 0.5, z1 = o.z + o.sz * 0.5, th = 0.07;
-    const post = (x, z) => B.push(x, (y0 + y1) * 0.5, z, th, Math.max(0.2, o.sy), th, 0, 0, 0, 1, 0.9, 0.45, 0.9);
+    const pulse = 1 + 0.07 * Math.sin((R.time || 0) * 9);
+    const x0 = o.x - o.sx * 0.5 * pulse, x1 = o.x + o.sx * 0.5 * pulse, y0 = o.y - o.sy * 0.5, y1 = o.y + o.sy * 0.5 * pulse, z0 = o.z - o.sz * 0.5 * pulse, z1 = o.z + o.sz * 0.5 * pulse;
+    const th = Math.max(0.18, Math.min(o.sx, o.sz, o.sy) * 0.12);
+    const post = (x, z) => B.push(x, (y0 + y1) * 0.5, z, th, Math.max(0.4, y1 - y0), th, 0, 0, 0, 1, 0.96, 0.4, 1);
     post(x0, z0); post(x1, z0); post(x0, z1); post(x1, z1);
-    B.push((x0 + x1) * 0.5, y1, z0, o.sx, th, th, 0, 0, 0, 1, 0.92, 0.5, 0.9);
-    B.push((x0 + x1) * 0.5, y1, z1, o.sx, th, th, 0, 0, 0, 1, 0.92, 0.5, 0.9);
-    B.push(x0, y1, (z0 + z1) * 0.5, th, th, o.sz, 0, 0, 0, 1, 0.92, 0.5, 0.9);
-    B.push(x1, y1, (z0 + z1) * 0.5, th, th, o.sz, 0, 0, 0, 1, 0.92, 0.5, 0.9);
+    const beam = (x, y, z, sx, sy, sz) => B.push(x, y, z, sx, sy, sz, 0, 0, 0, 1, 0.98, 0.55, 1);
+    beam((x0 + x1) * 0.5, y0, z0, x1 - x0, th, th); beam((x0 + x1) * 0.5, y0, z1, x1 - x0, th, th);
+    beam(x0, y0, (z0 + z1) * 0.5, th, th, z1 - z0); beam(x1, y0, (z0 + z1) * 0.5, th, th, z1 - z0);
+    beam((x0 + x1) * 0.5, y1, z0, x1 - x0, th, th); beam((x0 + x1) * 0.5, y1, z1, x1 - x0, th, th);
+    beam(x0, y1, (z0 + z1) * 0.5, th, th, z1 - z0); beam(x1, y1, (z0 + z1) * 0.5, th, th, z1 - z0);
+    beam(o.x, y0 + 0.06, o.z, (x1 - x0) * 1.05, 0.1, (z1 - z0) * 1.05);
   }
   function trySelect() { let best = 30, bn = null; const r = canvas.getBoundingClientRect(); for (const n of world.npcs) { if (n.inside || (n.st === DEAD && n.deadT >= 999)) continue; const p = R.project(n.x, n.y + 0.4, n.z); if (p[2] <= 0) continue; const d = Math.hypot((p[0] + 1) / 2 * r.width - mouse.px, (1 - p[1]) / 2 * r.height - mouse.py); if (d < best) { best = d; bn = n; } } R.sel = bn; follow = !!bn; if (bn) R.cam.gdist = Math.min(R.cam.gdist, 26); }
   canvas.addEventListener('contextmenu', e => e.preventDefault());
@@ -159,10 +170,15 @@
       B.push(fx, ty + 2.36 * fr, fz, 1.5 * fr, 0.05 * fr, 1.5 * fr, 0, yw, 0, c[0] * 0.8, c[1] * 0.75, c[2] * 0.72, 0); B.push(fx, ty + 4.76 * fr, fz, 1.65 * fr, 0.05 * fr, 1.65 * fr, 0, yw, 0, c[0] * 0.8, c[1] * 0.75, c[2] * 0.72, 0);
       R.shadow[0] = fx; R.shadow[1] = fz; R.shadow[2] = fr * 2.6; R.shadow[3] = 0.25 + 0.35 * p;
     } else R.shadow[3] = 0;
+    if (tool === 'delete' && h && (mouse.inside || mouse.down)) {
+      const br = world.eraseRadius(intensity), y = world.hAt(h.x, h.z);
+      B.push(h.x, y + 2.6, h.z, 0.16, 5.2, 0.16, 0, 0, 0, 1, 0.95, 0.4, 1);
+      for (let k = 0; k < 4; k++) { const a = (R.time || 0) * 1.6 + k * 1.5708; B.push(h.x + Math.cos(a) * br, y + 0.55, h.z + Math.sin(a) * br, 0.22, 1.1, 0.22, 0, a, 0, 1, 0.98, 0.55, 1); }
+    }
     if (tool === 'delete' && delHover) frameTarget(B, delHover);
   }
   function marker() {
-    const h = mouse.hit, m = R.mark, c = R.markC; if (!h || tool === 'observe' || !mouse.inside && !mouse.down) { c[3] = 0; return; }
+    const h = mouse.hit, m = R.mark, c = R.markC; R.brush = 0; if (!h || tool === 'observe' || !mouse.inside && !mouse.down) { c[3] = 0; return; }
     m[0] = h.x; m[1] = h.z; c[3] = 0.75;
     if (tool === 'quake') { m[2] = 1.2; c[0] = 1; c[1] = 0.5; c[2] = 0.2; }
     else if (tool === 'flood') { m[2] = 1.2 + 1.3 * intensity; c[0] = 0.3; c[1] = 0.7; c[2] = 1; if (world.nearDam(h.x, h.z, 2 + intensity)) { m[2] = 2.5 + 3.5 * intensity; c[0] = 1; c[1] = 0.9; c[2] = 0.4; } }
@@ -170,7 +186,7 @@
     else if (tool === 'finger') { m[2] = 1.6 + 2.4 * intensity; c[0] = 1; c[1] = 0.9; c[2] = 0.75; }
     else if (tool === 'lightning') { m[2] = 5 + 9 * intensity; c[0] = 0.6; c[1] = 0.75; c[2] = 1; }
     else if (tool === 'tornado') { m[2] = 3.2 + 5.5 * intensity; c[0] = 0.72; c[1] = 0.78; c[2] = 0.84; }
-    else if (tool === 'delete') { m[2] = delHover ? Math.max(delHover.sx, delHover.sz) * 0.55 : 0.8; c[0] = 1; c[1] = 0.88; c[2] = 0.4; if (!delHover) c[3] = 0.28; }
+    else if (tool === 'delete') { R.brush = 1; m[2] = world.eraseRadius(intensity); c[0] = 1; c[1] = 0.86; c[2] = 0.22; c[3] = 1; }
     else { m[2] = 1.5 + 4 * intensity; c[0] = 1; c[1] = 0.55; c[2] = 0.1; }
   }
 
