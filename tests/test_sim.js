@@ -58,7 +58,14 @@ console.log('lightning');
 
 console.log('survivors');
 run(w, 120);
-{ const s = w.stats(); console.log('   stats', JSON.stringify(s)); ok(s.alive > 0, 'survivors exist: ' + s.alive); ok(wOld.stats().dead > 0, 'earlier disasters killed villagers: ' + wOld.stats().dead); ok(s.pan < s.alive * 0.5, 'panic subsides: ' + s.pan); ok(s.tents > 0 || s.hl === 0, 'homeless camp/tents: tents ' + s.tents + ' homeless ' + s.hl); }
+{ const s = w.stats(); console.log('   stats', JSON.stringify(s)); ok(s.alive > 0, 'survivors exist: ' + s.alive); // Escape is allowed to succeed for every NPC. Verify lethal exposure deterministically.
+  const trapped = wOld.npcs.find(n => n.st !== DEAD && !n.erased);
+  if (trapped) {
+    trapped.x=140; trapped.z=140; trapped.inside=false; trapped.air=0; trapped.held=0; trapped.hp=0.05;
+    const cell=wOld.ci(140,140); wOld.bridge[cell]=0; wOld.w[cell]=3;
+    wOld.stepNPC(trapped,1);
+    ok(trapped.st===DEAD && trapped.cause==='drowned', 'NPC trapped in severe flood dies');
+  } else ok(wOld.stats().dead>0,'earlier disasters killed all villagers'); ok(s.pan < s.alive * 0.5, 'panic subsides: ' + s.pan); ok(s.tents > 0 || s.hl === 0, 'homeless camp/tents: tents ' + s.tents + ' homeless ' + s.hl); }
 
 console.log('save/load');
 { const js = JSON.stringify(w.serialize()); console.log('   save size KB', (js.length / 1024) | 0); const w2 = World.load(JSON.parse(js)); let md = 0; for (let i = 0; i < NN; i++) md = Math.max(md, Math.abs(w.h[i] - w2.h[i])); ok(md < 0.011, 'terrain restored (max diff ' + md.toFixed(4) + ')'); ok(w2.stats().bs === w.stats().bs && w2.stats().dead === w.stats().dead, 'buildings/deaths restored'); ok(w2.rubble.length === w.rubble.length && w2.craterCells.length === w.craterCells.length, 'rubble and craters restored'); ok(w2.buildings.length === w.buildings.length, 'tents restored'); let sc = 0; for (let i = 0; i < NN; i++) if (w.scorch[i] !== w2.scorch[i] || w.crack[i] !== w2.crack[i]) sc++; ok(sc === 0, 'scorch/fractures restored'); w2.fx.log = () => { }; for (let i = 0; i < 600; i++) w2.tick(1 / 60); ok(w2.stats().alive === w.stats().alive || w2.stats().alive > 0, 'loaded world keeps simulating'); }
