@@ -10,13 +10,16 @@
     { id: 'meteor', icon: '☄️', name: 'Meteor', hint: 'Click to call down a meteor.' },
     { id: 'finger', icon: '👆', name: 'Divine Finger', hint: 'Click or hold to press the land flat.' },
     { id: 'fire', icon: '🔥', name: 'Firestorm', hint: 'Click or drag to set the land alight. Fire follows the wind.' },
-    { id: 'lightning', icon: '⚡', name: 'Lightning', hint: 'Click to blast a storm of lightning down. Bolts seek the tallest things.' }
+    { id: 'lightning', icon: '⚡', name: 'Lightning', hint: 'Click to blast a storm of lightning down. Bolts seek the tallest things.' },
+    { id: 'tornado', icon: '🌪️', name: 'Tornado', hint: 'Click to touch down a tornado. Move the mouse to steer it. It pulls, lifts, and throws.' },
+    { id: 'delete', icon: '✧', name: 'Deletion', hint: 'Divine Deletion: the ring is the brush. Click or drag to unmake land, and anything standing on it, into a void. The dam and the map edge stay. [ ] changes the brush.' }
   ];
   let R, world, audio = new AudioEngine(), tool = 'observe', intensity = 0.6, paused = false, speed = 1, started = false, memSave = null;
   let last = 0, acc = 0, frameN = 0, hudT = 0, follow = false, lastHour = -1;
   const mouse = { nx: 0, ny: 0, px: 0, py: 0, down: false, mode: '', hit: null, moved: 0, inside: false };
   const keys = {}; const ptrs = new Map(); let gest = null;
-  let qStart = null, lastCarve = null, fireT = 0, fing = { ph: 0, t: 0, x: 0, z: 0, cd: 0 };
+  let qStart = null, lastCarve = null, fireT = 0, fing = { ph: 0, t: 0, x: 0, z: 0, cd: 0 }, delHover = null, delStroke = null, delCarve = null;
+  const fps = { n: 0, acc: 0, ms: 16, fps: 60, worst: 16 };
   const mix = { wind: 0, river: 0, fire: 0, quake: 0, rain: 0, flood: 0, village: 0, day: 1, calm: true, near: 1 };
 
   function toast(m) { const t = $('toast'); t.textContent = m; t.classList.add('show'); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove('show'), 2600); }
@@ -46,9 +49,52 @@
     else if (tool === 'flood') lastCarve = { x: h.x, z: h.z };
     else if (tool === 'meteor') world.meteor(h.x, h.z, intensity);
     else if (tool === 'lightning') world.lightning(h.x, h.z, intensity);
+    else if (tool === 'tornado') world.spawnTornado(h.x, h.z, intensity);
+    else if (tool === 'delete') { delStroke = new Set(); tryDelete(true); }
     else if (tool === 'fire') fireT = 0;
   }
-  function endAction() { if (tool === 'quake' && qStart) { const h = mouse.hit; if (h) world.quake(qStart.x, qStart.z, h.x, h.z, intensity); qStart = null; } lastCarve = null; }
+  function endAction() { if (tool === 'quake' && qStart) { const h = mouse.hit; if (h) world.quake(qStart.x, qStart.z, h.x, h.z, intensity); qStart = null; } lastCarve = null; delStroke = null; delCarve = null; }
+  function deletionTarget() {
+    if (!mouse.hit && !mouse.inside) return null;
+    const d = R.ray(mouse.nx, mouse.ny), h = mouse.hit;
+    return world.queryDelete(R.eye[0], R.eye[1], R.eye[2], d[0], d[1], d[2], h ? h.x : null, h ? h.z : null, 0.55 + intensity * 1.15);
+  }
+  function delKey(o) {
+    if (!o) return '';
+    if (o.kind === 'b') return 'b' + o.b.id;
+    if (o.kind === 'n') return 'n' + o.n.id;
+    if (o.kind === 'tree') return 't' + o.i;
+    if (o.kind === 'well') return 'w';
+    if (o.kind === 'camp') return 'c' + o.c.x + '_' + o.c.z;
+    return o.kind + (o.x * 10 | 0) + '_' + (o.z * 10 | 0);
+  }
+  function tryDelete(force) {
+    delHover = deletionTarget();
+    if (!force && !(mouse.down && mouse.mode === 'act')) return;
+    const h = mouse.hit;
+    if (h) {
+      if (delCarve) world.eraseStroke(delCarve.x, delCarve.z, h.x, h.z, intensity);
+      else world.eraseLand(h.x, h.z, intensity);
+      delCarve = { x: h.x, z: h.z };
+    }
+    const o = delHover;
+    if (!o) return;
+    const k = delKey(o); if (delStroke && delStroke.has(k)) return;
+    if (world.applyDelete(o)) { if (delStroke) delStroke.add(k); if (o.kind === 'n' && R.sel === o.n) { R.sel = null; follow = false; } }
+  }
+  function frameTarget(B, o) {
+    const pulse = 1 + 0.07 * Math.sin((R.time || 0) * 9);
+    const x0 = o.x - o.sx * 0.5 * pulse, x1 = o.x + o.sx * 0.5 * pulse, y0 = o.y - o.sy * 0.5, y1 = o.y + o.sy * 0.5 * pulse, z0 = o.z - o.sz * 0.5 * pulse, z1 = o.z + o.sz * 0.5 * pulse;
+    const th = Math.max(0.18, Math.min(o.sx, o.sz, o.sy) * 0.12);
+    const post = (x, z) => B.push(x, (y0 + y1) * 0.5, z, th, Math.max(0.4, y1 - y0), th, 0, 0, 0, 1, 0.96, 0.4, 1);
+    post(x0, z0); post(x1, z0); post(x0, z1); post(x1, z1);
+    const beam = (x, y, z, sx, sy, sz) => B.push(x, y, z, sx, sy, sz, 0, 0, 0, 1, 0.98, 0.55, 1);
+    beam((x0 + x1) * 0.5, y0, z0, x1 - x0, th, th); beam((x0 + x1) * 0.5, y0, z1, x1 - x0, th, th);
+    beam(x0, y0, (z0 + z1) * 0.5, th, th, z1 - z0); beam(x1, y0, (z0 + z1) * 0.5, th, th, z1 - z0);
+    beam((x0 + x1) * 0.5, y1, z0, x1 - x0, th, th); beam((x0 + x1) * 0.5, y1, z1, x1 - x0, th, th);
+    beam(x0, y1, (z0 + z1) * 0.5, th, th, z1 - z0); beam(x1, y1, (z0 + z1) * 0.5, th, th, z1 - z0);
+    beam(o.x, y0 + 0.06, o.z, (x1 - x0) * 1.05, 0.1, (z1 - z0) * 1.05);
+  }
   function trySelect() { let best = 30, bn = null; const r = canvas.getBoundingClientRect(); for (const n of world.npcs) { if (n.inside || (n.st === DEAD && n.deadT >= 999)) continue; const p = R.project(n.x, n.y + 0.4, n.z); if (p[2] <= 0) continue; const d = Math.hypot((p[0] + 1) / 2 * r.width - mouse.px, (1 - p[1]) / 2 * r.height - mouse.py); if (d < best) { best = d; bn = n; } } R.sel = bn; follow = !!bn; if (bn) R.cam.gdist = Math.min(R.cam.gdist, 26); }
   canvas.addEventListener('contextmenu', e => e.preventDefault());
   canvas.addEventListener('pointerdown', e => {
@@ -64,6 +110,7 @@
     if (mouse.mode === 'gest' && ptrs.size >= 2 && gest) { const q = [...ptrs.values()], d = Math.hypot(q[0].x - q[1].x, q[0].y - q[1].y), a = Math.atan2(q[1].y - q[0].y, q[1].x - q[0].x), cx = (q[0].x + q[1].x) / 2, cy = (q[0].y + q[1].y) / 2, c = R.cam; if (gest.d > 10 && d > 10) c.gdist *= gest.d / d; let da = a - gest.a; if (da > 3.14) da -= 6.283; if (da < -3.14) da += 6.283; c.gyaw -= da; pan(cx - gest.cx, cy - gest.cy); gest = { d, a, cx, cy }; return; }
     setMouse(e); if (!mouse.down) return; mouse.moved += Math.abs(dx) + Math.abs(dy);
     if (mouse.mode === 'rot') { R.cam.gyaw -= dx * 0.006; R.cam.gpitch += dy * 0.005; } else if (mouse.mode === 'pan') pan(dx, dy);
+    else if (mouse.mode === 'act' && tool === 'delete') tryDelete(true);
   });
   const up = e => {
     ptrs.delete(e.pointerId); if (mouse.mode === 'gest') { if (ptrs.size < 2) { gest = null; mouse.mode = ''; } return; }
@@ -76,7 +123,7 @@
   canvas.addEventListener('wheel', e => { e.preventDefault(); R.cam.gdist *= Math.exp(e.deltaY * 0.0012); }, { passive: false });
   window.addEventListener('keydown', e => {
     if (!started) return; const k = e.key.toLowerCase(); keys[k] = true;
-    if (k >= '1' && k <= '7') setTool(TOOLS[+k - 1].id);
+    if (k >= '1' && k <= '9') setTool(TOOLS[+k - 1].id);
     else if (k === ' ' || k === 'p') { setSpeed(paused ? 1 : 0); e.preventDefault(); }
     else if (k === '[') setInt(intensity - 0.1); else if (k === ']') setInt(intensity + 0.1);
     else if (k === 'm') toggleMute(); else if (k === 'escape') { R.sel = null; follow = false; qStart = null; $('help').classList.remove('show'); }
@@ -101,6 +148,7 @@
   function toolTick(dt) {
     const h = mouse.hit, act = mouse.down && mouse.mode === 'act';
     world.finger = (tool === 'finger' && h && mouse.inside) ? { x: h.x, z: h.z, r: 3.5 + 2.4 * intensity } : null;
+    world.steer = (tool === 'tornado' && h && (mouse.inside || act)) ? { x: h.x, z: h.z, strong: !!act } : null;
     if (tool === 'flood' && act && h) { const a = lastCarve || h, d = Math.hypot(h.x - a.x, h.z - a.z), n = Math.max(1, Math.ceil(d)); for (let k = 1; k <= n; k++) world.carve(a.x + (h.x - a.x) * k / n, a.z + (h.z - a.z) * k / n, intensity, dt); lastCarve = { x: h.x, z: h.z }; }
     if (tool === 'fire' && act && h) { fireT -= dt; if (fireT <= 0) { world.ignite(h.x, h.z, intensity); fireT = 0.22; } }
     if (fing.cd > 0) fing.cd -= dt;
@@ -122,15 +170,23 @@
       B.push(fx, ty + 2.36 * fr, fz, 1.5 * fr, 0.05 * fr, 1.5 * fr, 0, yw, 0, c[0] * 0.8, c[1] * 0.75, c[2] * 0.72, 0); B.push(fx, ty + 4.76 * fr, fz, 1.65 * fr, 0.05 * fr, 1.65 * fr, 0, yw, 0, c[0] * 0.8, c[1] * 0.75, c[2] * 0.72, 0);
       R.shadow[0] = fx; R.shadow[1] = fz; R.shadow[2] = fr * 2.6; R.shadow[3] = 0.25 + 0.35 * p;
     } else R.shadow[3] = 0;
+    if (tool === 'delete' && h && (mouse.inside || mouse.down)) {
+      const br = world.eraseRadius(intensity), y = world.hAt(h.x, h.z);
+      B.push(h.x, y + 2.6, h.z, 0.16, 5.2, 0.16, 0, 0, 0, 1, 0.95, 0.4, 1);
+      for (let k = 0; k < 4; k++) { const a = (R.time || 0) * 1.6 + k * 1.5708; B.push(h.x + Math.cos(a) * br, y + 0.55, h.z + Math.sin(a) * br, 0.22, 1.1, 0.22, 0, a, 0, 1, 0.98, 0.55, 1); }
+    }
+    if (tool === 'delete' && delHover) frameTarget(B, delHover);
   }
   function marker() {
-    const h = mouse.hit, m = R.mark, c = R.markC; if (!h || tool === 'observe' || !mouse.inside && !mouse.down) { c[3] = 0; return; }
+    const h = mouse.hit, m = R.mark, c = R.markC; R.brush = 0; if (!h || tool === 'observe' || !mouse.inside && !mouse.down) { c[3] = 0; return; }
     m[0] = h.x; m[1] = h.z; c[3] = 0.75;
     if (tool === 'quake') { m[2] = 1.2; c[0] = 1; c[1] = 0.5; c[2] = 0.2; }
     else if (tool === 'flood') { m[2] = 1.2 + 1.3 * intensity; c[0] = 0.3; c[1] = 0.7; c[2] = 1; if (world.nearDam(h.x, h.z, 2 + intensity)) { m[2] = 2.5 + 3.5 * intensity; c[0] = 1; c[1] = 0.9; c[2] = 0.4; } }
     else if (tool === 'meteor') { m[2] = 4 + 7 * intensity; c[0] = 1; c[1] = 0.25; c[2] = 0.15; }
     else if (tool === 'finger') { m[2] = 1.6 + 2.4 * intensity; c[0] = 1; c[1] = 0.9; c[2] = 0.75; }
     else if (tool === 'lightning') { m[2] = 5 + 9 * intensity; c[0] = 0.6; c[1] = 0.75; c[2] = 1; }
+    else if (tool === 'tornado') { m[2] = 3.2 + 5.5 * intensity; c[0] = 0.72; c[1] = 0.78; c[2] = 0.84; }
+    else if (tool === 'delete') { R.brush = 1; m[2] = world.eraseRadius(intensity); c[0] = 1; c[1] = 0.86; c[2] = 0.22; c[3] = 1; }
     else { m[2] = 1.5 + 4 * intensity; c[0] = 1; c[1] = 0.55; c[2] = 0.1; }
   }
 
@@ -143,7 +199,8 @@
     for (const s of w.storms) if (s.t < 3.2) { const gy = Math.max(0, w.hAt(s.x, s.z)); P.burst('cloud', s.x, gy + 44, s.z, Math.ceil(2 * k), s.R * 1.3, 1); if (s.t < 0.5) P.burst('spark', s.x + (rnd() - .5) * 4, gy + 0.5, s.z + (rnd() - .5) * 4, 1, 1, 0.4); }
     for (const bo of w.bolts) if (bo.ttl > bo.T - 0.3) { for (let q = 0; q < 6; q++) { const g = bo.segs[(rnd() * bo.segs.length) | 0], t = rnd(); P.burst('glow', g[0] + (g[3] - g[0]) * t, g[1] + (g[4] - g[1]) * t, g[2] + (g[5] - g[2]) * t, 1, (bo.main ? 4 : 2) + rnd() * 2, 1); } if (bo.ttl > bo.T - 0.05) P.burst('glow', bo.x, bo.y + 0.5, bo.z, 1, bo.main ? 18 : 8, 1); }
     for (const e of w.emitters) if (rnd() < 0.5 * k) P.burst('smoke', e.x, w.hAt(e.x, e.z) + 0.5, e.z, 1, e.r, 1.3);
-    for (const q of w.quakes) if (rnd() < 0.6 * k) { const p = q.pts[(rnd() * Math.max(1, q.done)) | 0]; P.burst('dust', p[0], w.hAt(p[0], p[1]) + 0.3, p[1], 1, 2.5, 0.8); }
+    for (const q of w.quakes) if (rnd() < 0.85 * k) { const p = q.pts[(rnd() * Math.max(1, q.done)) | 0]; P.burst('dust', p[0], w.hAt(p[0], p[1]) + 0.35, p[1], 2, 2.8, 1); }
+    for (const t of w.tornados) { const gy = w.hAt(t.x, t.z), n = Math.min(10, 3 + t.I * 4); P.burst('swirl', t.x, gy + 1.2 + rnd() * (6 + t.I * 6), t.z, n, t.R * (0.35 + rnd() * 0.5), 0.8 + t.I); if (rnd() < 0.8) P.burst('dust', t.x, gy + 0.4, t.z, 2, t.R * 0.45, 0.8); }
     const c = R.cam;
     if (w.rain > 0) { const rr = Math.min(60, c.dist * 0.7 + 8); P.burst('rain', c.tx, Math.max(0, w.hAt(c.tx, c.tz)) + 9, c.tz, (40 * k) | 0, rr, 1); }
     for (const cp of w.camps) if (!cp.dead && rnd() < 0.5 * k) P.burst('fire', cp.x, w.hAt(cp.x, cp.z) + 0.3, cp.z, 1, 0.12, 0.45);
@@ -156,9 +213,10 @@
     let fire = 0; const F = w.fires, st = Math.max(1, (F.length / 300) | 0), R2 = (rad + 25) * (rad + 25); for (let k = 0; k < F.length; k += st) { const i = F[k], dx = i % N - c.tx, dz = ((i / N) | 0) - c.tz; if (dx * dx + dz * dz < R2) fire += st; }
     for (const b of w.buildings) if (b.fire > 0 && Math.hypot(b.x - c.tx, b.z - c.tz) < rad + 25) fire += 30;
     let qk = 0; for (const q of w.quakes) qk = Math.max(qk, q.I * Math.sin(Math.PI * Math.min(1, q.t / q.dur)));
+    let tn = 0; for (const t of w.tornados) { const d = Math.hypot(t.x - c.tx, t.z - c.tz); tn = Math.max(tn, (0.35 + 0.65 * t.I) * clamp(1.35 - d / (t.R * 2 + c.dist * 0.45 + 8), 0, 1)); }
     let vil = 0; for (const n of w.npcs) if (n.st !== DEAD && !n.inside && Math.hypot(n.x - c.tx, n.z - c.tz) < rad + 10) vil++;
     const near = clamp(1.2 - c.dist / 160, 0.1, 1), el = Math.sin((w.time - 0.25) * 6.2832);
-    mix.river = clamp(riv / Math.max(1, cnt) * 2.2, 0, 1) * near; mix.flood = clamp(fl / Math.max(1, cnt) * 3, 0, 1); mix.fire = clamp(fire / 220, 0, 1) * (0.4 + 0.6 * near); mix.quake = qk; mix.rain = w.rain > 0 ? 1 : 0; mix.wind = w.windS * (0.4 + c.dist / 230); mix.village = clamp(vil / 14, 0, 1) * near; mix.day = sstep(-0.1, 0.2, el); mix.calm = w.alarm <= 0; mix.near = near;
+    mix.river = clamp(riv / Math.max(1, cnt) * 2.2, 0, 1) * near; mix.flood = clamp(fl / Math.max(1, cnt) * 3, 0, 1); mix.fire = clamp(fire / 220, 0, 1) * (0.4 + 0.6 * near); mix.quake = qk; mix.rain = w.rain > 0 ? 1 : 0; mix.wind = Math.max(w.windS * (0.4 + c.dist / 230), tn); mix.tornado = tn; mix.village = clamp(vil / 14, 0, 1) * near; mix.day = sstep(-0.1, 0.2, el); mix.calm = w.alarm <= 0 && tn < 0.2; mix.near = near;
     audio.mix(mix); audio.ambient(dt, mix);
     const hr = Math.floor(w.time * 24); if (hr !== lastHour) { if ((hr === 12 || hr === 18 || hr === 6) && lastHour >= 0) { const ch = w.buildings.find(b => b.type === 'church'); if (ch && !ch.ruin) sfx('bell', ch.x, ch.z, 0.9); } lastHour = hr; }
   }
@@ -179,9 +237,13 @@
   // ------------------------------------------------------------ loop
   function frame(ts) {
     const dt = Math.min(0.05, (ts - last) / 1000 || 0.016); last = ts; frameN++;
+    fps.n++; fps.acc += dt; fps.worst = Math.max(fps.worst, dt * 1000); if (fps.n >= 30) { fps.ms = fps.acc / fps.n * 1000; fps.fps = 1000 / fps.ms; fps.n = 0; fps.acc = 0; fps.worst = dt * 1000; }
     keyCam(dt);
     if (!paused && started) { acc += dt * speed; let n = 0; while (acc >= STEP && n < 6) { toolTick(STEP); world.tick(STEP); acc -= STEP; n++; } if (n >= 6) acc = 0; } else if (started) { world.finger = null; }
-    R.updateCam(dt, world); mouse.hit = mouse.inside || mouse.down ? R.pick(mouse.nx, mouse.ny, world) : null; marker();
+    if (started) world.decayFades(dt);
+    R.updateCam(dt, world); mouse.hit = mouse.inside || mouse.down ? R.pick(mouse.nx, mouse.ny, world) : null;
+    if (started && tool === 'delete') delHover = deletionTarget(); else if (tool !== 'delete') delHover = null;
+    marker();
     if (!paused && started) emitFx(dt);
     R.draw(world, paused ? 0 : dt);
     hudT -= dt; if (hudT <= 0) { hudT = 0.2; hud(); if (started) audioMix(0.2); }
@@ -201,7 +263,7 @@
     $('begin').disabled = false; if (hasSave()) $('cont').style.display = '';
     const go = cont => { audio.start(); if (cont) load(); started = true; $('start').classList.add('gone'); log('The valley wakes. ' + world.stats().alive + ' villagers begin their day.'); };
     $('begin').onclick = () => go(false); $('cont').onclick = () => go(true);
-    window.__game = { get world() { return world; }, R, setTool, setInt, save, load, newWorld, mouse, audio, get started() { return started; }, setSpeed };
+    window.__game = { get world() { return world; }, R, setTool, setInt, save, load, newWorld, mouse, audio, fps, get started() { return started; }, setSpeed, get tool() { return tool; }, get delHover() { return delHover; } };
     requestAnimationFrame(frame);
   }
   setTimeout(init, 30);

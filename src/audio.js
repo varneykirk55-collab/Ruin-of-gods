@@ -11,15 +11,16 @@ class AudioEngine {
     for (const k in this.bus) this.bus[k].connect(this.master);
     const len = c.sampleRate * 2, buf = c.createBuffer(1, len, c.sampleRate), d = buf.getChannelData(0); for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1; this.noise = buf;
     const loop = (name, type, freq, q) => { const s = c.createBufferSource(); s.buffer = buf; s.loop = true; const f = c.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q; const g = c.createGain(); g.gain.value = 0; s.connect(f); f.connect(g); g.connect(this.bus.amb); s.start(0, Math.random() * 1.5); this.loops[name] = { g, f }; };
-    loop('wind', 'bandpass', 420, 0.6); loop('river', 'bandpass', 1500, 0.7); loop('fire', 'bandpass', 2400, 0.5); loop('roar', 'lowpass', 260, 0.4); loop('rumble', 'lowpass', 75, 0.8); loop('rain', 'highpass', 3200, 0.3); loop('flood', 'lowpass', 600, 0.5);
+    loop('wind', 'bandpass', 420, 0.6); loop('river', 'bandpass', 1500, 0.7); loop('fire', 'bandpass', 2400, 0.5); loop('roar', 'lowpass', 260, 0.4); loop('rumble', 'lowpass', 75, 0.8); loop('rain', 'highpass', 3200, 0.3); loop('flood', 'lowpass', 600, 0.5); loop('gale', 'bandpass', 260, 0.45);
     const o = c.createOscillator(); o.type = 'sine'; o.frequency.value = 36; const og = c.createGain(); og.gain.value = 0; o.connect(og); og.connect(this.bus.amb); o.start(); this.loops.sub = { g: og };
     this.on = true; this.amb = { t: 0 };
   }
   setMuted(m) { this.muted = m; if (this.master) this.master.gain.value = m ? 0 : 0.8; }
   mix(m) { // continuous layers, values 0..1
     if (!this.on) return; const t = this.ctx.currentTime, L = this.loops, S = (n, v) => L[n].g.gain.setTargetAtTime(v, t, 0.25);
-    S('wind', 0.05 + m.wind * 0.1); S('river', m.river * 0.22); S('fire', m.fire * 0.3); S('roar', m.fire * m.fire * 0.5); S('rumble', m.quake * 0.9); S('sub', m.quake * 0.5); S('rain', m.rain * 0.16); S('flood', m.flood * 0.5);
-    L.wind.f.frequency.setTargetAtTime(350 + m.wind * 300 + Math.sin(t * 0.4) * 80, t, 0.5);
+    const gale = m.tornado || 0;
+    S('wind', 0.05 + m.wind * 0.1 + gale * 0.2); S('river', m.river * 0.22); S('fire', m.fire * 0.3); S('roar', m.fire * m.fire * 0.5); S('rumble', Math.max(m.quake * 0.9, gale * 0.35)); S('sub', m.quake * 0.5); S('rain', m.rain * 0.16); S('flood', m.flood * 0.5); S('gale', gale * 0.72);
+    L.wind.f.frequency.setTargetAtTime(350 + m.wind * 300 + gale * 240 + Math.sin(t * 0.4) * 80, t, 0.4);
   }
   ambient(dt, m) { // sparse one-shots: birds, crickets, village life
     if (!this.on) return; const a = this.amb; a.t -= dt; if (a.t > 0) return; a.t = 0.25 + Math.random() * 0.5;
@@ -30,7 +31,7 @@ class AudioEngine {
   nz(t, dur, type, f0, f1, q, peak, att, bus) { const c = this.ctx, s = c.createBufferSource(); s.buffer = this.noise; s.loop = true; const f = c.createBiquadFilter(); f.type = type; f.Q.value = q; f.frequency.setValueAtTime(f0, t); if (f1 !== f0) f.frequency.exponentialRampToValueAtTime(f1, t + dur); const g = c.createGain(); this.env(g, t, att, peak, dur - att); s.connect(f); f.connect(g); g.connect(bus || this.bus.sfx); s.start(t, Math.random() * 1.5); s.stop(t + dur + 0.05); }
   tone(t, dur, type, f0, f1, peak, att, bus) { const c = this.ctx, o = c.createOscillator(); o.type = type; o.frequency.setValueAtTime(f0, t); if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(f1, t + dur); const g = c.createGain(); this.env(g, t, att, peak, dur - att); o.connect(g); g.connect(bus || this.bus.sfx); o.start(t); o.stop(t + dur + 0.05); return o; }
   play(name, vol) {
-    if (!this.on || this.muted || vol < 0.02) return; const now = performance.now(), gap = { thunder: 140, zap: 60, collapse: 70, crack: 90, thud: 60, scream: 160, crackle: 60, splash: 120, ignite: 150 }[name] || 0; if (gap && now - (this.last[name] || 0) < gap) return; this.last[name] = now;
+    if (!this.on || this.muted || vol < 0.02) return; const now = performance.now(), gap = { thunder: 140, zap: 60, collapse: 70, crack: 90, thud: 60, scream: 160, crackle: 60, splash: 120, ignite: 150, gust: 160, unmake: 70 }[name] || 0; if (gap && now - (this.last[name] || 0) < gap) return; this.last[name] = now;
     const t = this.ctx.currentTime + 0.01, R = Math.random, v = Math.min(1, vol);
     switch (name) {
       case 'collapse': this.nz(t, 0.9 + R() * 0.5, 'lowpass', 900 + R() * 600, 120, 0.7, 0.5 * v, 0.02); this.tone(t, 0.35, 'sine', 90 + R() * 30, 40, 0.5 * v, 0.01); this.nz(t + 0.05, 0.25, 'bandpass', 2500 + R() * 1500, 1200, 2, 0.15 * v, 0.005); break;
@@ -52,6 +53,8 @@ class AudioEngine {
       case 'murmur': this.nz(t, 0.35 + R() * 0.3, 'bandpass', 280 + R() * 300, 240 + R() * 200, 4, 0.12 * v, 0.1, this.bus.amb); break;
       case 'bell': for (const m of [1, 2.01, 2.99, 4.2]) this.tone(t, 2.5 / m, 'sine', 330 * m, 330 * m, 0.14 * v / m, 0.005, this.bus.amb); break;
       case 'ui': this.tone(t, 0.07, 'triangle', 660, 880, 0.08, 0.005); break;
+      case 'gust': this.nz(t, 0.75 + R() * 0.45, 'bandpass', 160, 980, 0.55, 0.42 * v, 0.18); this.nz(t, 0.4, 'highpass', 1500, 700, 0.5, 0.16 * v, 0.02); break;
+      case 'unmake': this.tone(t, 0.62, 'sine', 1680, 150, 0.22 * v, 0.008); this.tone(t + 0.03, 0.55, 'triangle', 1040, 110, 0.11 * v, 0.02); this.nz(t, 0.7, 'bandpass', 3400, 240, 0.5, 0.24 * v, 0.03); break;
     }
   }
 }

@@ -1,6 +1,6 @@
 # Ruin of Gods
 
-A browser god-sim destruction sandbox. You are the god: break a living valley with an earthquake, flood, meteor, divine finger, firestorm or lightning. Everything you break stays broken, and the survivors carry on.
+A browser god-sim destruction sandbox. You are the god: break a living valley with an earthquake, flood, meteor, divine finger, firestorm, lightning, or tornado — or unmake something outright with divine deletion. Everything you break stays broken, and the survivors carry on.
 
 ![Aftermath](docs/aftermath.png)
 
@@ -10,7 +10,7 @@ Open `index.html` in any WebGL2 browser. It is one self-contained file, with no 
 ## Controls
 | Input | Action |
 |---|---|
-| 1-7 | Observe, Earthquake, Flood, Meteor, Divine Finger, Firestorm, Lightning |
+| 1-9 | Observe, Earthquake, Flood, Meteor, Divine Finger, Firestorm, Lightning, Tornado, Divine Deletion |
 | Left mouse | Use the power (Observe: drag to pan, click a villager to follow) |
 | Right-drag | Rotate and tilt |
 | Shift-drag / middle-drag | Pan while a power is selected |
@@ -21,6 +21,8 @@ Open `index.html` in any WebGL2 browser. It is one self-contained file, with no 
 | Touch | One finger uses the power; two fingers pan, pinch and twist |
 
 Lightning darkens the sky, blasts one huge bolt down, then hurls a barrage of forks that seek the tallest buildings and trees; strikes on water electrocute anyone wading.
+
+Tornado (8) drops a spinning funnel you steer with the mouse. It pulls villagers, trees, and debris in, lifts them, and throws them back out, and it tears buildings down harder the closer they are to the core. Divine Deletion (9) shows a glowing brush. Click or drag to drop the land inside that ring to a sheer void and unmake whatever was standing on it. Water runs into the hole. The dam and the map edge cannot be erased. `[` `]` changes the brush. Deleted land and objects stay gone in a Save.
 
 The dam upstream of the village can be breached with the Flood power. Save and Load keep terrain, water, scorch, fractures, rubble, building damage, villagers and tents (browser local storage).
 

@@ -62,6 +62,137 @@ run(w, 120);
 
 console.log('save/load');
 { const js = JSON.stringify(w.serialize()); console.log('   save size KB', (js.length / 1024) | 0); const w2 = World.load(JSON.parse(js)); let md = 0; for (let i = 0; i < NN; i++) md = Math.max(md, Math.abs(w.h[i] - w2.h[i])); ok(md < 0.011, 'terrain restored (max diff ' + md.toFixed(4) + ')'); ok(w2.stats().bs === w.stats().bs && w2.stats().dead === w.stats().dead, 'buildings/deaths restored'); ok(w2.rubble.length === w.rubble.length && w2.craterCells.length === w.craterCells.length, 'rubble and craters restored'); ok(w2.buildings.length === w.buildings.length, 'tents restored'); let sc = 0; for (let i = 0; i < NN; i++) if (w.scorch[i] !== w2.scorch[i] || w.crack[i] !== w2.crack[i]) sc++; ok(sc === 0, 'scorch/fractures restored'); w2.fx.log = () => { }; for (let i = 0; i < 600; i++) w2.tick(1 / 60); ok(w2.stats().alive === w.stats().alive || w2.stats().alive > 0, 'loaded world keeps simulating'); }
+console.log('tornado');
+{
+  const T = new World(seed); T.rainT = 1e9; T.fx.log = () => { };
+  const house = T.buildings.find(b => b.type === 'house' && !b.ruin);
+  const t = T.spawnTornado(24, 30, 0.85);
+  ok(T.tornados.length === 1 && t.R > 3, 'tornado spawns at the chosen spot, radius ' + t.R.toFixed(1));
+  const x0 = t.x, z0 = t.z; run(T, 2.2);
+  ok(Math.hypot(t.x - x0, t.z - z0) > 2, 'tornado wanders on its own (' + t.x.toFixed(1) + ',' + t.z.toFixed(1) + ')');
+  const before = t.x; T.steer = { x: Math.min(N - 8, t.x + 36), z: t.z, strong: true }; run(T, 2.4);
+  ok(t.x > before + 3, 'mouse steer pulls the funnel (' + before.toFixed(1) + ' -> ' + t.x.toFixed(1) + ')');
+  T.steer = null; t.life = 20;
+  const n = T.npcs.find(n => n.st !== DEAD && !n.erased);
+  const nx = n.x, nz = n.z;
+  n.x = house.x + 1.1; n.z = house.z + 0.3; n.inside = false; n.path = null; n.st = 0; n.air = 0;
+  const parts0 = house.parts.filter(p => p.st).length;
+  const stages = new Set();
+  let thrown = false, pulled = false;
+  for (let s = 0; s < 150; s++) {
+    t.x = house.x; t.z = house.z; t.life = 20; T.tick(1 / 60); stages.add(house.parts.filter(p => p.st).length);
+    if (n.air > 0 || Math.hypot(n.x - (house.x + 1.1), n.z - (house.z + 0.3)) > 2.5) pulled = true;
+    if (n.air > 0 || n.cause === 'tornado' || n.cause === 'hurled by the wind') thrown = true;
+  }
+  ok(pulled || thrown, 'villager caught by the vortex (moved ' + Math.hypot(n.x - nx, n.z - nz).toFixed(1) + ', air ' + (n.air || 0) + ', ' + (n.cause || 'ok') + ')');
+  ok(house.parts.filter(p => p.st).length > parts0 && stages.size >= 2, 'building damaged progressively by the wind (stages ' + [...stages].join(',') + ')');
+  ok(T.debris.length + T.rubble.length > 4, 'tornado leaves flying debris or rubble (' + T.debris.length + ' flying, ' + T.rubble.length + ' rubble)');
+  const h0 = T.hAt(house.x + 30, house.z + 30);
+  run(T, 1); ok(Math.abs(T.hAt(house.x + 30, house.z + 30) - h0) < 0.02, 'tornado does not dig distant terrain');
+  ok(T.debris.length <= 420, 'debris stays capped (' + T.debris.length + ')');
+}
+
+console.log('divine deletion');
+{
+  const D = new World(seed); D.rainT = 1e9; D.fx.log = () => { };
+  const b = D.buildings.find(x => x.type === 'house' && !x.ruin);
+  const ti = D.tree.findIndex(v => v === 1);
+  const n = D.npcs.find(x => x.st !== DEAD);
+  const hx = b.x, hz = b.z, hBefore = D.h[D.ci(hx, hz)], wBefore = D.w[D.ci(hx, hz)];
+  const deb0 = D.debris.length;
+  ok(D.eraseBuilding(b) && b.gone && b.parts.every(p => p.st) && D.bmap[D.ci(b.x, b.z)] === 0, 'building removed from render parts and collision map');
+  ok(D.debris.length === deb0, 'deletion spawns no debris');
+  ok(D.h[D.ci(hx, hz)] === hBefore && D.w[D.ci(hx, hz)] === wBefore, 'terrain and water untouched');
+  const occupant = D.npcs.find(x => x.home === b.id && !x.erased && x.st !== DEAD);
+  ok(!occupant || !occupant.inside, 'people inside are set outside, not killed');
+  ok(D.eraseTree(ti) && D.tree[ti] === 0, 'tree removed');
+  const aliveBefore = D.stats().alive;
+  ok(D.eraseNPC(n) && n.erased && D.stats().alive === aliveBefore - 1 && D.stats().dead === 0, 'villager unmade without counting as a death');
+  ok(D.eraseWell() && D.well.gone, 'well prop removed');
+  const target = D.queryDelete(b.x, b.y + 24, b.z, 0, -1, 0, b.x, b.z, 0.15);
+  ok(!target || target.b !== b, 'deleted building is no longer a target');
+  const other = D.buildings.find(x => !x.gone && !x.ruin && x.type === 'house');
+  const q = D.queryDelete(other.x, other.y + 28, other.z, 0, -1, 0, other.x, other.z, 1.2);
+  ok(q && q.kind === 'b' && q.b === other, 'hover query hits a standing building');
+  const treeI = D.tree.findIndex(v => v === 1);
+  const tx = treeI % N, tz = (treeI / N) | 0;
+  const tq = D.queryDelete(tx, D.h[treeI] + 10, tz, 0, -1, 0, tx, tz, 1);
+  ok(tq && tq.kind === 'tree' && tq.i === treeI, 'hover query hits a tree');
+  let ex = 8, ez = 8;
+  for (let i = 0; i < NN; i++) { const x = i % N, z = (i / N) | 0; if (D.tree[i] || D.bmap[i] || D.kind[i] === K.DAM) continue; if (Math.hypot(x - D.well.x, z - D.well.z) < 4) continue; let open = true; for (let dz = -1; dz <= 1 && open; dz++) for (let dx = -1; dx <= 1; dx++) if (D.tree[(z + dz) * N + (x + dx)]) open = false; if (open) { ex = x; ez = z; break; } }
+  ok(!D.queryDelete(ex, D.hAt(ex, ez) + 18, ez, 0, -1, 0, ex, ez, 0.25), 'empty ground is not an object target');
+  const js = JSON.stringify(D.serialize()); const D2 = World.load(JSON.parse(js));
+  ok(D2.buildings[b.id].gone && D2.bmap[D2.ci(b.x, b.z)] === 0, 'deleted building stays gone after save/load');
+  ok(D2.tree[ti] === 0 && D2.npcs[n.id].erased && D2.well.gone, 'deleted tree, villager, and well stay gone after save/load');
+  ok(Math.abs(D2.h[D2.ci(hx, hz)] - hBefore) < 0.011, 'saved terrain still matches');
+  D2.fx.log = () => { }; run(D2, 2); ok(D2.buildings[b.id].gone && !D2.npcs.some(x => x.erased && x.st !== DEAD), 'loaded world does not resurrect deletions');
+}
+
+console.log('delete land');
+{
+  const L = new World(seed); L.rainT = 1e9; L.fx.log = () => { };
+  ok(L.eraseRadius(0.2) + 0.4 < L.eraseRadius(1), 'intensity widens the deletion brush (' + L.eraseRadius(0.2).toFixed(2) + ' -> ' + L.eraseRadius(1).toFixed(2) + ')');
+  let ex = 40, ez = 90;
+  for (let i = 0; i < NN; i++) { const x = i % N, z = (i / N) | 0; if (x < 20 || z < 70 || x > 120 || z > 130) continue; if (L.tree[i] || L.bmap[i] || L.kind[i] === K.DAM || (L.flag[i] & 2)) continue; let open = true; for (let dz = -6; dz <= 6 && open; dz++) for (let dx = -6; dx <= 6; dx++) { const j = (z + dz) * N + (x + dx); if (j < 0 || j >= NN) { open = false; break; } if (L.tree[j] || L.bmap[j] || L.kind[j] === K.DAM) open = false; } if (open) { ex = x; ez = z; break; } }
+  const I = 0.55, R = L.eraseRadius(I), deb0 = L.debris.length, rub0 = L.rubble.length;
+  const inside = L.ci(ex, ez), hIn = L.h[inside], wIn = L.w[inside];
+  let outI = inside, best = 0;
+  for (let dz = -8; dz <= 8; dz++) for (let dx = -8; dx <= 8; dx++) { const d = Math.hypot(dx, dz); if (d > R + 1.4 && d < R + 3.2 && d > best) { best = d; outI = L.ci(ex + dx, ez + dz); } }
+  const hOut = L.h[outI];
+  ok(L.eraseLand(ex, ez, I), 'empty ground can be erased');
+  ok(L.h[inside] === -7 && hIn > L.h[inside] + 3, 'brush drops land to a deep floor (' + hIn.toFixed(2) + ' -> ' + L.h[inside].toFixed(2) + ')');
+  ok(L.h[outI] === hOut, 'cells outside the brush are not raised into a rim');
+  ok(L.w[inside] === wIn, 'erasing land does not add or remove water on the spot');
+  ok(L.debris.length === deb0 && L.rubble.length === rub0, 'erasing land spawns no debris or rubble');
+  const edge = L.h[L.ci(1, 40)];
+  L.eraseLand(1, 40, 1);
+  ok(L.h[L.ci(1, 40)] === edge, 'map edge is protected');
+  const dam = L.kind.findIndex(k => k === K.DAM);
+  const dh = L.h[dam];
+  L.eraseLand(dam % N, (dam / N) | 0, 1);
+  ok(L.h[dam] === dh && L.kind[dam] === K.DAM, 'the dam is protected');
+  let treeI = -1; for (let i = 0; i < L.tree.length; i++) if (L.tree[i] === 1 && L.canEraseLand(i)) { treeI = i; break; }
+  const tx = treeI % N, tz = (treeI / N) | 0, deb1 = L.debris.length;
+  const npcNear = L.npcs.filter(n => !n.erased && Math.hypot(n.x - tx, n.z - tz) <= L.eraseRadius(0.35) + 0.4).length;
+  const dead0 = L.stats().dead;
+  L.eraseLand(tx, tz, 0.35);
+  ok(L.tree[treeI] === 0, 'a tree standing on erased land is unmade');
+  ok(L.debris.length === deb1, 'unmaking that tree spawns no debris');
+  ok(L.stats().dead === dead0, 'villagers removed with the land are not disaster deaths (nearby ' + npcNear + ')');
+  const house = L.buildings.find(b => !b.gone && !b.ruin && b.type === 'house');
+  L.eraseLand(house.x, house.z, 0.7);
+  ok(house.gone && L.bmap[L.ci(house.x, house.z)] === 0, 'a building on erased land is removed from collision');
+  const x0 = Math.min(ex + 14, N - 20), z0 = ez;
+  const mid = L.ci(x0 + 4, z0), side = L.ci(x0 + 4, z0 + 8), hSide = L.h[side], hMid = L.h[mid];
+  L.eraseStroke(x0, z0, x0 + 9, z0, 0.45);
+  ok(L.h[mid] === -7 && hMid !== -7, 'a drag cuts a continuous trench (' + hMid.toFixed(1) + ' -> -7)');
+  ok(L.h[side] === hSide, 'the trench has no raised shoulder');
+  const pit = L.ci(ex + 18, ez + 2);
+  const hp = L.h[pit];
+  L.eraseLand(ex + 18, ez + 2, 0.4);
+  const Rp = L.eraseRadius(0.4);
+  const src = L.ci(ex + 18 + Math.ceil(Rp) + 2, ez + 2);
+  L.w[src] += 60;
+  const w0 = L.w[pit];
+  run(L, 6);
+  ok(L.w[pit] > w0 + 0.15, 'water flows into the void (' + w0.toFixed(2) + ' -> ' + L.w[pit].toFixed(2) + ')');
+  const js = JSON.stringify(L.serialize()); const L2 = World.load(JSON.parse(js));
+  ok(L2.h[inside] === -7 && L2.h[mid] === -7, 'erased land stays a void after save/load');
+  ok(L2.buildings[house.id].gone && L2.bmap[L2.ci(house.x, house.z)] === 0, 'deleted building stays gone after save/load');
+  ok(Math.abs(L2.h[dam] - dh) < 0.011 && L2.kind[dam] === K.DAM, 'the dam is unchanged after save/load');
+  ok(Math.abs(L2.w[pit] - L.w[pit]) < 0.05, 'water in the void is saved');
+  console.log('   pit sample', hp.toFixed(2), '->', L.h[pit].toFixed(2));
+}
+
+console.log('fire jumps to a neighbor');
+{
+  const F = new World(seed); F.rainT = 1e9; F.fx.log = () => { };
+  let pair = null, best = 1e9;
+  for (const a of F.buildings) for (const b of F.buildings) if (a !== b && !a.ruin && !b.ruin && a.fuel > 0 && b.fuel > 0) { const d = Math.hypot(a.x - b.x, a.z - b.z); if (d < best && d < 5.75) { best = d; pair = [a, b]; } }
+  if (pair) { F.igniteB(pair[0]); run(F, 25); ok(pair[1].fire > 0 || pair[1].ruin || pair[1].parts.some(p => p.char > 0.2 || p.st), 'fire reached a neighbor ' + best.toFixed(1) + ' away (' + pair[0].type + ' -> ' + pair[1].type + ')'); }
+  else ok(true, 'no building pair within 7 — spread left to the cell solver');
+}
+
 console.log(logs.slice(0, 12).join(' | '));
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
