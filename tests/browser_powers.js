@@ -78,7 +78,7 @@ const ok = (c, m) => { if (c) { pass++; console.log('  ok   ' + m); } else { fai
   await p.keyboard.press('7'); a = await scr(vc.x + 6, vc.z - 2);
   await p.mouse.click(a[0], a[1]);
   ok(await ev(() => __game.world.storms.length === 1), 'lightning storm started');
-  await p.waitForTimeout(700); await shot('ability_lightning.png');
+  await ff(0.6); await shot('ability_lightning.png');
   ok(await ev(() => __game.world.bolts.length > 0 || __game.world.storms.length === 0), 'lightning produced a bolt or already struck');
 
   console.log('tornado');
@@ -112,11 +112,11 @@ const ok = (c, m) => { if (c) { pass++; console.log('  ok   ' + m); } else { fai
   const gone = await ev(id => { const b = __game.world.buildings[id]; const i = __game.world.ci(b.x, b.z); return { gone: !!b.gone, map: __game.world.bmap[i], debris: __game.world.debris.length, h: __game.world.h[i], w: __game.world.w[i] }; }, target.id);
   ok(gone.gone && gone.map === 0, 'click deleted the house and cleared its collider');
   ok(gone.h === target.h, 'object deletion leaves terrain unchanged');
-  const grove = await ev(() => { const w = __game.world; for (let i = 0; i < w.tree.length; i++) if (w.tree[i] === 1) { const x = i % 160, z = (i / 160) | 0; let n = 0; for (let k = 0; k < 6; k++) if (w.tree[i + k] === 1) n++; if (n >= 3) return [x, z]; } return null; });
+  const grove = await ev(() => { const w = __game.world; for (let i = 0; i < w.tree.length; i++) if (w.tree[i] === 1) { const x = i % 160, z = (i / 160) | 0; if(x<12||x>145||z<20||z>145)continue; let n = 0, last=0; for (let k = 0; k < 6; k++) if (w.tree[i + k] === 1) {n++;last=k;} if (n >= 3) return [x, z, last]; } return null; });
   if (grove) {
-    await cam({ tx: grove[0], tz: grove[1], dist: 30, pitch: 0.85, yaw: 0.2 }); await p.waitForTimeout(250);
-    const g0 = await scr(grove[0], grove[1], 1.4), g1 = await scr(grove[0] + 4, grove[1] + 1, 1.4);
-    await p.mouse.move(g0[0], g0[1]); await p.mouse.down(); await p.mouse.move(g1[0], g1[1], { steps: 8 }); await p.mouse.up();
+    await cam({ tx: grove[0], tz: grove[1], dist: 24, pitch: 1.4, yaw: 0.2 }); await p.waitForTimeout(250);
+    const g0 = await scr(grove[0], grove[1], 1.4), g1 = await scr(grove[0] + grove[2], grove[1], 1.4);
+    await p.mouse.move(g0[0], g0[1]); await p.waitForFunction(()=>__game.delHover&&__game.delHover.kind==='tree',null,{timeout:10000}); await p.mouse.down(); await p.mouse.move(g1[0], g1[1], { steps: 8 }); await p.mouse.up();
     const trees1 = await ev(() => __game.world.tree.reduce((a, b) => a + (b ? 1 : 0), 0));
     ok(trees1 < trees0, 'drag-delete removed trees (' + trees0 + ' -> ' + trees1 + ')');
   } else ok(false, 'no tree grove to drag-delete');
