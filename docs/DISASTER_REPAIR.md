@@ -1,39 +1,105 @@
-# Ruin of Gods implementation and verification
+# Ruin of Gods — disaster repair completion report
 
-Branch: astra/water-disaster-survival
-Base: d4a14fce8d03ba3c545f8bbc9d167779e253b784
+Branch: `astra/water-disaster-survival`
+Base: `d4a14fce8d03ba3c545f8bbc9d167779e253b784`
+Game implementation commit: `34043416fdea093e23cab3742438456834d8aa9a`
+Final regression adjustment: `447b6a43e64d850f06784921f76d76afcb1c5a50`
 
-## Phase 1
-Flood now emits finite water volume at the selected location and during drags. It no longer calls the terrain carving helper. Ordinary water flow no longer clips shallow depths or erodes terrain; springs, rainfall, crater seepage, the sea reservoir and meteor vaporisation remain explicit source/sink mechanisms. The existing depth grid, hydraulic flow and renderer are reused.
+No merge, deployment or publication was performed.
 
-Controlled basin checks passed: downhill flow, valley accumulation, volume conservation, nonnegative depth, unchanged terrain, persistent water and repeated emission.
+## Changes by phase
 
-## Phase 2
-Normal deletion uses the highlighted ray target, without land deletion or proximity fallback. Terrain deletion is an explicit Alt-started drag. Terrain occludes target selection. Rubble receives ray targeting. Existing building/tree/NPC/prop removal and fades are preserved. Collision, adjacent-object integrity and deletion persistence checks passed.
+### 1. Flood
+- Replaced the Flood input's terrain-carving call with finite-volume water emission. Clicking emits water immediately; holding adds water at a controlled rate; dragging moves the source.
+- Reused the existing depth grid, flow solver, water renderer, building wetness and NPC hazards.
+- Ordinary flow no longer discards shallow depths or erodes elevation. Water remains after release and repeated uses add volume.
+- Springs, rainfall, crater seepage, the sea boundary reservoir and meteor vaporisation remain explicit source/sink mechanisms.
+- Terrain deformation is retained for Earthquake, Meteor, Divine Finger and the existing terrain-deletion interaction. The internal terrain-channel helper remains available.
 
-## Phase 3
-Surviving but weakened supports now continue to stress roofs. Meteor outer shock damage decreases with distance. Flood suppresses structure fire before burn damage/spread; submerged building footprints resist ignition. Existing quake, tornado, debris, fire, flood and crater systems are retained. Targeted interaction checks passed.
+### 2. Divine Deletion
+- Normal click/drag deletion removes the highlighted ray target without excavating land.
+- Land deletion is separately selected by holding Alt at the start of a drag; the dam and map edge remain protected.
+- Removed proximity fallback from the normal input path, clipped ray targets against terrain, added direct rubble ray targets, and refreshed terrain picking for each deletion sample.
+- Object deletion can begin when the object ray hits but the terrain ray misses, including at map edges.
+- Retained existing object removal, fades, collision cleanup, navigation-map cleanup, occupant evacuation and save/load persistence.
 
-## Phase 4
-A hazard grid is refreshed every 15 simulation ticks for threat, storm and burning-structure avoidance. NPCs detect persistent deep water, validate the next path cell during movement, throttle escape replanning, penalise failed destinations, accelerate and turn smoothly, and recover according to local safety. Panic audio shares a cooldown. Version 2 saves retain full water depths, survival timers, airborne state and active earthquake/meteor/tornado hazards; version 1 loading remains supported.
+### 3. Cascading destruction
+- Weakened but surviving supports progressively stress roofs, using the existing structural-damage implementation.
+- Meteor outer shock damage now falls off with distance.
+- Flooding suppresses building fire before further burning or ember propagation. Submerged building footprints resist ignition.
+- Existing quake fractures, tornado wind damage/lift, debris limits, fire propagation, persistent craters and water movement remain operational.
 
-Targeted routing, hazard proximity, survival/recovery, audio cooldown and save/load checks passed.
+### 4. NPC survival
+- A cached hazard grid marks threats, tornadoes, incoming meteors and burning structures every 15 simulation ticks.
+- NPCs detect persistent deep water at their own position and nearby rising floodwater. Stable nearby lakes do not cause panic.
+- Pathfinding penalises danger; movement rechecks the next cell so newly flooded or burning paths stop immediately.
+- Escape replanning has a cooldown and failed destinations are penalised. Movement accelerates and turns smoothly.
+- Recovery depends on local safety, so distant panic does not prevent safe survivors returning to routines.
+- Panic and tornado screams share a cooldown.
+- Version 2 saves retain exact Float32 water depths, NPC survival timers/airborne state, and active earthquake/meteor/tornado hazards. Version 1 saves still load.
 
-## Phase 5
-Power list discovered in src/main.js: Observe, Earthquake, Flood, Meteor, Divine Finger, Firestorm, Lightning, Tornado, Divine Deletion.
+### 5. Regression
+Discovered tool list: Observe, Earthquake, Flood, Meteor, Divine Finger, Firestorm, Lightning, Tornado, Divine Deletion.
 
-All changed scripts compiled using the available JavaScript runtime. The existing simulation regression and new combined tests are in progress. Browser regression updated for the repaired Flood/object-deletion behavior. A dedicated GitHub Actions workflow runs Node simulation tests, verifies the generated bundle, and runs Chromium input/power/persistence tests with screenshots/video.
+- Generated bundle verified against `node build.js`.
+- Existing simulation suite: **97 passed, 0 failed**.
+- Focused water/deletion/survival/persistence/combined-disaster suite: **39 passed**.
+- Chromium browser suite: **24 passed, 0 failed**.
+- All changed JavaScript compiled.
+- Combined checks include fire suppression by flooding, water in meteor craters, tornado damage and debris, deletion in altered settlements, persistence, legacy saves and repeated hazard cycles.
+- A legacy assertion required some NPC to die randomly in an earlier sequence even if everyone escaped. It now explicitly traps an NPC in severe floodwater and verifies drowning. This preserves casualty verification without requiring failed escapes in every random playthrough.
+- Browser checks wait for rendered camera state and simulation time, so slow software rendering does not produce premature input assertions.
 
-## Limitations and performance
-The workspace shell is unavailable. Runtime test execution is possible in the tool JavaScript engine, but local browser/audio/GPU verification is unavailable here. CI results are reported separately when available. Hazard-grid work is bounded to 25,600 cells plus local hazard footprints four times per simulation second. Existing three-tornado, 420-debris and 2,400-rubble limits are retained. New water saves add roughly 68 KB versus the previous quantised depth encoding. Sustained browser/GPU performance and sound quality need actual browser evidence.
+CI evidence:
+- [Browser regression](https://github.com/varneykirk55-collab/Ruin-of-gods/actions/runs/43981059252/job/133697321480): all 24 browser checks passed.
+- [Implementation regression](https://github.com/varneykirk55-collab/Ruin-of-gods/actions/runs/43981059252): implementation including map-edge deletion; build, 97 simulation checks, 39 focused checks and 24 browser checks all passed.
+- [Final regression revision](https://github.com/varneykirk55-collab/Ruin-of-gods/actions/runs/43981267962): deterministic trapped-NPC check; 97 simulation checks and 39 focused checks passed. Its browser rerun uses unchanged game code and browser tests from the already-passing implementation run.
+- Screenshots, a playthrough video and `perf.json` are uploaded as `browser-disaster-evidence` workflow artifacts.
 
-Ordinary flow has no implicit evaporation: more shallow puddles can remain. Terrain water erosion is disabled so Flood never excavates. Active lightning storms and loose airborne debris are not restored; NPC injuries, permanent damage and settled rubble are. Terrain heights retain existing 0.01-unit save quantisation. Native touch has no Alt key, so terrain deletion is currently keyboard-only. The object drag uses pointer samples rather than interpolating through unseen objects. No deployment or merge is performed.
+## Files modified
+- `src/sim.js`
+- `src/main.js`
+- `src/template.html`
+- `index.html` — regenerated playable bundle
+- `tests/disaster_survival.js` — new focused regression
+- `tests/test_sim.js` — deterministic severe-hazard casualty check
+- `tests/browser_powers.js`
+- `.github/workflows/disaster-regression.yml`
+- `README.md`
+- `docs/DISASTER_REPAIR.md`
 
-## Local use
-1. Fetch and check out astra/water-disaster-survival.
-2. Run node build.js.
-3. Open index.html in a WebGL2 browser.
-4. Run node tests/test_sim.js 1234 and node tests/disaster_survival.js.
-5. Optional browser suite: npm install --no-save --package-lock=false playwright@1.56.1; npx playwright install chromium; node tests/browser_powers.js.
+## Remaining limitations and performance
+- CI uses Chromium with SwiftShader and video capture, not a real GPU. The implementation run measured 2.0 FPS baseline and 1.7 FPS with stacked disasters (p95 717 ms); these absolute rates are unplayable. These software-rendering measurements do not establish playable performance on the target laptop. Real GPU performance remains unverified.
+- Repeated four-second combined-disaster simulation rounds took 356, 250, 188 and 185 ms in the final Node job; timings are specific to the runner.
+- Browser regression checks that stacked disasters retain at least 65% of the same environment's calm baseline. Repeated headless combined-disaster rounds stayed within existing limits of 3 tornadoes, 420 airborne debris objects and 2,400 rubble pieces, with finite nonnegative water.
+- Actual sound quality and touch interaction have not been checked by ear or on a physical device. Terrain deletion currently requires a keyboard Alt modifier.
+- Ordinary water erosion and implicit shallow-water loss are disabled. More shallow puddles may remain.
+- Terrain heights retain existing 0.01-unit save quantisation; water depths are now lossless Float32. New water encoding adds roughly 68 KB per save.
+- Active lightning storms and loose airborne debris are not restored; permanent damage and settled rubble are retained.
+- Object dragging acts on pointer samples rather than interpolating through objects the pointer never targeted.
+- The workspace shell was unavailable; changes were committed through GitHub and tested in the JavaScript runtime and GitHub Actions.
 
-Manual acceptance: hold Flood on a hillside, release and watch the valley fill; check that terrain is unchanged. Ignite a village, flood it, send a tornado through, delete an individual survivor/object, Save/Load and continue. Alt-drag with Deletion separately verifies terrain deletion. Review artifacts from the browser workflow for input and frame-time evidence.
+## Local testing
+From an existing clone:
+
+```sh
+git fetch origin
+git switch astra/water-disaster-survival
+node build.js
+node tests/test_sim.js 1234
+node tests/disaster_survival.js
+```
+
+Open `index.html` in a WebGL2 browser; no server is needed.
+
+Optional browser regression:
+
+```sh
+npm install --no-save --package-lock=false playwright@1.56.1
+npx playwright install chromium
+node tests/browser_powers.js
+```
+
+Set `CHROME_PATH` to an existing Chrome executable if desired; `SHOTS` overrides the default `artifacts/` directory.
+
+Manual acceptance: hold Flood on a hillside, release, and watch a valley fill without terrain excavation. Flood a village, ignite nearby structures, send a tornado through, delete a highlighted survivor/object, then Save/Load and continue. Separately Alt-drag with Deletion to verify terrain removal. Check local frame rate and audio during the combined sequence.
