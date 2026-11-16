@@ -126,4 +126,12 @@ for(const [name,condition] of tests)check(name,condition);
   console.log('repeated disaster simulation ms per four-second round: '+times.join(','));
 })();
 
+
+(function(){
+  const fs=require('fs'), path=require('path'), main=fs.readFileSync(path.join(__dirname,'../src/main.js'),'utf8');
+  const begin=main.slice(main.indexOf('  function beginAction()'),main.indexOf('  function endAction()'));
+  const test=new Function("let called=0,mouse={nx:0,ny:0},R={pick:()=>null},world={},tool='delete',delStroke;function tryDelete(force){if(force)called++;}"+begin+"beginAction();return called===1;");
+  check('object deletion can begin when terrain ray misses',test());
+})();
+
 console.log(checks+' disaster survival checks passed');

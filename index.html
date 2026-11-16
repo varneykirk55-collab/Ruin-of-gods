@@ -1787,13 +1787,15 @@ class AudioEngine {
   function setMouse(e) { const r = canvas.getBoundingClientRect(); mouse.px = e.clientX - r.left; mouse.py = e.clientY - r.top; mouse.nx = mouse.px / r.width * 2 - 1; mouse.ny = 1 - mouse.py / r.height * 2; mouse.inside = true; }
   function pan(dx, dy) { const c = R.cam, s = c.gdist * 0.0019, cy = Math.cos(c.gyaw), sy = Math.sin(c.gyaw); c.gtx += (-dx * cy - dy * sy) * s; c.gtz += (dx * sy - dy * cy) * s; follow = false; }
   function beginAction() {
-    const h = mouse.hit = R.pick(mouse.nx, mouse.ny, world); if (!h) return;
+    const h = mouse.hit = R.pick(mouse.nx, mouse.ny, world);
+    // Object rays remain valid even when the terrain ray misses at a map edge.
+    if (tool === 'delete') { delStroke = new Set(); tryDelete(true); return; }
+    if (!h) return;
     if (tool === 'quake') qStart = { x: h.x, z: h.z };
     else if (tool === 'flood') { world.emitWater(h.x, h.z, intensity, 0.1); lastCarve = { x: h.x, z: h.z }; }
     else if (tool === 'meteor') world.meteor(h.x, h.z, intensity);
     else if (tool === 'lightning') world.lightning(h.x, h.z, intensity);
     else if (tool === 'tornado') world.spawnTornado(h.x, h.z, intensity);
-    else if (tool === 'delete') { delStroke = new Set(); tryDelete(true); }
     else if (tool === 'fire') fireT = 0;
   }
   function endAction() { if (tool === 'quake' && qStart) { const h = mouse.hit; if (h) world.quake(qStart.x, qStart.z, h.x, h.z, intensity); qStart = null; } lastCarve = null; delStroke = null; delCarve = null; mouse.landDelete = false; }
