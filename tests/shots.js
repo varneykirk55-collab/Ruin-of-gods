@@ -1,0 +1,117 @@
+const { chromium } = require('playwright');
+const path = require('path');
+const fs = require('fs');
+const out = '/opt/cursor/artifacts';
+fs.mkdirSync(out, { recursive: true });
+let pass = 0, fail = 0;
+const ok = (c, m) => { if (c) { pass++; console.log('  ok   ' + m); } else { fail++; console.log('  FAIL ' + m); } };
+(async () => {
+  const b = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args: ['--no-sandbox', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required'] });
+  const ctx = await b.newContext({ viewport: { width: 1280, height: 720 }, recordVideo: { dir: out, size: { width: 1280, height: 720 } } });
+  const p = await ctx.newPage();
+  const errs = [];
+  p.on('pageerror', e => errs.push(e.message));
+  await p.goto('file://' + path.resolve(__dirname, '../index.html'));
+  await p.waitForFunction(() => window.__game && !document.getElementById('begin').disabled, null, { timeout: 30000 });
+  await p.evaluate(() => { __game.newWorld(1234); __game.world.rainT = 1e9; __game.world.time = 0.42; __game.setInt(0.8); });
+  await p.click('#begin');
+  await p.waitForTimeout(400);
+  const ev = (f, arg) => arg === undefined ? p.evaluate(f) : p.evaluate(f, arg);
+  const ff = s => ev(s => { const w = __game.world; for (let i = 0; i < s * 60; i++) w.tick(1 / 60); }, s);
+  const scr = (x, z) => ev(([x, z]) => { const q = __game.R.project(x, __game.world.hAt(x, z) + 0.2, z); return [(q[0] + 1) / 2 * innerWidth, (1 - q[1]) / 2 * innerHeight, q[2]]; }, [x, z]);
+  const cam = o => ev(o => { const c = __game.R.cam; for (const k in o) { c[k] = o[k]; c['g' + k] = o[k]; } }, o);
+  const shot = name => p.screenshot({ path: path.join(out, name) });
+  const measure = async (label, frames) => {
+    const perf = await p.evaluate(n => new Promise(res => { const samples = []; let last = performance.now(), i = 0; const step = t => { samples.push(t - last); last = t; if (++i < n) requestAnimationFrame(step); else { samples.sort((a, b) => a - b); const avg = samples.reduce((s, x) => s + x, 0) / samples.length; res({ fps: +(1000 / avg).toFixed(1), avg: +avg.toFixed(2), p95: +samples[Math.floor(samples.length * 0.95)].toFixed(1), worst: +samples[samples.length - 1].toFixed(1) }); } }; requestAnimationFrame(step); }), frames || 45);
+    console.log('  fps', label, JSON.stringify(perf));
+    return perf;
+  };
+  const vc = await ev(() => __game.world.vc);
+
+  console.log('calm fps');
+  await cam({ tx: vc.x, tz: vc.z, dist: 70, pitch: 0.8, yaw: 0.45 });
+  const calm = await measure('calm');
+  ok(calm.fps > 5, 'calm world renders (' + calm.fps + ' fps on this GPU)');
+
+  console.log('earthquake cracks');
+  await p.keyboard.press('2');
+  await cam({ tx: vc.x, tz: vc.z, dist: 62, pitch: 0.95, yaw: 0.4 });
+  await p.waitForTimeout(300);
+  let a = await scr(vc.x - 16, vc.z - 8), c = await scr(vc.x + 14, vc.z + 18);
+  console.log('  quake pts', a[0].toFixed(0), a[1].toFixed(0), c[0].toFixed(0), c[1].toFixed(0));
+  await p.mouse.move(a[0], a[1]); await p.mouse.down(); await p.mouse.move(c[0], c[1], { steps: 5 }); await p.mouse.up();
+  ok(await ev(() => __game.world.quakes.length === 1), 'quake started');
+  await ff(3.5); await p.waitForTimeout(250); await shot('ability_earthquake.png');
+  ok(await ev(() => __game.world.crack.some(v => v > 80)), 'fracture visible in the saved terrain');
+
+  console.log('flood');
+  const dam = await ev(() => [Math.round(__game.world.rx(58)), 58]);
+  await cam({ tx: dam[0], tz: 62, dist: 55, yaw: 3.2, pitch: 0.95 });
+  await p.waitForTimeout(350);
+  await p.keyboard.press('3');
+  a = await scr(dam[0], 58);
+  console.log('  dam aim', dam, a.map(v => +v.toFixed(1)));
+  await p.mouse.move(a[0], a[1]); await p.waitForTimeout(200);
+  const near = await ev(() => { const h = __game.mouse.hit; return h ? [+h.x.toFixed(1), +h.z.toFixed(1), __game.world.nearDam(h.x, h.z, 3)] : null; });
+  console.log('  dam hit', near);
+  await p.mouse.down(); await p.waitForTimeout(900); await p.mouse.up();
+  ok(await ev(() => __game.world.damBroken), 'flood click breached the dam');
+  await ff(18);
+  await cam({ tx: vc.x - 8, tz: vc.z - 6, dist: 78, yaw: 0.35, pitch: 0.9 });
+  await p.waitForTimeout(300); await shot('ability_flood.png');
+  const wet = await ev(() => { let n = 0; const w = __game.world; for (let i = 60 * 160; i < w.w.length; i++) if (w.w[i] - w.wb[i] > 0.15) n++; return n; });
+  ok(wet > 80, 'downstream is flooded (' + wet + ' cells)');
+
+  console.log('meteor in the air');
+  await ev(() => __game.setSpeed(0));
+  await cam({ tx: vc.x + 16, tz: vc.z + 2, dist: 78, pitch: 0.55, yaw: 0.9 });
+  await p.waitForTimeout(200);
+  await p.keyboard.press('4');
+  a = await scr(vc.x + 18, vc.z + 2);
+  await p.mouse.click(a[0], a[1]);
+  await ev(() => { const w = __game.world; for (let i = 0; i < 140 && w.meteors.length && w.meteors[0].t < 2.35; i++) w.tick(1 / 60); });
+  await p.waitForTimeout(150); await shot('ability_meteor.png');
+  ok(await ev(() => __game.world.meteors.length === 1 && __game.world.meteors[0].py < __game.world.hAt(__game.world.meteors[0].x, __game.world.meteors[0].z) + 40), 'meteor is on screen, still falling');
+  await ev(() => __game.setSpeed(1));
+
+  console.log('finger on a house');
+  const house = await ev(() => { const b = __game.world.buildings.find(b => !b.ruin && !b.gone && b.type === 'house'); return [b.x, b.z, b.id]; });
+  await cam({ tx: house[0], tz: house[1], dist: 26, pitch: 1.05, yaw: 0.5 });
+  await p.waitForTimeout(300);
+  await p.keyboard.press('5');
+  a = await scr(house[0], house[1]);
+  console.log('  finger aim', a.map(v => +v.toFixed(1)), 'house', house);
+  await p.mouse.move(a[0], a[1]); await p.waitForTimeout(250);
+  const dh = await ev(h => { const m = __game.mouse.hit; return m ? Math.hypot(m.x - h[0], m.z - h[1]) : 999; }, house);
+  console.log('  finger miss', dh.toFixed(2));
+  await shot('ability_finger.png');
+  await p.mouse.down(); await p.waitForTimeout(1200); await p.mouse.up(); await ff(0.3);
+  ok(await ev(id => __game.world.buildings[id].parts.filter(pt => pt.st).length >= 4, house[2]), 'finger flattened the aimed house (cursor miss ' + dh.toFixed(1) + ')');
+
+  console.log('lightning bolt');
+  await ev(() => __game.setSpeed(0));
+  await cam({ tx: vc.x + 4, tz: vc.z, dist: 42, pitch: 0.48, yaw: 1.1 });
+  await p.waitForTimeout(200);
+  await p.keyboard.press('7');
+  a = await scr(vc.x + 4, vc.z);
+  await p.mouse.click(a[0], a[1]);
+  await ev(() => { const w = __game.world; for (let i = 0; i < 34; i++) w.tick(1 / 60); });
+  await p.waitForTimeout(120); await shot('ability_lightning.png');
+  ok(await ev(() => __game.world.bolts.some(b => b.segs && b.segs.length > 10)), 'a lightning bolt is in the world');
+  await ev(() => __game.setSpeed(1));
+
+  console.log('tornado fps');
+  await ev(() => { __game.newWorld(7); __game.world.rainT = 1e9; __game.world.time = 0.42; const v = __game.world.vc; __game.world.spawnTornado(v.x, v.z, 0.85); });
+  await cam({ tx: 90, tz: 100, dist: 50, pitch: 0.7, yaw: 0.5 });
+  const torn = await measure('one tornado');
+  await ev(() => { const w = __game.world, v = w.vc; w.quake(v.x - 8, v.z - 8, v.x + 12, v.z + 10, 0.65); w.meteor(v.x + 10, v.z, 0.55); w.ignite(v.x - 6, v.z + 8, 0.6); w.lightning(v.x, v.z - 4, 0.55); });
+  const stacked = await measure('stacked fresh', 40);
+  ok(torn.fps > 4, 'tornado scene renders (' + torn.fps + ' fps)');
+  fs.writeFileSync(path.join(out, 'perf.json'), JSON.stringify({ calm, tornado: torn, stackedFresh: stacked }, null, 2));
+  console.log(errs.length ? 'page errors ' + errs.join(' | ') : 'no page errors');
+  console.log(`\n${pass} passed, ${fail} failed`);
+  const video = p.video();
+  await ctx.close(); await b.close();
+  if (video) { const vp = await video.path(); fs.copyFileSync(vp, path.join(out, 'abilities_retake.webm')); console.log('video', path.join(out, 'abilities_retake.webm')); }
+  process.exit(fail ? 1 : 0);
+})().catch(e => { console.log('ERR', e.stack || e); process.exit(1); });
