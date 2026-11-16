@@ -22,9 +22,9 @@ Open `index.html` in any WebGL2 browser. It is one self-contained file, with no 
 
 Lightning darkens the sky, blasts one huge bolt down, then hurls a barrage of forks that seek the tallest buildings and trees; strikes on water electrocute anyone wading.
 
-Tornado (8) drops a spinning funnel you steer with the mouse. It pulls villagers, trees, and debris in, lifts them, and throws them back out, and it tears buildings down harder the closer they are to the core. Divine Deletion (9) shows a glowing brush. Click or drag to drop the land inside that ring to a sheer void and unmake whatever was standing on it. Water runs into the hole. The dam and the map edge cannot be erased. `[` `]` changes the brush. Deleted land and objects stay gone in a Save.
+Tornado (8) drops a spinning funnel you steer with the mouse. It pulls villagers, trees, and debris in, lifts them, and throws them back out, and it tears buildings down harder the closer they are to the core. Divine Deletion (9) highlights the object under the pointer. Click or drag to unmake only those objects, without impact damage or terrain excavation. Hold Alt when starting a deletion drag to erase land separately; the dam and map edge are protected. `[` `]` changes intensity and the land brush. Deleted land and objects stay gone in a Save.
 
-The dam upstream of the village can be breached with the Flood power. Save and Load keep terrain, water, scorch, fractures, rubble, building damage, villagers and tents (browser local storage).
+Flood (3) emits additional water while clicked or held. Drag to move the source. Water spreads downhill, pools in valleys and craters, suppresses fire, and damages flooded buildings. Flow never excavates terrain. Earthquake, Meteor and Divine Finger retain their landscape effects; the terrain channel helper remains available internally. Save and Load keep terrain, water, scorch, fractures, rubble, building damage, villagers and tents (browser local storage).
 
 ## Layout
 - `src/sim.js`: simulation core (no DOM): terrain, water, fire, structures, villagers, powers, save/load
@@ -37,3 +37,9 @@ The dam upstream of the village can be breached with the Flood power. Save and L
 
 ## Known limitations
 Frame rate is unmeasured on real GPUs, sound and touch have not been tested by ear or on a phone, saves are a single browser slot, and flood severity varies with the generated world.
+
+## Development verification
+
+Run `node build.js`, `node tests/test_sim.js 1234`, and `node tests/disaster_survival.js`. Browser checks: install Playwright with `npm install --no-save --package-lock=false playwright@1.56.1`, run `npx playwright install chromium`, then `node tests/browser_powers.js`. Set `CHROME_PATH` to use an existing Chrome executable; screenshots and video go to `artifacts/` by default.
+
+Saves load older version 1 data. New version 2 saves retain exact Float32 water depths, NPC panic/recovery and airborne state, and active earthquake, meteor and tornado hazards. Springs, rain, crater seepage, the sea boundary reservoir and meteor vaporisation are defined water sources/sinks. Ordinary flow conserves water up to Float32 rounding. Shallow water is no longer discarded or evaporated implicitly. Storm lightning and loose airborne debris are not resumed by a save; permanent damage and settled rubble are retained.

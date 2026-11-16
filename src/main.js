@@ -6,13 +6,13 @@
   const TOOLS = [
     { id: 'observe', icon: '👁', name: 'Observe', hint: 'Drag to move the camera. Click a villager to follow them.' },
     { id: 'quake', icon: '⛰️', name: 'Earthquake', hint: 'Drag a fault line across the land, then release.' },
-    { id: 'flood', icon: '🌊', name: 'Flood', hint: 'Drag to carve a channel and redirect water. Use it on the dam to break it.' },
+    { id: 'flood', icon: '🌊', name: 'Flood', hint: 'Click or hold to summon water. Drag to move the source; water flows downhill and remains.' },
     { id: 'meteor', icon: '☄️', name: 'Meteor', hint: 'Click to call down a meteor.' },
     { id: 'finger', icon: '👆', name: 'Divine Finger', hint: 'Click or hold to press the land flat.' },
     { id: 'fire', icon: '🔥', name: 'Firestorm', hint: 'Click or drag to set the land alight. Fire follows the wind.' },
     { id: 'lightning', icon: '⚡', name: 'Lightning', hint: 'Click to blast a storm of lightning down. Bolts seek the tallest things.' },
     { id: 'tornado', icon: '🌪️', name: 'Tornado', hint: 'Click to touch down a tornado. Move the mouse to steer it. It pulls, lifts, and throws.' },
-    { id: 'delete', icon: '✧', name: 'Deletion', hint: 'Divine Deletion: the ring is the brush. Click or drag to unmake land, and anything standing on it, into a void. The dam and the map edge stay. [ ] changes the brush.' }
+    { id: 'delete', icon: '✧', name: 'Deletion', hint: 'Click or drag to unmake highlighted objects. Hold Alt when starting a drag to erase land separately. The dam and map edge are protected.' }
   ];
   let R, world, audio = new AudioEngine(), tool = 'observe', intensity = 0.6, paused = false, speed = 1, started = false, memSave = null;
   let last = 0, acc = 0, frameN = 0, hudT = 0, follow = false, lastHour = -1;
@@ -46,18 +46,18 @@
   function beginAction() {
     const h = mouse.hit = R.pick(mouse.nx, mouse.ny, world); if (!h) return;
     if (tool === 'quake') qStart = { x: h.x, z: h.z };
-    else if (tool === 'flood') lastCarve = { x: h.x, z: h.z };
+    else if (tool === 'flood') { world.emitWater(h.x, h.z, intensity, 0.1); lastCarve = { x: h.x, z: h.z }; }
     else if (tool === 'meteor') world.meteor(h.x, h.z, intensity);
     else if (tool === 'lightning') world.lightning(h.x, h.z, intensity);
     else if (tool === 'tornado') world.spawnTornado(h.x, h.z, intensity);
     else if (tool === 'delete') { delStroke = new Set(); tryDelete(true); }
     else if (tool === 'fire') fireT = 0;
   }
-  function endAction() { if (tool === 'quake' && qStart) { const h = mouse.hit; if (h) world.quake(qStart.x, qStart.z, h.x, h.z, intensity); qStart = null; } lastCarve = null; delStroke = null; delCarve = null; }
+  function endAction() { if (tool === 'quake' && qStart) { const h = mouse.hit; if (h) world.quake(qStart.x, qStart.z, h.x, h.z, intensity); qStart = null; } lastCarve = null; delStroke = null; delCarve = null; mouse.landDelete = false; }
   function deletionTarget() {
     if (!mouse.hit && !mouse.inside) return null;
     const d = R.ray(mouse.nx, mouse.ny), h = mouse.hit;
-    return world.queryDelete(R.eye[0], R.eye[1], R.eye[2], d[0], d[1], d[2], h ? h.x : null, h ? h.z : null, 0.55 + intensity * 1.15);
+    return world.queryDelete(R.eye[0], R.eye[1], R.eye[2], d[0], d[1], d[2], h ? h.x : null, h ? h.z : null, 0);
   }
   function delKey(o) {
     if (!o) return '';
@@ -72,11 +72,12 @@
     delHover = deletionTarget();
     if (!force && !(mouse.down && mouse.mode === 'act')) return;
     const h = mouse.hit;
-    if (h) {
+    if (h && mouse.landDelete) {
       if (delCarve) world.eraseStroke(delCarve.x, delCarve.z, h.x, h.z, intensity);
       else world.eraseLand(h.x, h.z, intensity);
       delCarve = { x: h.x, z: h.z };
     }
+    if (mouse.landDelete) return;
     const o = delHover;
     if (!o) return;
     const k = delKey(o); if (delStroke && delStroke.has(k)) return;
@@ -101,7 +102,7 @@
     if (!started) return; audio.start(); canvas.setPointerCapture(e.pointerId); setMouse(e); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (e.pointerType === 'touch' && ptrs.size === 2) { if (mouse.mode === 'act') { qStart = null; lastCarve = null; } mouse.down = false; mouse.mode = 'gest'; const p = [...ptrs.values()]; gest = { d: Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y), a: Math.atan2(p[1].y - p[0].y, p[1].x - p[0].x), cx: (p[0].x + p[1].x) / 2, cy: (p[0].y + p[1].y) / 2 }; return; }
     if (ptrs.size > 1) return;
-    mouse.down = true; mouse.moved = 0;
+    mouse.down = true; mouse.moved = 0; mouse.landDelete = !!e.altKey;
     if (e.button === 2) mouse.mode = 'rot'; else if (e.button === 1 || e.shiftKey || tool === 'observe') mouse.mode = 'pan'; else { mouse.mode = 'act'; beginAction(); }
     if (mouse.mode === 'pan') canvas.style.cursor = 'grabbing';
   });
@@ -149,7 +150,7 @@
     const h = mouse.hit, act = mouse.down && mouse.mode === 'act';
     world.finger = (tool === 'finger' && h && mouse.inside) ? { x: h.x, z: h.z, r: 3.5 + 2.4 * intensity } : null;
     world.steer = (tool === 'tornado' && h && (mouse.inside || act)) ? { x: h.x, z: h.z, strong: !!act } : null;
-    if (tool === 'flood' && act && h) { const a = lastCarve || h, d = Math.hypot(h.x - a.x, h.z - a.z), n = Math.max(1, Math.ceil(d)); for (let k = 1; k <= n; k++) world.carve(a.x + (h.x - a.x) * k / n, a.z + (h.z - a.z) * k / n, intensity, dt); lastCarve = { x: h.x, z: h.z }; }
+    if (tool === 'flood' && act && h) { const a = lastCarve || h, d = Math.hypot(h.x - a.x, h.z - a.z), n = Math.min(240, Math.max(1, Math.ceil(d))); for (let k = 1; k <= n; k++) world.emitWater(a.x + (h.x - a.x) * k / n, a.z + (h.z - a.z) * k / n, intensity, dt / n); lastCarve = { x: h.x, z: h.z }; }
     if (tool === 'fire' && act && h) { fireT -= dt; if (fireT <= 0) { world.ignite(h.x, h.z, intensity); fireT = 0.22; } }
     if (fing.cd > 0) fing.cd -= dt;
     if (fing.ph === 0) { if (tool === 'finger' && act && h && fing.cd <= 0) { fing.ph = 1; fing.t = 0; fing.x = h.x; fing.z = h.z; } }
@@ -170,23 +171,23 @@
       B.push(fx, ty + 2.36 * fr, fz, 1.5 * fr, 0.05 * fr, 1.5 * fr, 0, yw, 0, c[0] * 0.8, c[1] * 0.75, c[2] * 0.72, 0); B.push(fx, ty + 4.76 * fr, fz, 1.65 * fr, 0.05 * fr, 1.65 * fr, 0, yw, 0, c[0] * 0.8, c[1] * 0.75, c[2] * 0.72, 0);
       R.shadow[0] = fx; R.shadow[1] = fz; R.shadow[2] = fr * 2.6; R.shadow[3] = 0.25 + 0.35 * p;
     } else R.shadow[3] = 0;
-    if (tool === 'delete' && h && (mouse.inside || mouse.down)) {
+    if (tool === 'delete' && h && (mouse.landDelete || keys.alt) && (mouse.inside || mouse.down)) {
       const br = world.eraseRadius(intensity), y = world.hAt(h.x, h.z);
       B.push(h.x, y + 2.6, h.z, 0.16, 5.2, 0.16, 0, 0, 0, 1, 0.95, 0.4, 1);
       for (let k = 0; k < 4; k++) { const a = (R.time || 0) * 1.6 + k * 1.5708; B.push(h.x + Math.cos(a) * br, y + 0.55, h.z + Math.sin(a) * br, 0.22, 1.1, 0.22, 0, a, 0, 1, 0.98, 0.55, 1); }
     }
-    if (tool === 'delete' && delHover) frameTarget(B, delHover);
+    if (tool === 'delete' && delHover && !mouse.landDelete && !keys.alt) frameTarget(B, delHover);
   }
   function marker() {
     const h = mouse.hit, m = R.mark, c = R.markC; R.brush = 0; if (!h || tool === 'observe' || !mouse.inside && !mouse.down) { c[3] = 0; return; }
     m[0] = h.x; m[1] = h.z; c[3] = 0.75;
     if (tool === 'quake') { m[2] = 1.2; c[0] = 1; c[1] = 0.5; c[2] = 0.2; }
-    else if (tool === 'flood') { m[2] = 1.2 + 1.3 * intensity; c[0] = 0.3; c[1] = 0.7; c[2] = 1; if (world.nearDam(h.x, h.z, 2 + intensity)) { m[2] = 2.5 + 3.5 * intensity; c[0] = 1; c[1] = 0.9; c[2] = 0.4; } }
+    else if (tool === 'flood') { m[2] = 1.2 + 1.3 * intensity; c[0] = 0.3; c[1] = 0.7; c[2] = 1;  }
     else if (tool === 'meteor') { m[2] = 4 + 7 * intensity; c[0] = 1; c[1] = 0.25; c[2] = 0.15; }
     else if (tool === 'finger') { m[2] = 1.6 + 2.4 * intensity; c[0] = 1; c[1] = 0.9; c[2] = 0.75; }
     else if (tool === 'lightning') { m[2] = 5 + 9 * intensity; c[0] = 0.6; c[1] = 0.75; c[2] = 1; }
     else if (tool === 'tornado') { m[2] = 3.2 + 5.5 * intensity; c[0] = 0.72; c[1] = 0.78; c[2] = 0.84; }
-    else if (tool === 'delete') { R.brush = 1; m[2] = world.eraseRadius(intensity); c[0] = 1; c[1] = 0.86; c[2] = 0.22; c[3] = 1; }
+    else if (tool === 'delete') { R.brush = 1; m[2] = (mouse.landDelete || keys.alt) ? world.eraseRadius(intensity) : 0.45; c[0] = 1; c[1] = 0.86; c[2] = 0.22; c[3] = 1; }
     else { m[2] = 1.5 + 4 * intensity; c[0] = 1; c[1] = 0.55; c[2] = 0.1; }
   }
 

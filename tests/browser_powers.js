@@ -1,12 +1,12 @@
 const { chromium } = require('playwright');
 const path = require('path');
 const fs = require('fs');
-const out = process.env.SHOTS || '/opt/cursor/artifacts';
+const out = process.env.SHOTS || path.join(__dirname, '../artifacts');
 fs.mkdirSync(out, { recursive: true });
 let pass = 0, fail = 0;
 const ok = (c, m) => { if (c) { pass++; console.log('  ok   ' + m); } else { fail++; console.log('  FAIL ' + m); } };
 (async () => {
-  const b = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args: ['--no-sandbox', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required'] });
+  const b = await chromium.launch({ executablePath: process.env.CHROME_PATH || undefined, args: ['--no-sandbox', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required'] });
   const ctx = await b.newContext({ viewport: { width: 1280, height: 720 }, recordVideo: { dir: out, size: { width: 1280, height: 720 } } });
   const p = await ctx.newPage();
   const errs = [];
@@ -38,14 +38,17 @@ const ok = (c, m) => { if (c) { pass++; console.log('  ok   ' + m); } else { fai
   ok(h1 > h0 + 80, 'earthquake fractured terrain (' + (h1 - h0) + ' cells)');
 
   console.log('flood');
-  const dam = await ev(() => [Math.round(__game.world.rx(58)), 58]);
-  await cam({ tx: dam[0], tz: 70, dist: 70, yaw: 0.2, pitch: 0.7 }); await p.waitForTimeout(300);
-  await p.keyboard.press('3'); a = await scr(dam[0], 58);
-  await p.mouse.move(a[0], a[1]); await p.mouse.down(); await p.waitForTimeout(600); await p.mouse.up();
-  ok(await ev(() => __game.world.damBroken), 'flood breached the dam');
-  await ff(25); await cam({ tx: vc.x - 4, tz: vc.z + 4, dist: 72, yaw: 0.4, pitch: 0.82 }); await p.waitForTimeout(400);
-  await shot('ability_flood.png');
-  ok(await ev(() => { let n = 0; const w = __game.world; for (let i = 60 * 160; i < w.w.length; i++) if (w.w[i] - w.wb[i] > 0.15) n++; return n; }) > 80, 'flood water is on the low ground');
+  await ev(() => { __game.newWorld(1234); __game.world.rainT=1e9; });
+  await cam({tx:vc.x+20,tz:vc.z+14,dist:48,yaw:0.2,pitch:0.9});
+  await p.waitForTimeout(300);
+  await ev(() => { const w=__game.world; window.__floodSnapshot={h:Array.from(w.h),w:Array.from(w.w)}; });
+  await p.keyboard.press('3'); a = await scr(vc.x+20,vc.z+14);
+  await p.mouse.move(a[0],a[1]); await p.mouse.down(); await p.waitForTimeout(1200); await p.mouse.up();
+  ok(await ev(() => __game.world.h.every((v,i)=>v===__floodSnapshot.h[i])), 'Flood leaves all terrain elevations unchanged');
+  ok(await ev(() => __game.world.w.some((v,i)=>v>__floodSnapshot.w[i]+0.5)), 'Flood introduces visible water');
+  ok(await ev(() => !__game.world.damBroken), 'Flood does not excavate or breach the dam');
+  await ff(12); await shot('ability_flood.png');
+  ok(await ev(() => {const w=__game.world; return w.w.some((v,i)=>v>__floodSnapshot.w[i]+0.1 && w.h[i]<w.h[w.ci(w.vc.x+20,w.vc.z+14)]);}), 'summoned water persists and runs downhill');
 
   console.log('meteor');
   await cam({ tx: vc.x + 18, tz: vc.z + 4, dist: 64, yaw: 0.5, pitch: 0.72 }); await p.waitForTimeout(250);
@@ -107,7 +110,7 @@ const ok = (c, m) => { if (c) { pass++; console.log('  ok   ' + m); } else { fai
   await p.mouse.click(a[0], a[1]); await p.waitForTimeout(200); await shot('ability_deletion.png');
   const gone = await ev(id => { const b = __game.world.buildings[id]; const i = __game.world.ci(b.x, b.z); return { gone: !!b.gone, map: __game.world.bmap[i], debris: __game.world.debris.length, h: __game.world.h[i], w: __game.world.w[i] }; }, target.id);
   ok(gone.gone && gone.map === 0, 'click deleted the house and cleared its collider');
-  ok(gone.h < target.h - 3 && Math.abs(gone.w - target.water) < 0.001, 'the brush cut a void and did not invent water (' + target.h.toFixed(1) + ' -> ' + gone.h.toFixed(1) + ')');
+  ok(gone.h === target.h, 'object deletion leaves terrain unchanged');
   const grove = await ev(() => { const w = __game.world; for (let i = 0; i < w.tree.length; i++) if (w.tree[i] === 1) { const x = i % 160, z = (i / 160) | 0; let n = 0; for (let k = 0; k < 6; k++) if (w.tree[i + k] === 1) n++; if (n >= 3) return [x, z]; } return null; });
   if (grove) {
     await cam({ tx: grove[0], tz: grove[1], dist: 30, pitch: 0.85, yaw: 0.2 }); await p.waitForTimeout(250);

@@ -97,7 +97,7 @@
     <tr><td>Space</td><td>Pause · <b>M</b> mute · <b>Esc</b> stop following</td></tr>
     <tr><td>Touch</td><td>One finger uses the power; two fingers move, pinch to zoom, twist to rotate</td></tr>
   </table>
-  <p style="color:var(--dim);margin:12px 0 0">Earthquake: drag a line, release. Flood: drag a trench from the river toward low ground, or use it on the stone dam upstream. Tornado: click to touch down, then move the mouse to steer the funnel. Divine Deletion: the glowing ring is the brush. Click or drag to unmake the land under it, and anything standing there, into a sheer void. Water will run in. The dam and the outer edge of the map stay. [ ] widens the brush. Everything you break stays broken — Save keeps the scarred world, including what you deleted.</p>
+  <p style="color:var(--dim);margin:12px 0 0">Earthquake: drag a line, release. Flood: click or hold to summon water; drag to move the source. Water flows downhill without digging. Tornado: click to touch down, then move the mouse to steer the funnel. Divine Deletion: click or drag to unmake the highlighted object. Hold Alt when starting a drag to erase land separately. Water will run into erased land. The dam and the outer edge of the map stay. [ ] changes intensity and the land brush. Everything you break stays broken — Save keeps the scarred world, including what you deleted.</p>
 </div></div>
 <div id="start"><div>
   <h1>GOD SIM</h1>
@@ -150,6 +150,7 @@ class World {
     this.bmap = new Int16Array(NN); this.bridge = new Uint8Array(NN);
     this.buildings = []; this.npcs = []; this.debris = []; this.rubble = []; this.fires = [];
     this.threats = []; this.quakes = []; this.meteors = []; this.emitters = []; this.craterCells = [];
+    this.hazards = new Float32Array(NN);
     this.pathQ = []; this.camps = []; this.storms = []; this.bolts = []; this.boltFlash = 0;
     this.tornados = []; this.fades = []; this.steer = null;
     this.time = 0.3; this.day = 1; this.tickN = 0; this.clock = 0;
@@ -346,7 +347,7 @@ class World {
       }
     }
     const flag = this.flag;
-    for (let i = 0; i < NN; i++) { let v = w[i] + dw[i]; dw[i] = 0; if (flag[i] & 2) v = -h[i]; else if (v < 0.0005) v = 0; w[i] = v; }
+    for (let i = 0; i < NN; i++) { let v = w[i] + dw[i]; dw[i] = 0; if (flag[i] & 2) v = Math.max(0, -h[i]); else if (v < 0) v = 0; w[i] = v; }
     for (const i of this.spring) w[i] += 0.013;
   }
   waterExtras() {
@@ -357,12 +358,10 @@ class World {
       const off = (t / 8) % 4, wb = this.wb, f0 = this.f0, h0 = this.h0, kind = this.kind, mud = this.mud; let ch = false;
       for (let i = off; i < NN; i += 4) {
         const wi = w[i]; if (wi <= 0) { if (wb[i] > 0) wb[i] *= 0.97; continue; }
-        if (wi < 0.05 && !(flag[i] & 2)) w[i] = Math.max(0, wi - 0.0035);
         const ex = wi - wb[i];
         if (ex > 0.3 && mud[i] < 250) { mud[i] += 5; ch = true; if (kind[i] === K.FARM || kind[i] === K.GRASS) this.fuel[i] = Math.min(this.fuel[i], 0.06); }
         wb[i] += ex * (this.clock < 45 ? 0.5 : 0.008);
-        const thr = f0[i] * 1.7 + 0.012;
-        if (fl[i] > thr && kind[i] !== K.DAM && !this.bmap[i] && h0[i] - h[i] < 2.5 && !(flag[i] & 2)) { h[i] -= Math.min(0.03, (fl[i] - thr) * 0.6); ch = true; }
+        // Water transports depth only. Landscape powers own terrain deformation.
       }
       if (ch) this.terrDirty = true;
     }
@@ -370,7 +369,7 @@ class World {
 
   // ------------------------------------------------------------ fire
   igniteCell(i) { if (this.burn[i] > 0 || this.fuel[i] < 0.03 || this.w[i] > 0.03) return false; this.burn[i] = 0.3; this.fires.push(i); if (this.tree[i] === 1) { this.tree[i] = 2; this.staticDirty = true; } this.terrDirty = true; return true; }
-  igniteB(b) { if (b.fire > 0 || b.fuel <= 0 || b.ruin || b.wet > 0.4) return; b.fire = 0.2; b.active = true; this.addThreat(b.x, b.z, 6, 5); if (!b.logF) { b.logF = true; this.fx.log(this.bname(b) + ' is on fire'); } }
+  igniteB(b) { if (b.gone || b.fire > 0 || b.fuel <= 0 || b.ruin || b.wet > 0.4 || b.cells.some(i => this.w[i] > 0.4 && this.h[i] + this.w[i] > b.y + 0.4)) return; b.fire = 0.2; b.active = true; this.addThreat(b.x, b.z, 6, 5); if (!b.logF) { b.logF = true; this.fx.log(this.bname(b) + ' is on fire'); } }
   bname(b) { return b.type === 'house' ? 'A house' : 'The ' + b.type; }
   stepFire(dt) {
     const F = this.fires, burn = this.burn, fuel = this.fuel, w = this.w, h = this.h, rnd = this.rnd, wx = this.wind[0], wz = this.wind[1], rainF = this.rain > 0.3 ? 0.4 : 1;
@@ -441,6 +440,9 @@ class World {
     const rnd = this.rnd; let stress = false;
     b.y = b.type === 'bridge' ? b.y : this.h[this.ci(b.x, b.z)];
     if (b.failT > 0) b.failT -= dt;
+    // Suppress fire before applying burn damage or spreading embers.
+    if (b.wet > 0.18 && b.fire > 0) b.fire = Math.max(0, b.fire - dt * (1 + b.wet * 3));
+    if (b.wet > 0.8) b.fire = 0;
     if (b.fire > 0) {
       b.fire = Math.min(1, b.fire + dt * 0.25); b.fuel -= dt * 0.012 * (this.rain > 0.3 ? 0.6 : 1);
       this.damage(b, dt * 0.04 * b.fire * b.flam, 'fire', b.x, b.z);
@@ -454,6 +456,13 @@ class World {
     let sA = 0, sT = 0, wA = 0, wT = 0, rA = 0, alive = 0;
     for (const p of b.parts) { if (p.role === 'sup') { sT++; if (!p.st) sA++; } else if (p.role === 'wall') { wT++; if (!p.st) wA++; } else if (p.role === 'roof' || p.role === 'deck') { if (!p.st) rA++; } if (!p.st && p.role !== 'base' && p.role !== 'decor') alive++; }
     if (b.type !== 'tent') {
+      // Roof load also depends on surviving supports' health, not only their count.
+      let strength = 0;
+      for (const p of b.parts) if (p.role === 'sup' && !p.st) strength += clamp(p.hp, 0, 1);
+      if (sT && rA && strength / sT < 0.5) {
+        this.hit(b, b.type === 'bridge' ? 'deck' : 'roof', dt * (0.5 - strength / sT) * 0.6);
+        stress = true;
+      }
       if (rA && sT && sA / sT < 0.75) { this.hit(b, b.type === 'bridge' ? 'deck' : 'roof', dt * (sA / sT < 0.4 ? 0.9 : 0.3)); stress = true; }
       if (wT) { if (wA / wT < 0.6) { if (rA) this.hit(b, 'roof', dt * 0.8); if (sA) this.hit(b, 'sup', dt * 0.35); stress = true; } if (sA === 0 && wA) { this.hit(b, 'wall', dt * 0.35); stress = true; } if (rA === 0 && wA && wA < wT) { this.hit(b, 'wall', dt * 0.12); stress = true; } }
     }
@@ -502,27 +511,49 @@ class World {
 
   // ------------------------------------------------------------ threats / npcs
   addThreat(x, z, r, ttl) { this.threats.push({ x, z, r, ttl }); }
+  panicSound(x, z, vol) {
+    if (this.screamT > 0) return;
+    this.screamT = 0.65; this.fx.sound('scream', x, z, vol);
+  }
+  rebuildHazards() {
+    const a = this.hazards; a.fill(0);
+    const paint = (x, z, r) => {
+      const x0 = Math.max(1, Math.floor(x-r)), x1 = Math.min(N-2, Math.ceil(x+r));
+      const z0 = Math.max(1, Math.floor(z-r)), z1 = Math.min(N-2, Math.ceil(z+r));
+      for (let Z=z0; Z<=z1; Z++) for (let X=x0; X<=x1; X++) {
+        const v = 1 - Math.hypot(X-x,Z-z)/r, i=Z*N+X;
+        if (v > a[i]) a[i] = v;
+      }
+    };
+    for (const t of this.threats) paint(t.x,t.z,t.r);
+    for (const t of this.tornados) paint(t.x,t.z,t.R*2.55);
+    for (const m of this.meteors) paint(m.x,m.z,10+12*m.I);
+    for (const b of this.buildings) if (!b.gone && b.fire>0) paint(b.x,b.z,Math.max(b.w,b.d)/2+4);
+  }
   dangerAt(n) {
     const T = this.threats; for (let k = 0; k < T.length; k++) { const t = T[k], dx = n.x - t.x, dz = n.z - t.z; if (dx * dx + dz * dz < t.r * t.r) return t; }
     const f = this.finger; if (f) { const dx = n.x - f.x, dz = n.z - f.z; if (dx * dx + dz * dz < f.r * f.r) return f; }
     for (const m of this.meteors) { const dx = n.x - m.x, dz = n.z - m.z, R = 10 + 12 * m.I; if (dx * dx + dz * dz < R * R) return { x: m.x, z: m.z, r: R * 0.45 }; }
     for (const q of this.tornados) { const dx = n.x - q.x, dz = n.z - q.z, R = q.R * 3.1; if (dx * dx + dz * dz < R * R) return { x: q.x, z: q.z, r: q.R * 1.5 }; }
+    for (const b of this.buildings) if (!b.gone && b.fire > 0 && Math.hypot(n.x-b.x,n.z-b.z) < Math.max(b.w,b.d)/2+4) return {x:b.x,z:b.z,r:Math.max(b.w,b.d)/2+4};
     const xi = (n.x + 0.5) | 0, zi = (n.z + 0.5) | 0; let sx = 0, sz = 0, c = 0;
-    for (let k = 0; k < SCAN.length; k += 2) { const x = xi + SCAN[k], z = zi + SCAN[k + 1]; if (x < 0 || z < 0 || x >= N || z >= N) continue; const i = z * N + x; if (this.burn[i] > 0 || (this.w[i] > 0.18 && this.w[i] - this.wb[i] > 0.15 && !this.bridgeOK(i))) { sx += x; sz += z; c++; } }
+    for (let k = 0; k < SCAN.length; k += 2) { const x = xi + SCAN[k], z = zi + SCAN[k + 1]; if (x < 0 || z < 0 || x >= N || z >= N) continue; const i = z * N + x; if (this.burn[i] > 0 || ((this.w[i] > 0.45 || (this.w[i] > 0.18 && this.w[i] - this.wb[i] > 0.15)) && !this.bridgeOK(i))) { sx += x; sz += z; c++; } }
     if (c) { this._dg.x = sx / c; this._dg.z = sz / c; this._dg.r = 7; return this._dg; }
     return null;
   }
   panic(n, fx, fz, r) {
     if (n.st === DEAD) return; n.tx = fx; n.tz = fz; n.tr = r || 7; n.calm = 0; this.alarm = 22;
     if (n.inside) { n.inside = false; const b = this.buildings[n.home]; if (b) { n.x = b.doorX; n.z = b.doorZ; } }
-    if (n.st !== PANIC && n.st !== STUMBLE) { n.st = PANIC; n.path = null; n.goal = ''; n.working = false; this.pickFlee(n); if (this.screamT <= 0) { this.screamT = 0.22; this.fx.sound('scream', n.x, n.z, 0.7); } }
+    if (n.st !== PANIC && n.st !== STUMBLE) { n.st = PANIC; n.path = null; n.goal = ''; n.working = false; this.pickFlee(n); this.panicSound(n.x, n.z, 0.7); }
   }
-  safeCell(i) { return this.h[i] > 0.3 && this.burn[i] === 0 && (this.w[i] < 0.3 || this.bridgeOK(i)) && !(this.bmap[i] && !this.buildings[this.bmap[i] - 1].ruin); }
+  safeCell(i) { return this.h[i] > 0.3 && this.hazards[i] < 0.45 && this.burn[i] === 0 && (this.w[i] < 0.3 || this.bridgeOK(i)) && !(this.bmap[i] && !this.buildings[this.bmap[i] - 1].ruin); }
   pickFlee(n) {
+    if ((n.fleeT || 0) > 0) return;
+    n.fleeT = 0.6;
     const rnd = this.rnd, base = Math.atan2(n.z - n.tz, n.x - n.tx) + (n.x === n.tx && n.z === n.tz ? rnd() * 6.28 : 0); let best = -1e9, bx = n.x, bz = n.z;
     for (let k = 0; k < 7; k++) {
       const a = base + (rnd() - 0.5) * (0.8 + k * 0.5), dist = (n.tr || 7) + 9 + rnd() * 14, x = clamp(n.x + Math.cos(a) * dist, 6, N - 7), z = clamp(n.z + Math.sin(a) * dist, 6, N - 7), i = this.ci(x, z);
-      if (!this.safeCell(i)) continue; const sc = Math.cos(a - base) * 8 + this.h[i] * 1.2 + rnd() * 2; if (sc > best) { best = sc; bx = x; bz = z; }
+      if (!this.safeCell(i)) continue; const sc = Math.cos(a - base) * 8 + this.h[i] * 1.2 - this.hazards[i] * 30 - (n.badGoal === i ? 20 : 0) + rnd() * 2; if (sc > best) { best = sc; bx = x; bz = z; }
     }
     n.gx = bx; n.gz = bz; this.reqPath(n, bx, bz);
   }
@@ -537,7 +568,9 @@ class World {
     const hi = br ? this.bridgeB.y : this.h[i]; if (hi < 0.05) return -1;
     const dh = Math.abs(hi - this.walkH(from)); if (dh > 1.15) return -1;
     const k = this.kind[i]; if (k === K.ROAD) c = 0.8; else if (k === K.FOREST) c = 1.7;
-    return c + wd * 6 + dh * 1.5 + (ruin ? 2 : 0);
+    const hazard = this.hazards[i];
+    if (hazard > 0.8 && hazard > this.hazards[from] + 0.05) return -1;
+    return c + wd * 6 + dh * 1.5 + (ruin ? 2 : 0) + hazard * 18;
   }
   findPath(si, ti) {
     if (si === ti) return [];
@@ -567,9 +600,13 @@ class World {
     if (!n.path || n.pi >= n.path.length) { n.path = null; n.moving = false; return 1; }
     const c = n.path[n.pi], cx = (c % N) + n.jx, cz = ((c / N) | 0) + n.jz, dx = cx - n.x, dz = cz - n.z, l = Math.hypot(dx, dz);
     const cur = this.ci(n.x, n.z), wd = this.bridgeOK(cur) ? 0 : this.w[cur];
+    // Recheck the next step while moving: hazards may have changed since A* ran.
+    if (c !== cur && this.passCost(c, cur) < 0) { n.badGoal = this.ci(n.gx,n.gz); n.path = null; n.moving = false; return -1; }
+    n.moveSpeed = (n.moveSpeed || 0) + (speed - (n.moveSpeed || 0)) * Math.min(1, dt * 7);
+    speed = n.moveSpeed;
     if (wd > 0.2) speed *= 0.5; if (n.hp < 0.5) speed *= 0.6;
     if (l < 0.25 || l < speed * dt) { n.pi++; if (n.pi < n.path.length && this.passCost(n.path[n.pi], c) < 0) { n.path = null; n.moving = false; return -1; } return 0; }
-    n.x += dx / l * speed * dt; n.z += dz / l * speed * dt; n.face = Math.atan2(dx, dz); n.moving = true; return 0;
+    n.x += dx / l * speed * dt; n.z += dz / l * speed * dt; const turn = Math.atan2(dx,dz) - n.face; n.face += Math.atan2(Math.sin(turn),Math.cos(turn)) * Math.min(1,dt*10); n.moving = true; return 0;
   }
   drift(n, tx, tz, speed, dt) { const dx = tx - n.x, dz = tz - n.z, l = Math.hypot(dx, dz); if (l < 0.15) { n.moving = false; return true; } const nx = n.x + dx / l * speed * dt, nz = n.z + dz / l * speed * dt; if (this.passCost(this.ci(nx, nz), this.ci(n.x, n.z)) < 0) { n.moving = false; return true; } n.x = nx; n.z = nz; n.face = Math.atan2(dx, dz); n.moving = true; return false; }
 
@@ -607,6 +644,7 @@ class World {
   }
   stepNPC(n, dt) {
     if (n.erased) return;
+    n.fleeT = Math.max(0, (n.fleeT || 0) - dt);
     if (n.st === DEAD) { n.deadT += dt; return; }
     if (n.air > 0) { this.flyNPC(n, dt); return; }
     if (n.held) { n.held = 0; n.moving = false; return; }
@@ -629,7 +667,7 @@ class World {
         else if (r !== 0) { const a = Math.atan2(n.z - n.tz, n.x - n.tx); this.drift(n, n.x + Math.cos(a) * 3, n.z + Math.sin(a) * 3, 3, dt); }
         break;
       }
-      case SHAKEN: n.t -= dt; n.moving = false; if (n.t <= 0 && this.alarm <= 0) { n.st = ROUTINE; n.goal = ''; } break;
+      case SHAKEN: n.t -= dt; n.moving = false; if (n.t <= 0 && !this.dangerAt(n)) { n.st = ROUTINE; n.goal = ''; } break;
       default: this.routine(n, dt);
     }
   }
@@ -686,7 +724,27 @@ class World {
     return n;
   }
   checkDam() { if (this.damBroken) return; for (let z = 57; z <= 59; z++) for (let x = 0; x < N; x++) { const i = z * N + x; if (this.kind[i] === K.DAM && this.h[i] < this.h0[i] - 1.6) { this.damBroken = true; this.fx.log('THE DAM IS BREACHED — the reservoir is emptying'); this.addThreat(this.rx(64), 64, 10, 20); return; } } }
-  carve(x, z, I, dt) { // flood power brush: dig a channel
+  // Finite volume emission, shared by click and held Flood input.
+  // Only sea cells (flag 2) exchange water with an external reservoir.
+  // Springs, rain, crater seepage and meteor vaporisation are explicit sources/sinks.
+  emitWater(x, z, I, dt) {
+    if (![x, z, I, dt].every(Number.isFinite) || dt <= 0) return 0;
+    const r = 1.2 + 1.3 * clamp(I, 0.1, 1), R = Math.ceil(r);
+    const xi = Math.round(x), zi = Math.round(z), cells = [];
+    let weight = 0;
+    for (let dz = -R; dz <= R; dz++) for (let dx = -R; dx <= R; dx++) {
+      const X = xi + dx, Z = zi + dz, d = Math.hypot(dx, dz);
+      if (X < 2 || Z < 2 || X >= N - 2 || Z >= N - 2 || d >= r) continue;
+      const i = Z * N + X; if (this.flag[i] & 2) continue;
+      const q = 1 - d / r; cells.push([i, q]); weight += q;
+    }
+    if (!weight) return 0;
+    const volume = (60 + 240 * clamp(I, 0.1, 1)) * Math.min(dt, 0.1);
+    for (const [i, q] of cells) this.w[i] += volume * q / weight;
+    return volume;
+  }
+
+  carve(x, z, I, dt) { // Terrain channel helper retained for landscape interactions
     if (this.nearDam(x, z, 2 + I)) { this.breakDam(x, z, I); return; }
     const r = 1.2 + 1.3 * I, xi = Math.round(x), zi = Math.round(z), R = Math.ceil(r), lim = 1.5 + 2.5 * I; let ch = false;
     for (let dz = -R; dz <= R; dz++) for (let dx = -R; dx <= R; dx++) {
@@ -708,7 +766,7 @@ class World {
     for (const b of this.buildings) { const d = segD(b.x, b.z); if (d < R && !b.ruin) q.bl.push({ b, d }); }
     for (const m of this.npcs) { if (m.st === DEAD) continue; const d = segD(m.x, m.z); if (d < R) { const px = m.x - x0, pz = m.z - z0, t = clamp((px * ux + pz * uz) / len, 0, 1); if (m.inside) { m.inside = false; } m.st = STUMBLE; m.t = 0.6 + rnd() * 1.4; m.path = null; m.tx = x0 + ux * len * t; m.tz = z0 + uz * len * t; m.tr = R * 0.5; this.alarm = 22; } }
     for (let s = 0; s <= len; s += 6) this.addThreat(x0 + ux * s, z0 + uz * s, R * 0.55, q.dur + 2);
-    this.quakes.push(q); this.fx.log('The earth splits open'); this.fx.sound('scream', (x0 + x1) / 2, (z0 + z1) / 2, 0.8);
+    this.quakes.push(q); this.fx.log('The earth splits open'); this.panicSound((x0 + x1) / 2, (z0 + z1) / 2, 0.8);
     return q;
   }
   crackSeg(ax, az, bx, bz, I) {
@@ -753,13 +811,13 @@ class World {
       if (b.ruin) continue; const d = Math.hypot(b.x - m.x, b.z - m.z) - Math.max(b.w, b.d) * 0.4;
       if (d < R * 1.3) { for (const p of b.parts) if (!p.st && p.role !== 'base') this.failPart(b, p, 'blast', m.x, m.z, I); }
       else if (d < R * 2.4) { this.damage(b, 1.3 * (1 - (d - R * 1.3) / (R * 1.1)) + 0.15, 'blast', m.x, m.z, I); if (rnd() < 0.6) this.igniteB(b); }
-      else if (d < R * 4) this.damage(b, 0.22, 'quake', m.x, m.z);
+      else if (d < R * 4) { const shock = 1 - (d - R * 2.4) / (R * 1.6); b.shake = Math.max(b.shake, shock * I); this.damage(b, 0.3 * shock * I, 'shock', m.x, m.z); }
     }
     for (const n of this.npcs) {
       if (n.st === DEAD) continue; const d = Math.hypot(n.x - m.x, n.z - m.z);
       if (d < R * 1.25) { n.cause = 'meteor'; n.inside = false; this.kill(n); n.deadT = 999; }
       else if (d < R * 2.2) { n.hp -= 0.5 + rnd() * 0.4; n.cause = 'meteor blast'; n.inside = false; n.st = STUMBLE; n.t = 1 + rnd(); n.tx = m.x; n.tz = m.z; n.tr = R * 2; n.path = null; this.alarm = 22; }
-      else if (d < R * 5.5) this.panic(n, m.x, m.z, R * 2.5);
+      else if (d < R * 3.5) this.panic(n, m.x, m.z, R * 2.5);
     }
     const ne = 10 + (18 * I) | 0;
     for (let k = 0; k < ne; k++) { const a = rnd() * 6.28, sp = 5 + rnd() * 12 * (0.5 + I), s = 0.3 + rnd() * 0.8; this.debris.push({ x: m.x + Math.cos(a) * R * 0.5, y: gy + 0.5, z: m.z + Math.sin(a) * R * 0.5, vx: Math.cos(a) * sp, vy: 8 + rnd() * 12, vz: Math.sin(a) * sp, rx: 0, ry: rnd() * 6, rz: 0, wx: rnd() * 8 - 4, wy: 0, wz: rnd() * 8 - 4, sx: s, sy: s * 0.8, sz: s, g: 0, c: [0.2, 0.17, 0.15], b: 0, from: -1, mass: s * 2, hot: 1 }); }
@@ -990,7 +1048,7 @@ class World {
         n.vy = 7 + 8 * rnd();
         n.hp -= 0.1 + 0.18 * t.I;
         n.inside = false;
-        this.fx.sound('scream', n.x, n.z, 0.55);
+        this.panicSound(n.x, n.z, 0.55);
         if (n.hp <= 0) { n.air = 0; this.kill(n); }
       }
     }
@@ -1015,7 +1073,9 @@ class World {
   }
   queryDelete(ex, ey, ez, dx, dy, dz, hx, hz, slack) {
     let best = null, bt = 1e9;
-    const take = (t, rec) => { if (t != null && t >= 0 && t < bt) { bt = t; best = rec; } };
+    // Clip ray targets at the visible terrain hit; never select through a hillside.
+    const groundT = hx == null ? Infinity : Math.hypot(hx - ex, this.hAt(hx, hz) - ey, hz - ez) + 0.25;
+    const take = (t, rec) => { if (t != null && t >= 0 && t < bt && t <= groundT) { bt = t; best = rec; } };
     for (const b of this.buildings) {
       if (!b || b.gone || b.ruin) continue;
       const hw = b.w * 0.5 + 0.35, hd = b.d * 0.5 + 0.35, top = b.y + Math.max(b.hgt, 0.8) + (b.type === 'church' ? 4 : 1.1);
@@ -1045,6 +1105,11 @@ class World {
       const d = this.debris[k];
       const t = this.rayBox(ex, ey, ez, dx, dy, dz, d.x - d.sx * 0.6, d.y - d.sy * 0.6, d.z - d.sz * 0.6, d.x + d.sx * 0.6, d.y + d.sy * 0.6, d.z + d.sz * 0.6);
       take(t, { kind: 'debris', k, x: d.x, y: d.y, z: d.z, sx: d.sx + 0.25, sy: d.sy + 0.25, sz: d.sz + 0.25 });
+    }
+    for (let k = 0; k < this.rubble.length; k++) {
+      const r = this.rubble[k], sx = Math.max(0.3, r[3]), sy = Math.max(0.3, r[4]), sz = Math.max(0.3, r[5]);
+      const t = this.rayBox(ex, ey, ez, dx, dy, dz, r[0]-sx/2, r[1]-sy/2, r[2]-sz/2, r[0]+sx/2, r[1]+sy/2, r[2]+sz/2);
+      take(t, {kind:'rubble', k, x:r[0], y:r[1], z:r[2], sx, sy, sz});
     }
     if (this.well && !this.well.gone) {
       const wy = this.hAt(this.well.x, this.well.z);
@@ -1227,6 +1292,7 @@ class World {
     if (this.alarm > 0) this.alarm -= dt; if (this.screamT > 0) this.screamT -= dt;
     for (const b of this.buildings) if (b.shake > 0) b.shake = Math.max(0, b.shake - dt * 2);
     this.stepWater();
+    if (this.tickN % 15 === 1) this.rebuildHazards();
     if (this.tickN % 6 === 0) this.stepFire(dt * 6);
     for (let k = this.quakes.length - 1; k >= 0; k--) if (this.stepQuake(this.quakes[k], dt)) this.quakes.splice(k, 1);
     for (let k = this.tornados.length - 1; k >= 0; k--) if (this.stepTornado(this.tornados[k], dt)) this.tornados.splice(k, 1);
@@ -1256,25 +1322,35 @@ class World {
     const q8 = a => { const o = new Uint8Array(NN); for (let i = 0; i < NN; i++) o[i] = clamp(Math.round(a[i] * 255), 0, 255); return b64enc(o); };
     const r2 = v => Math.round(v * 100) / 100;
     return {
-      v: 1, seed: this.seed, time: this.time, day: this.day, clock: this.clock, windA: this.windA, damBroken: this.damBroken, camps: this.camps.filter(c => !c.dead),
-      h: q16(this.h, 100), w: q16(this.w, 1000), fuel: q8(this.fuel), burn: q8(this.burn), scorch: b64enc(this.scorch), crack: b64enc(this.crack), mud: b64enc(this.mud), tree: b64enc(this.tree), flag: b64enc(this.flag),
+      v: 2, seed: this.seed, time: this.time, day: this.day, clock: this.clock, windA: this.windA, damBroken: this.damBroken, camps: this.camps.filter(c => !c.dead),
+      h: q16(this.h, 100), w32: b64enc(new Uint8Array(this.w.buffer)), fuel: q8(this.fuel), burn: q8(this.burn), scorch: b64enc(this.scorch), crack: b64enc(this.crack), mud: b64enc(this.mud), tree: b64enc(this.tree), flag: b64enc(this.flag),
       B: this.buildings.map(b => ({ t: b.type, x: b.x, z: b.z, y: r2(b.y), f: r2(b.fire), fu: r2(b.fuel), r: (b.ruin || b.gone) ? 1 : 0, g: b.gone ? 1 : 0, dx: r2(b.doorX), dz: r2(b.doorZ), p: b.parts.map(p => [p.st, Math.round(p.hp * 100), Math.round(p.char * 100), Math.round(p.lean * 100)]) })),
       R: this.rubble.map(r => r.map(r2)),
       P: this.npcs.map(n => [r2(n.x), r2(n.z), r2(n.hp), n.erased ? DEAD : n.st, n.home, n.inside ? 1 : 0, n.homeless ? 1 : 0, n.flat ? 1 : 0, n.erased ? 999 : (n.st === DEAD ? Math.min(999, Math.round(n.deadT)) : 0), n.erased ? 1 : 0]),
+      survival: this.npcs.map(n => ({calm:n.calm, t:n.t, tx:n.tx, tz:n.tz, tr:n.tr, onFire:n.onFire, cause:n.cause, air:n.air||0, vx:n.vx||0, vy:n.vy||0, vz:n.vz||0})),
+      threats: this.threats, tornados: this.tornados, meteors: this.meteors,
+      quakes: this.quakes.map(q => ({...q, bl:q.bl.map(e => ({id:e.b.id,d:e.d}))})),
       wg: this.well && this.well.gone ? 1 : 0
     };
   }
   static load(s) {
     const w = new World(s.seed); const d16 = (str, a, sc) => { const u = b64dec(str), o = new Int16Array(u.buffer); for (let i = 0; i < NN; i++) a[i] = o[i] / sc; }, d8 = (str, a) => { const u = b64dec(str); for (let i = 0; i < NN; i++) a[i] = u[i] / 255; };
     for (let k = w.genCount; k < s.B.length; k++) { const e = s.B[k]; if (e.t === 'tent') { const sv = w.w; w.w = new Float32Array(NN); const b = w.addB('tent', e.x, e.z, true, [1, 0], true); w.w = sv; if (!b) { const dummy = { id: w.buildings.length, type: 'tent', x: e.x, z: e.z, y: e.y, w: 1, d: 1, hgt: 1, parts: [], ruin: true, cells: [], fire: 0, fuel: 0, tough: 1, flam: 1, doorX: e.x, doorZ: e.z }; w.buildings.push(dummy); } } }
-    d16(s.h, w.h, 100); d16(s.w, w.w, 1000); d8(s.fuel, w.fuel); d8(s.burn, w.burn);
+    d16(s.h, w.h, 100); if (s.w32) w.w.set(new Float32Array(b64dec(s.w32).buffer)); else d16(s.w, w.w, 1000); d8(s.fuel, w.fuel); d8(s.burn, w.burn);
     w.scorch.set(b64dec(s.scorch)); w.crack.set(b64dec(s.crack)); w.mud.set(b64dec(s.mud)); w.tree.set(b64dec(s.tree)); w.flag.set(b64dec(s.flag));
     w.wb.set(w.w); w.fires = []; w.craterCells = [];
     for (let i = 0; i < NN; i++) { if (w.burn[i] > 0) w.fires.push(i); if (w.flag[i] & 1) w.craterCells.push(i); }
     s.B.forEach((e, k) => { const b = w.buildings[k]; if (!b) return; b.y = e.y; b.fire = e.f; b.fuel = e.fu; b.ruin = !!e.r; b.gone = !!e.g; b.doorX = e.dx; b.doorZ = e.dz; b.logged = b.logF = b.logW = true; e.p.forEach((q, j) => { const p = b.parts[j]; if (!p) return; p.st = q[0]; p.hp = q[1] / 100; p.char = q[2] / 100; p.lean = q[3] / 100; }); if (b.gone) { b.ruin = true; b.fire = 0; b.active = false; for (const i of b.cells) if (w.bmap[i] === b.id + 1) w.bmap[i] = 0; for (const p of b.parts) p.st = 1; } else b.active = !b.ruin; });
     w.rubble = s.R.map(r => r.slice());
-    s.P.forEach((e, k) => { const n = w.npcs[k]; if (!n) return; n.x = e[0]; n.z = e[1]; n.hp = e[2]; n.st = e[3] === DEAD ? DEAD : ROUTINE; n.home = e[4]; n.inside = !!e[5]; n.homeless = !!e[6]; n.flat = !!e[7]; n.deadT = e[8]; n.erased = !!e[9]; if (n.erased) { n.st = DEAD; n.hp = 0; n.inside = false; n.deadT = 999; } n.goal = ''; n.path = null; n.y = w.walkH(w.ci(n.x, n.z)); });
+    s.P.forEach((e, k) => { const n = w.npcs[k]; if (!n) return; n.x = e[0]; n.z = e[1]; n.hp = e[2]; n.st = s.v >= 2 && [ROUTINE,PANIC,STUMBLE,SHAKEN,DEAD].includes(e[3]) ? e[3] : (e[3] === DEAD ? DEAD : ROUTINE); n.home = e[4]; n.inside = !!e[5]; n.homeless = !!e[6]; n.flat = !!e[7]; n.deadT = e[8]; n.erased = !!e[9]; if (n.erased) { n.st = DEAD; n.hp = 0; n.inside = false; n.deadT = 999; } n.goal = ''; n.path = null; n.y = w.walkH(w.ci(n.x, n.z)); });
     w.time = s.time; w.day = s.day; w.clock = s.clock; w.windA = s.windA; w.damBroken = s.damBroken; w.camps = s.camps || []; if (s.wg && w.well) w.well.gone = true;
+    if (s.survival) s.survival.forEach((e,k) => {
+      const n=w.npcs[k]; if (!n || n.erased || n.st===DEAD) return;
+      Object.assign(n,e); if (n.st===PANIC) w.reqPath(n,n.x+(n.x-n.tx),n.z+(n.z-n.tz));
+    });
+    w.threats=s.threats||[]; w.tornados=s.tornados||[]; w.meteors=s.meteors||[];
+    w.quakes=(s.quakes||[]).map(q => ({...q,bl:q.bl.map(e=>({b:w.buildings[e.id],d:e.d})).filter(e=>e.b)}));
+    w.rebuildHazards();
     w.terrDirty = true; w.staticDirty = true; return w;
   }
 }
@@ -1671,13 +1747,13 @@ class AudioEngine {
   const TOOLS = [
     { id: 'observe', icon: '👁', name: 'Observe', hint: 'Drag to move the camera. Click a villager to follow them.' },
     { id: 'quake', icon: '⛰️', name: 'Earthquake', hint: 'Drag a fault line across the land, then release.' },
-    { id: 'flood', icon: '🌊', name: 'Flood', hint: 'Drag to carve a channel and redirect water. Use it on the dam to break it.' },
+    { id: 'flood', icon: '🌊', name: 'Flood', hint: 'Click or hold to summon water. Drag to move the source; water flows downhill and remains.' },
     { id: 'meteor', icon: '☄️', name: 'Meteor', hint: 'Click to call down a meteor.' },
     { id: 'finger', icon: '👆', name: 'Divine Finger', hint: 'Click or hold to press the land flat.' },
     { id: 'fire', icon: '🔥', name: 'Firestorm', hint: 'Click or drag to set the land alight. Fire follows the wind.' },
     { id: 'lightning', icon: '⚡', name: 'Lightning', hint: 'Click to blast a storm of lightning down. Bolts seek the tallest things.' },
     { id: 'tornado', icon: '🌪️', name: 'Tornado', hint: 'Click to touch down a tornado. Move the mouse to steer it. It pulls, lifts, and throws.' },
-    { id: 'delete', icon: '✧', name: 'Deletion', hint: 'Divine Deletion: the ring is the brush. Click or drag to unmake land, and anything standing on it, into a void. The dam and the map edge stay. [ ] changes the brush.' }
+    { id: 'delete', icon: '✧', name: 'Deletion', hint: 'Click or drag to unmake highlighted objects. Hold Alt when starting a drag to erase land separately. The dam and map edge are protected.' }
   ];
   let R, world, audio = new AudioEngine(), tool = 'observe', intensity = 0.6, paused = false, speed = 1, started = false, memSave = null;
   let last = 0, acc = 0, frameN = 0, hudT = 0, follow = false, lastHour = -1;
@@ -1711,18 +1787,18 @@ class AudioEngine {
   function beginAction() {
     const h = mouse.hit = R.pick(mouse.nx, mouse.ny, world); if (!h) return;
     if (tool === 'quake') qStart = { x: h.x, z: h.z };
-    else if (tool === 'flood') lastCarve = { x: h.x, z: h.z };
+    else if (tool === 'flood') { world.emitWater(h.x, h.z, intensity, 0.1); lastCarve = { x: h.x, z: h.z }; }
     else if (tool === 'meteor') world.meteor(h.x, h.z, intensity);
     else if (tool === 'lightning') world.lightning(h.x, h.z, intensity);
     else if (tool === 'tornado') world.spawnTornado(h.x, h.z, intensity);
     else if (tool === 'delete') { delStroke = new Set(); tryDelete(true); }
     else if (tool === 'fire') fireT = 0;
   }
-  function endAction() { if (tool === 'quake' && qStart) { const h = mouse.hit; if (h) world.quake(qStart.x, qStart.z, h.x, h.z, intensity); qStart = null; } lastCarve = null; delStroke = null; delCarve = null; }
+  function endAction() { if (tool === 'quake' && qStart) { const h = mouse.hit; if (h) world.quake(qStart.x, qStart.z, h.x, h.z, intensity); qStart = null; } lastCarve = null; delStroke = null; delCarve = null; mouse.landDelete = false; }
   function deletionTarget() {
     if (!mouse.hit && !mouse.inside) return null;
     const d = R.ray(mouse.nx, mouse.ny), h = mouse.hit;
-    return world.queryDelete(R.eye[0], R.eye[1], R.eye[2], d[0], d[1], d[2], h ? h.x : null, h ? h.z : null, 0.55 + intensity * 1.15);
+    return world.queryDelete(R.eye[0], R.eye[1], R.eye[2], d[0], d[1], d[2], h ? h.x : null, h ? h.z : null, 0);
   }
   function delKey(o) {
     if (!o) return '';
@@ -1737,11 +1813,12 @@ class AudioEngine {
     delHover = deletionTarget();
     if (!force && !(mouse.down && mouse.mode === 'act')) return;
     const h = mouse.hit;
-    if (h) {
+    if (h && mouse.landDelete) {
       if (delCarve) world.eraseStroke(delCarve.x, delCarve.z, h.x, h.z, intensity);
       else world.eraseLand(h.x, h.z, intensity);
       delCarve = { x: h.x, z: h.z };
     }
+    if (mouse.landDelete) return;
     const o = delHover;
     if (!o) return;
     const k = delKey(o); if (delStroke && delStroke.has(k)) return;
@@ -1766,7 +1843,7 @@ class AudioEngine {
     if (!started) return; audio.start(); canvas.setPointerCapture(e.pointerId); setMouse(e); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (e.pointerType === 'touch' && ptrs.size === 2) { if (mouse.mode === 'act') { qStart = null; lastCarve = null; } mouse.down = false; mouse.mode = 'gest'; const p = [...ptrs.values()]; gest = { d: Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y), a: Math.atan2(p[1].y - p[0].y, p[1].x - p[0].x), cx: (p[0].x + p[1].x) / 2, cy: (p[0].y + p[1].y) / 2 }; return; }
     if (ptrs.size > 1) return;
-    mouse.down = true; mouse.moved = 0;
+    mouse.down = true; mouse.moved = 0; mouse.landDelete = !!e.altKey;
     if (e.button === 2) mouse.mode = 'rot'; else if (e.button === 1 || e.shiftKey || tool === 'observe') mouse.mode = 'pan'; else { mouse.mode = 'act'; beginAction(); }
     if (mouse.mode === 'pan') canvas.style.cursor = 'grabbing';
   });
@@ -1814,7 +1891,7 @@ class AudioEngine {
     const h = mouse.hit, act = mouse.down && mouse.mode === 'act';
     world.finger = (tool === 'finger' && h && mouse.inside) ? { x: h.x, z: h.z, r: 3.5 + 2.4 * intensity } : null;
     world.steer = (tool === 'tornado' && h && (mouse.inside || act)) ? { x: h.x, z: h.z, strong: !!act } : null;
-    if (tool === 'flood' && act && h) { const a = lastCarve || h, d = Math.hypot(h.x - a.x, h.z - a.z), n = Math.max(1, Math.ceil(d)); for (let k = 1; k <= n; k++) world.carve(a.x + (h.x - a.x) * k / n, a.z + (h.z - a.z) * k / n, intensity, dt); lastCarve = { x: h.x, z: h.z }; }
+    if (tool === 'flood' && act && h) { const a = lastCarve || h, d = Math.hypot(h.x - a.x, h.z - a.z), n = Math.min(240, Math.max(1, Math.ceil(d))); for (let k = 1; k <= n; k++) world.emitWater(a.x + (h.x - a.x) * k / n, a.z + (h.z - a.z) * k / n, intensity, dt / n); lastCarve = { x: h.x, z: h.z }; }
     if (tool === 'fire' && act && h) { fireT -= dt; if (fireT <= 0) { world.ignite(h.x, h.z, intensity); fireT = 0.22; } }
     if (fing.cd > 0) fing.cd -= dt;
     if (fing.ph === 0) { if (tool === 'finger' && act && h && fing.cd <= 0) { fing.ph = 1; fing.t = 0; fing.x = h.x; fing.z = h.z; } }
@@ -1835,23 +1912,23 @@ class AudioEngine {
       B.push(fx, ty + 2.36 * fr, fz, 1.5 * fr, 0.05 * fr, 1.5 * fr, 0, yw, 0, c[0] * 0.8, c[1] * 0.75, c[2] * 0.72, 0); B.push(fx, ty + 4.76 * fr, fz, 1.65 * fr, 0.05 * fr, 1.65 * fr, 0, yw, 0, c[0] * 0.8, c[1] * 0.75, c[2] * 0.72, 0);
       R.shadow[0] = fx; R.shadow[1] = fz; R.shadow[2] = fr * 2.6; R.shadow[3] = 0.25 + 0.35 * p;
     } else R.shadow[3] = 0;
-    if (tool === 'delete' && h && (mouse.inside || mouse.down)) {
+    if (tool === 'delete' && h && (mouse.landDelete || keys.alt) && (mouse.inside || mouse.down)) {
       const br = world.eraseRadius(intensity), y = world.hAt(h.x, h.z);
       B.push(h.x, y + 2.6, h.z, 0.16, 5.2, 0.16, 0, 0, 0, 1, 0.95, 0.4, 1);
       for (let k = 0; k < 4; k++) { const a = (R.time || 0) * 1.6 + k * 1.5708; B.push(h.x + Math.cos(a) * br, y + 0.55, h.z + Math.sin(a) * br, 0.22, 1.1, 0.22, 0, a, 0, 1, 0.98, 0.55, 1); }
     }
-    if (tool === 'delete' && delHover) frameTarget(B, delHover);
+    if (tool === 'delete' && delHover && !mouse.landDelete && !keys.alt) frameTarget(B, delHover);
   }
   function marker() {
     const h = mouse.hit, m = R.mark, c = R.markC; R.brush = 0; if (!h || tool === 'observe' || !mouse.inside && !mouse.down) { c[3] = 0; return; }
     m[0] = h.x; m[1] = h.z; c[3] = 0.75;
     if (tool === 'quake') { m[2] = 1.2; c[0] = 1; c[1] = 0.5; c[2] = 0.2; }
-    else if (tool === 'flood') { m[2] = 1.2 + 1.3 * intensity; c[0] = 0.3; c[1] = 0.7; c[2] = 1; if (world.nearDam(h.x, h.z, 2 + intensity)) { m[2] = 2.5 + 3.5 * intensity; c[0] = 1; c[1] = 0.9; c[2] = 0.4; } }
+    else if (tool === 'flood') { m[2] = 1.2 + 1.3 * intensity; c[0] = 0.3; c[1] = 0.7; c[2] = 1;  }
     else if (tool === 'meteor') { m[2] = 4 + 7 * intensity; c[0] = 1; c[1] = 0.25; c[2] = 0.15; }
     else if (tool === 'finger') { m[2] = 1.6 + 2.4 * intensity; c[0] = 1; c[1] = 0.9; c[2] = 0.75; }
     else if (tool === 'lightning') { m[2] = 5 + 9 * intensity; c[0] = 0.6; c[1] = 0.75; c[2] = 1; }
     else if (tool === 'tornado') { m[2] = 3.2 + 5.5 * intensity; c[0] = 0.72; c[1] = 0.78; c[2] = 0.84; }
-    else if (tool === 'delete') { R.brush = 1; m[2] = world.eraseRadius(intensity); c[0] = 1; c[1] = 0.86; c[2] = 0.22; c[3] = 1; }
+    else if (tool === 'delete') { R.brush = 1; m[2] = (mouse.landDelete || keys.alt) ? world.eraseRadius(intensity) : 0.45; c[0] = 1; c[1] = 0.86; c[2] = 0.22; c[3] = 1; }
     else { m[2] = 1.5 + 4 * intensity; c[0] = 1; c[1] = 0.55; c[2] = 0.1; }
   }
 
