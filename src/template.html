@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>God Sim — Destruction Sandbox</title>
+<style>
+  :root { --ink:#f1e9da; --dim:#b9ad98; --panel:rgba(22,18,15,.72); --line:rgba(241,233,218,.16); --gold:#e2b25a; --ember:#e8683a; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { margin:0; height:100%; overflow:hidden; background:#0d0b0a; color:var(--ink); font:14px/1.35 "Avenir Next","Segoe UI",system-ui,sans-serif; user-select:none; -webkit-user-select:none; }
+  #c { position:fixed; inset:0; width:100%; height:100%; display:block; touch-action:none; outline:none; }
+  #flash { position:fixed; inset:0; background:#fff3d6; opacity:0; pointer-events:none; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:10px; backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); }
+  #stats { position:fixed; top:10px; left:10px; padding:9px 12px; min-width:178px; pointer-events:none; }
+  #stats h1 { margin:0 0 2px; font:600 12px/1 Georgia,"Iowan Old Style",serif; letter-spacing:.22em; text-transform:uppercase; color:var(--gold); }
+  #s-clock { color:var(--dim); font-size:12px; margin-bottom:6px; font-variant-numeric:tabular-nums; }
+  #stats .g { display:grid; grid-template-columns:1fr auto; gap:1px 14px; font-variant-numeric:tabular-nums; }
+  #stats .g span:nth-child(odd) { color:var(--dim); }
+  #stats .g span:nth-child(even) { text-align:right; font-weight:600; }
+  #s-wind { display:inline-block; color:var(--gold); }
+  #sys { position:fixed; top:10px; right:10px; display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; max-width:60vw; }
+  button { font:inherit; color:var(--ink); background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:7px 11px; cursor:pointer; backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); }
+  button:hover { border-color:rgba(241,233,218,.4); }
+  button.on { border-color:var(--gold); background:rgba(226,178,90,.2); }
+  #speed { display:flex; } #speed button { border-radius:0; margin-left:-1px; padding:7px 9px; }
+  #speed button:first-child { border-radius:8px 0 0 8px; margin-left:0; } #speed button:last-child { border-radius:0 8px 8px 0; }
+  #bar { position:fixed; left:50%; bottom:10px; transform:translateX(-50%); padding:8px; display:flex; flex-direction:column; gap:6px; align-items:center; max-width:calc(100vw - 16px); }
+  #tools { display:flex; gap:6px; }
+  #tools button { position:relative; display:flex; flex-direction:column; align-items:center; gap:1px; min-width:76px; padding:7px 6px 5px; background:rgba(255,255,255,.04); }
+  #tools .ic { font-size:22px; line-height:1.1; } #tools .nm { font-size:11px; color:var(--dim); white-space:nowrap; }
+  #tools .ky { position:absolute; top:3px; right:6px; font-size:10px; color:var(--dim); opacity:.7; }
+  #tools button.on { background:rgba(232,104,58,.22); border-color:var(--ember); } #tools button.on .nm { color:var(--ink); }
+  #row2 { display:flex; align-items:center; gap:12px; width:100%; padding:0 4px; min-height:22px; }
+  #hint { flex:1; color:var(--dim); font-size:12px; }
+  #inten { display:flex; align-items:center; gap:7px; font-size:12px; color:var(--dim); }
+  #rng { width:120px; accent-color:var(--ember); } #rv { width:34px; text-align:right; color:var(--ink); font-variant-numeric:tabular-nums; }
+  #log { position:fixed; left:10px; bottom:118px; width:min(330px,70vw); display:flex; flex-direction:column; gap:3px; pointer-events:none; }
+  #log div { padding:4px 9px; background:rgba(22,18,15,.6); border-left:2px solid var(--ember); border-radius:0 6px 6px 0; font-size:12.5px; transition:opacity 6s; }
+  #log div.old { opacity:0; }
+  #card { position:fixed; right:10px; top:58px; width:210px; padding:10px 12px; display:none; pointer-events:none; }
+  #card.show { display:block; } #c-name { font:600 16px Georgia,serif; } #c-job { color:var(--gold); font-size:12px; text-transform:capitalize; } #c-st { margin:6px 0; font-size:12.5px; }
+  .hpb { height:5px; background:rgba(255,255,255,.12); border-radius:3px; overflow:hidden; } #c-hp { height:100%; background:#7fbf6a; }
+  #toast { position:fixed; left:50%; top:16px; transform:translate(-50%,-70px); padding:9px 16px; transition:transform .3s; pointer-events:none; max-width:90vw; text-align:center; }
+  #toast.show { transform:translate(-50%,0); }
+  #help { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(8,6,5,.6); z-index:5; }
+  #help.show { display:flex; } #help .panel { padding:18px 22px; max-width:min(560px,92vw); max-height:86vh; overflow:auto; }
+  #help h2 { margin:0 0 10px; font:600 15px Georgia,serif; letter-spacing:.14em; text-transform:uppercase; color:var(--gold); }
+  #help table { border-collapse:collapse; } #help td { padding:3px 14px 3px 0; vertical-align:top; } #help td:first-child { color:var(--gold); white-space:nowrap; }
+  #start { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:radial-gradient(ellipse at center, rgba(13,11,10,.35), rgba(13,11,10,.9)); z-index:10; transition:opacity .9s; text-align:center; padding:20px; }
+  #start.gone { opacity:0; pointer-events:none; }
+  #start h1 { margin:0; font:400 clamp(40px,9vw,84px)/1 Georgia,"Iowan Old Style",serif; letter-spacing:.12em; text-wrap:balance; }
+  #start .sub { margin:8px 0 22px; letter-spacing:.34em; text-transform:uppercase; color:var(--gold); font-size:12px; }
+  #start p { color:var(--dim); max-width:440px; margin:0 auto 22px; min-height:2.6em; }
+  #start button { font-size:16px; padding:11px 26px; margin:0 5px 8px; border-color:var(--gold); } #start button:disabled { opacity:.4; }
+  @media (max-width:640px) { #tools button { min-width:0; padding:7px 9px 5px; } #tools .nm, #tools .ky { display:none; } #tools .ic { font-size:24px; } #hint { display:none; } #row2 { justify-content:center; } #stats { font-size:12px; min-width:150px; } #sys button { padding:6px 8px; } #log { bottom:112px; } }
+</style>
+</head>
+<body>
+<canvas id="c" tabindex="0"></canvas>
+<div id="flash"></div>
+<div id="stats" class="panel">
+  <h1>God Sim</h1>
+  <div id="s-clock">Day 1</div>
+  <div class="g">
+    <span>Villagers</span><span id="s-pop">0</span>
+    <span>Injured</span><span id="s-inj">0</span>
+    <span>Dead</span><span id="s-dead">0</span>
+    <span>Homeless</span><span id="s-hl">0</span>
+    <span>Buildings</span><span id="s-b">0</span>
+    <span>Fires</span><span id="s-fire">0</span>
+    <span>Mood</span><span id="s-mood">at peace</span>
+    <span>Wind</span><span><span id="s-wind">↑</span></span>
+  </div>
+</div>
+<div id="sys">
+  <div id="speed"><button data-s="0" title="Pause (Space)">❚❚</button><button data-s="1" title="Normal speed">1×</button><button data-s="3" title="Fast">3×</button></div>
+  <button id="save" title="Save this world">Save</button><button id="load" title="Restore the saved world">Load</button><button id="new" title="Generate a new world">New world</button>
+  <button id="mute" title="Sound (M)">🔊</button><button id="helpb" title="Controls (H)">?</button>
+</div>
+<div id="card" class="panel"><div id="c-name"></div><div id="c-job"></div><div id="c-st"></div><div class="hpb"><div id="c-hp"></div></div></div>
+<div id="log"></div>
+<div id="bar" class="panel">
+  <div id="tools"></div>
+  <div id="row2"><div id="hint"></div><div id="inten">Intensity <input id="rng" type="range" min="10" max="100" value="60"><span id="rv">60%</span></div></div>
+</div>
+<div id="toast" class="panel"></div>
+<div id="help"><div class="panel">
+  <h2>Controls</h2>
+  <table>
+    <tr><td>1 – 6</td><td>Choose Observe, Earthquake, Flood, Meteor, Divine Finger, Firestorm</td></tr>
+    <tr><td>Left mouse</td><td>Use the chosen power. With Observe: drag to move, click a villager to follow</td></tr>
+    <tr><td>Right-drag</td><td>Rotate and tilt the camera</td></tr>
+    <tr><td>Shift-drag / middle-drag</td><td>Move the camera while a power is selected</td></tr>
+    <tr><td>Wheel</td><td>Zoom from a single villager to the whole valley</td></tr>
+    <tr><td>W A S D / arrows</td><td>Move · <b>Q E</b> rotate · <b>R F</b> tilt · <b>+ −</b> zoom</td></tr>
+    <tr><td>[ ]</td><td>Lower / raise power intensity</td></tr>
+    <tr><td>Space</td><td>Pause · <b>M</b> mute · <b>Esc</b> stop following</td></tr>
+    <tr><td>Touch</td><td>One finger uses the power; two fingers move, pinch to zoom, twist to rotate</td></tr>
+  </table>
+  <p style="color:var(--dim);margin:12px 0 0">Earthquake: drag a line, release. Flood: drag a trench from the river toward low ground, or use it on the stone dam upstream. Everything you break stays broken — Save keeps the scarred world.</p>
+</div></div>
+<div id="start"><div>
+  <h1>GOD SIM</h1>
+  <div class="sub">Destruction sandbox</div>
+  <p id="start-msg">Shaping the world…</p>
+  <button id="begin" disabled>Begin</button><button id="cont" style="display:none">Continue saved world</button>
+</div></div>
+<script>
+/*__JS__*/
+</script>
+</body>
+</html>

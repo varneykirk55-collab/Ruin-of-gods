@@ -1,0 +1,74 @@
+const { chromium } = require('playwright');
+let pass=0, fail=0; const ok=(c,m)=>{ if(c){pass++;console.log('  ok   '+m);} else {fail++;console.log('  FAIL '+m);} };
+(async()=>{
+  const b = await chromium.launch({executablePath:'/usr/bin/google-chrome',args:['--no-sandbox','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader','--ignore-gpu-blocklist','--autoplay-policy=no-user-gesture-required']});
+  const ctx = await b.newContext({viewport:{width:1100,height:680}});
+  const p = await ctx.newPage();
+  const errs=[]; p.on('console',m=>{ if(m.type()==='error') errs.push(m.text()); }); p.on('pageerror',e=>errs.push('PAGEERR '+e.message));
+  await p.goto('file://' + require('path').resolve(__dirname, '../index.html') + '');
+  await p.waitForFunction(()=>window.__game && !document.getElementById('begin').disabled, null, {timeout:30000});
+  await p.evaluate(()=>{ __game.newWorld(31337); __game.world.rainT=1e9; });
+  await p.click('#begin'); await p.waitForTimeout(500);
+  const ev = f => p.evaluate(f);
+  const ff = s => p.evaluate(s=>{ const w=__game.world; for(let i=0;i<s*60;i++) w.tick(1/60); }, s);
+  const scr = (x,z)=>p.evaluate(([x,z])=>{const g=__game,w=g.world,q=g.R.project(x,w.hAt(x,z),z);return [(q[0]+1)/2*innerWidth,(1-q[1])/2*innerHeight]},[x,z]);
+  const cam = (o)=>p.evaluate(o=>{const c=__game.R.cam; for(const k in o){c[k]=o[k]; c['g'+k]=o[k];}},o);
+  const settle = (ms)=>p.waitForTimeout(ms||900);
+  const st = ()=>ev(()=>__game.world.stats());
+  const vc = await ev(()=>__game.world.vc);
+  console.log('10 launches and runs');
+  ok(await ev(()=>__game.started && document.getElementById('start').classList.contains('gone')), 'game starts from the Begin button');
+  const t0 = await ev(()=>__game.world.tickN); await settle(2500); const t1 = await ev(()=>__game.world.tickN); ok(t1>t0, 'simulation advances on its own in the frame loop ('+(t1-t0)+' ticks)');
+  console.log('1 explore from above (real mouse/keyboard)');
+  let c0 = await ev(()=>({...__game.R.cam}));
+  await p.mouse.move(550,300); await p.mouse.wheel(0,600); await settle(600); let c1 = await ev(()=>({...__game.R.cam})); ok(c1.gdist>c0.gdist*1.5, 'wheel zooms out '+c0.gdist.toFixed(0)+' -> '+c1.gdist.toFixed(0));
+  await p.mouse.wheel(0,-600); await p.mouse.down({button:'right'}); await p.mouse.move(700,340,{steps:4}); await p.mouse.up({button:'right'}); let c2 = await ev(()=>({...__game.R.cam})); ok(Math.abs(c2.gyaw-c1.gyaw)>0.5 && c2.gpitch!==c1.gpitch, 'right-drag rotates and tilts');
+  await p.mouse.move(500,300); await p.mouse.down(); await p.mouse.move(600,380,{steps:4}); await p.mouse.up(); let c3 = await ev(()=>({...__game.R.cam})); ok(Math.hypot(c3.gtx-c2.gtx,c3.gtz-c2.gtz)>3, 'left-drag pans in Observe');
+  await p.keyboard.down('w'); await settle(700); await p.keyboard.up('w'); await p.keyboard.down('q'); await settle(500); await p.keyboard.up('q'); let c4 = await ev(()=>({...__game.R.cam})); ok(Math.hypot(c4.gtx-c3.gtx,c4.gtz-c3.gtz)>1 && c4.gyaw!==c3.gyaw, 'WASD moves, Q/E rotates');
+  console.log('2 villagers live their day');
+  await ff(50); let s = await st();
+  ok(await ev(()=>__game.world.npcs.filter(n=>n.working).length)>8, 'villagers at work: '+await ev(()=>__game.world.npcs.filter(n=>n.working).length)+' of '+s.alive);
+  await cam({tx:vc.x,tz:vc.z,dist:45,pitch:0.8,yaw:0.5}); await settle();
+  const npc = await ev(()=>{const n=__game.world.npcs.find(n=>!n.inside && Math.hypot(n.x-__game.world.vc.x,n.z-__game.world.vc.z)<25) ; return n?[n.x,n.z,n.name]:null});
+  if(npc){ const q=await scr(npc[0],npc[1]); await ev(()=>__game.setSpeed(0)); await settle(400); const q2=await scr(npc[0],npc[1]); await p.mouse.click(q2[0],q2[1]-4); await settle(1800); ok(await ev(()=>!!__game.R.sel && document.getElementById('card').classList.contains('show')), 'clicking a villager selects and shows their card: '+await ev(()=>__game.R.sel&&__game.R.sel.name+' — '+document.getElementById('c-st').textContent)); await ev(()=>__game.setSpeed(1)); await p.keyboard.press('Escape'); } else ok(false,'no villager nearby');
+  await p.screenshot({path:'a_life.png'});
+  console.log('3/4/6/7 powers by real input');
+  // quake
+  await p.keyboard.press('2'); let a=await scr(vc.x-13,vc.z-15), c=await scr(vc.x+10,vc.z+16); const hsum=()=>ev(()=>{const w=__game.world;let d=0;for(let i=0;i<w.h.length;i++) d+=Math.abs(w.h[i]-w.h0[i])>0.3?1:0;return d});
+  const h0=await hsum(), b0=(await st()).bs;
+  await p.mouse.move(a[0],a[1]); await p.mouse.down(); await p.mouse.move(c[0],c[1],{steps:5}); await p.mouse.up();
+  ok(await ev(()=>__game.world.quakes.length===1), 'earthquake: dragging a fault line starts a quake'); await ff(1.2); s=await st(); ok(s.pan>5, 'earthquake: villagers stumble and flee ('+s.pan+')');
+  const stages=new Set(); for(let i=0;i<12;i++){ await ff(1); stages.add((await st()).bs); } ok((await hsum())>h0+150, 'earthquake: terrain fractured and shifted ('+((await hsum())-h0)+' cells)'); ok(stages.size>=3, 'earthquake: buildings fell one after another (standing count went '+[...stages].join(' → ')+')');
+  ok(await ev(()=>__game.world.rubble.length)>30, 'debris accumulates: '+await ev(()=>__game.world.rubble.length)+' pieces');
+  // meteor
+  await cam({tx:vc.x+12,tz:vc.z,dist:62}); await settle(); await p.keyboard.press('4'); a=await scr(vc.x+22,vc.z+4); const mh=await ev(()=>__game.world.hAt(__game.world.vc.x+22,__game.world.vc.z+4)); await p.mouse.click(a[0],a[1]);
+  ok(await ev(()=>__game.world.meteors.length===1), 'meteor: click summons a meteor'); await ff(4);
+  ok(await ev(()=>__game.world.hAt(__game.world.vc.x+22,__game.world.vc.z+4))<mh-2, 'meteor: crater dug'); ok((await st()).fires>0, 'meteor: fires started ('+(await st()).fires+')');
+  // finger
+  await p.keyboard.press('5'); const tgt=await ev(()=>{const b=__game.world.buildings.find(b=>!b.ruin&&b.type==='house'&&!b.fire); return b?[b.x,b.z,b.id]:null});
+  if(tgt){ await cam({tx:tgt[0],tz:tgt[1],dist:30}); await settle(); a=await scr(tgt[0],tgt[1]); await p.mouse.move(a[0],a[1]); await settle(500); ok(await ev(()=>!!__game.world.finger), 'finger: hovering registers as a threat'); await p.mouse.down(); await p.waitForTimeout(3500); await p.mouse.up(); ok(await p.evaluate(id=>__game.world.buildings[id].parts.filter(p=>p.st).length>=5, tgt[2]), 'finger: house flattened under the press'); await p.screenshot({path:'a_finger.png'}); } else ok(false,'no house for finger');
+  // fire
+  await p.keyboard.press('6'); const fc=await ev(()=>{const w=__game.world;let best=0,bi=0;for(let z=70;z<150;z++)for(let x=10;x<150;x++){let c=0;for(let dz=-4;dz<=4;dz++)for(let dx=-4;dx<=4;dx++){const i=(z+dz)*160+x+dx; if(w.kind[i]===1&&w.fuel[i]>0.5)c++;} if(c>best){best=c;bi=z*160+x}}return [bi%160,(bi/160)|0]});
+  await cam({tx:fc[0],tz:fc[1],dist:50}); await settle(); a=await scr(fc[0],fc[1]); const f0=(await st()).fires; await p.mouse.move(a[0],a[1]); await p.mouse.down(); await p.waitForTimeout(1200); await p.mouse.up();
+  ok((await st()).fires>f0, 'firestorm: land ignites'); const sc0=await ev(()=>__game.world.scorch.reduce((a,b)=>a+(b>200?1:0),0)); await ff(40); const sc1=await ev(()=>__game.world.scorch.reduce((a,b)=>a+(b>200?1:0),0)); ok(sc1>sc0+40, 'firestorm: fire spread and scorched '+(sc1-sc0)+' cells'); await settle(); await p.screenshot({path:'a_fire.png'});
+  // flood
+  console.log('5 water / flood');
+  const dam=await ev(()=>[Math.round(__game.world.rx(58)),58]); await cam({tx:dam[0],tz:64,dist:60,yaw:3.3,pitch:0.75}); await settle(); await p.keyboard.press('3'); a=await scr(dam[0],58);
+  const res0=await ev(()=>__game.world.w[50*160+Math.round(__game.world.rx(50))]); await p.mouse.move(a[0],a[1]); await p.mouse.down(); await p.waitForTimeout(1200); await p.mouse.up();
+  ok(await ev(()=>__game.world.damBroken), 'flood: using the power on the dam breaches it'); await ff(40); const res1=await ev(()=>__game.world.w[50*160+Math.round(__game.world.rx(50))]); ok(res1<res0*0.6, 'reservoir drains downhill through the breach ('+res0.toFixed(1)+' → '+res1.toFixed(1)+')');
+  ok(await ev(()=>{const w=__game.world;let n=0;for(let i=60*160;i<w.w.length;i++) if(w.w[i]-w.wb[i]>0.2) n++; return n})>200, 'low ground downstream is under water'); await cam({tx:vc.x-6,tz:vc.z,dist:60,yaw:0.5,pitch:0.8}); await settle(); await p.screenshot({path:'a_flood.png'});
+  console.log('7 survivors'); await ff(200); s=await st(); ok(s.alive>0 && s.pan<s.alive*0.3, 'survivors remain and calm down: '+JSON.stringify(s)); ok(s.tents>0, 'homeless survivors raised '+s.tents+' tents');
+  console.log('8/9 persistence + save/load');
+  const sig=()=>ev(()=>{const w=__game.world;let s=0;for(let i=0;i<w.h.length;i++)s+=Math.round(w.h[i]*10);return [s,w.rubble.length,w.stats().bs,w.stats().dead,w.craterCells.length,w.buildings.length,w.scorch.reduce((a,b)=>a+b,0)].join('|')});
+  await ev(()=>__game.setSpeed(0)); await p.click('#save'); const s1=await sig(); 
+  await p.reload(); await p.waitForFunction(()=>window.__game && !document.getElementById('begin').disabled, null, {timeout:30000});
+  ok(await ev(()=>document.getElementById('cont').style.display!=='none'), 'after a page reload the start screen offers the saved world'); await p.click('#cont'); await settle(800); const s2=await sig();
+  const near=(x,y)=>{const A=x.split('|').map(Number),B=y.split('|').map(Number); return Math.abs(A[0]-B[0])<400 && A.slice(1).join()===B.slice(1).join();};
+  ok(near(s1,s2), 'scarred world restored after reload ('+s1+' vs '+s2+')'); const tk=await ev(()=>__game.world.tickN); await settle(1500); ok(await ev(()=>__game.world.tickN)>tk, 'loaded world keeps simulating'); await p.keyboard.press('4'); await p.mouse.click(550,330); ok(await ev(()=>__game.world.meteors.length===1), 'powers still work on the loaded world');
+  await cam({tx:vc.x+4,tz:vc.z+2,dist:80,pitch:0.9,yaw:0.4}); await ev(()=>{__game.world.time=0.45}); await settle(1200); await p.screenshot({path:'a_loaded.png'});
+  console.log('audio + touch');
+  ok(await ev(()=>{const a=__game.audio; if(!a.on||a.ctx.state!=='running') return false; for(const n of ['collapse','crack','thud','boom','whoosh','dambreak','splash','ignite','crackle','scream','chirp','cricket','hammer','murmur','bell','ui']) { a.last={}; a.play(n,1);} a.mix({wind:1,river:1,fire:1,quake:1,rain:1,flood:1}); return true;}), 'audio context running; every sound and ambience layer plays without error');
+  const d0=await ev(()=>__game.R.cam.gdist); await ev(()=>{const c=document.getElementById('c'); const E=(t,id,x,y)=>c.dispatchEvent(new PointerEvent(t,{pointerId:id,pointerType:'touch',clientX:x,clientY:y,bubbles:true,button:0})); c.setPointerCapture=()=>{}; E('pointerdown',11,400,300); E('pointerdown',12,600,300); E('pointermove',12,700,300); E('pointermove',11,300,300); E('pointerup',11,300,300); E('pointerup',12,700,300);}); const d1=await ev(()=>__game.R.cam.gdist); ok(d1<d0*0.7, 'two-finger pinch zooms (synthetic touch events): '+d0.toFixed(0)+' → '+d1.toFixed(0));
+  console.log(errs.length? 'console errors:\n'+errs.slice(0,6).join('\n') : 'no console errors'); if(errs.length) fail++;
+  console.log(`\n${pass} passed, ${fail} failed`); await b.close();
+})().catch(e=>{console.log('ERR',e.stack);process.exit(1)});

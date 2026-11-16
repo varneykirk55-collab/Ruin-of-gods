@@ -1,0 +1,1380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>God Sim — Destruction Sandbox</title>
+<style>
+  :root { --ink:#f1e9da; --dim:#b9ad98; --panel:rgba(22,18,15,.72); --line:rgba(241,233,218,.16); --gold:#e2b25a; --ember:#e8683a; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { margin:0; height:100%; overflow:hidden; background:#0d0b0a; color:var(--ink); font:14px/1.35 "Avenir Next","Segoe UI",system-ui,sans-serif; user-select:none; -webkit-user-select:none; }
+  #c { position:fixed; inset:0; width:100%; height:100%; display:block; touch-action:none; outline:none; }
+  #flash { position:fixed; inset:0; background:#fff3d6; opacity:0; pointer-events:none; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:10px; backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); }
+  #stats { position:fixed; top:10px; left:10px; padding:9px 12px; min-width:178px; pointer-events:none; }
+  #stats h1 { margin:0 0 2px; font:600 12px/1 Georgia,"Iowan Old Style",serif; letter-spacing:.22em; text-transform:uppercase; color:var(--gold); }
+  #s-clock { color:var(--dim); font-size:12px; margin-bottom:6px; font-variant-numeric:tabular-nums; }
+  #stats .g { display:grid; grid-template-columns:1fr auto; gap:1px 14px; font-variant-numeric:tabular-nums; }
+  #stats .g span:nth-child(odd) { color:var(--dim); }
+  #stats .g span:nth-child(even) { text-align:right; font-weight:600; }
+  #s-wind { display:inline-block; color:var(--gold); }
+  #sys { position:fixed; top:10px; right:10px; display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; max-width:60vw; }
+  button { font:inherit; color:var(--ink); background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:7px 11px; cursor:pointer; backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); }
+  button:hover { border-color:rgba(241,233,218,.4); }
+  button.on { border-color:var(--gold); background:rgba(226,178,90,.2); }
+  #speed { display:flex; } #speed button { border-radius:0; margin-left:-1px; padding:7px 9px; }
+  #speed button:first-child { border-radius:8px 0 0 8px; margin-left:0; } #speed button:last-child { border-radius:0 8px 8px 0; }
+  #bar { position:fixed; left:50%; bottom:10px; transform:translateX(-50%); padding:8px; display:flex; flex-direction:column; gap:6px; align-items:center; max-width:calc(100vw - 16px); }
+  #tools { display:flex; gap:6px; }
+  #tools button { position:relative; display:flex; flex-direction:column; align-items:center; gap:1px; min-width:76px; padding:7px 6px 5px; background:rgba(255,255,255,.04); }
+  #tools .ic { font-size:22px; line-height:1.1; } #tools .nm { font-size:11px; color:var(--dim); white-space:nowrap; }
+  #tools .ky { position:absolute; top:3px; right:6px; font-size:10px; color:var(--dim); opacity:.7; }
+  #tools button.on { background:rgba(232,104,58,.22); border-color:var(--ember); } #tools button.on .nm { color:var(--ink); }
+  #row2 { display:flex; align-items:center; gap:12px; width:100%; padding:0 4px; min-height:22px; }
+  #hint { flex:1; color:var(--dim); font-size:12px; }
+  #inten { display:flex; align-items:center; gap:7px; font-size:12px; color:var(--dim); }
+  #rng { width:120px; accent-color:var(--ember); } #rv { width:34px; text-align:right; color:var(--ink); font-variant-numeric:tabular-nums; }
+  #log { position:fixed; left:10px; bottom:118px; width:min(330px,70vw); display:flex; flex-direction:column; gap:3px; pointer-events:none; }
+  #log div { padding:4px 9px; background:rgba(22,18,15,.6); border-left:2px solid var(--ember); border-radius:0 6px 6px 0; font-size:12.5px; transition:opacity 6s; }
+  #log div.old { opacity:0; }
+  #card { position:fixed; right:10px; top:58px; width:210px; padding:10px 12px; display:none; pointer-events:none; }
+  #card.show { display:block; } #c-name { font:600 16px Georgia,serif; } #c-job { color:var(--gold); font-size:12px; text-transform:capitalize; } #c-st { margin:6px 0; font-size:12.5px; }
+  .hpb { height:5px; background:rgba(255,255,255,.12); border-radius:3px; overflow:hidden; } #c-hp { height:100%; background:#7fbf6a; }
+  #toast { position:fixed; left:50%; top:16px; transform:translate(-50%,-70px); padding:9px 16px; transition:transform .3s; pointer-events:none; max-width:90vw; text-align:center; }
+  #toast.show { transform:translate(-50%,0); }
+  #help { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(8,6,5,.6); z-index:5; }
+  #help.show { display:flex; } #help .panel { padding:18px 22px; max-width:min(560px,92vw); max-height:86vh; overflow:auto; }
+  #help h2 { margin:0 0 10px; font:600 15px Georgia,serif; letter-spacing:.14em; text-transform:uppercase; color:var(--gold); }
+  #help table { border-collapse:collapse; } #help td { padding:3px 14px 3px 0; vertical-align:top; } #help td:first-child { color:var(--gold); white-space:nowrap; }
+  #start { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:radial-gradient(ellipse at center, rgba(13,11,10,.35), rgba(13,11,10,.9)); z-index:10; transition:opacity .9s; text-align:center; padding:20px; }
+  #start.gone { opacity:0; pointer-events:none; }
+  #start h1 { margin:0; font:400 clamp(40px,9vw,84px)/1 Georgia,"Iowan Old Style",serif; letter-spacing:.12em; text-wrap:balance; }
+  #start .sub { margin:8px 0 22px; letter-spacing:.34em; text-transform:uppercase; color:var(--gold); font-size:12px; }
+  #start p { color:var(--dim); max-width:440px; margin:0 auto 22px; min-height:2.6em; }
+  #start button { font-size:16px; padding:11px 26px; margin:0 5px 8px; border-color:var(--gold); } #start button:disabled { opacity:.4; }
+  @media (max-width:640px) { #tools button { min-width:0; padding:7px 9px 5px; } #tools .nm, #tools .ky { display:none; } #tools .ic { font-size:24px; } #hint { display:none; } #row2 { justify-content:center; } #stats { font-size:12px; min-width:150px; } #sys button { padding:6px 8px; } #log { bottom:112px; } }
+</style>
+</head>
+<body>
+<canvas id="c" tabindex="0"></canvas>
+<div id="flash"></div>
+<div id="stats" class="panel">
+  <h1>God Sim</h1>
+  <div id="s-clock">Day 1</div>
+  <div class="g">
+    <span>Villagers</span><span id="s-pop">0</span>
+    <span>Injured</span><span id="s-inj">0</span>
+    <span>Dead</span><span id="s-dead">0</span>
+    <span>Homeless</span><span id="s-hl">0</span>
+    <span>Buildings</span><span id="s-b">0</span>
+    <span>Fires</span><span id="s-fire">0</span>
+    <span>Mood</span><span id="s-mood">at peace</span>
+    <span>Wind</span><span><span id="s-wind">↑</span></span>
+  </div>
+</div>
+<div id="sys">
+  <div id="speed"><button data-s="0" title="Pause (Space)">❚❚</button><button data-s="1" title="Normal speed">1×</button><button data-s="3" title="Fast">3×</button></div>
+  <button id="save" title="Save this world">Save</button><button id="load" title="Restore the saved world">Load</button><button id="new" title="Generate a new world">New world</button>
+  <button id="mute" title="Sound (M)">🔊</button><button id="helpb" title="Controls (H)">?</button>
+</div>
+<div id="card" class="panel"><div id="c-name"></div><div id="c-job"></div><div id="c-st"></div><div class="hpb"><div id="c-hp"></div></div></div>
+<div id="log"></div>
+<div id="bar" class="panel">
+  <div id="tools"></div>
+  <div id="row2"><div id="hint"></div><div id="inten">Intensity <input id="rng" type="range" min="10" max="100" value="60"><span id="rv">60%</span></div></div>
+</div>
+<div id="toast" class="panel"></div>
+<div id="help"><div class="panel">
+  <h2>Controls</h2>
+  <table>
+    <tr><td>1 – 6</td><td>Choose Observe, Earthquake, Flood, Meteor, Divine Finger, Firestorm</td></tr>
+    <tr><td>Left mouse</td><td>Use the chosen power. With Observe: drag to move, click a villager to follow</td></tr>
+    <tr><td>Right-drag</td><td>Rotate and tilt the camera</td></tr>
+    <tr><td>Shift-drag / middle-drag</td><td>Move the camera while a power is selected</td></tr>
+    <tr><td>Wheel</td><td>Zoom from a single villager to the whole valley</td></tr>
+    <tr><td>W A S D / arrows</td><td>Move · <b>Q E</b> rotate · <b>R F</b> tilt · <b>+ −</b> zoom</td></tr>
+    <tr><td>[ ]</td><td>Lower / raise power intensity</td></tr>
+    <tr><td>Space</td><td>Pause · <b>M</b> mute · <b>Esc</b> stop following</td></tr>
+    <tr><td>Touch</td><td>One finger uses the power; two fingers move, pinch to zoom, twist to rotate</td></tr>
+  </table>
+  <p style="color:var(--dim);margin:12px 0 0">Earthquake: drag a line, release. Flood: drag a trench from the river toward low ground, or use it on the stone dam upstream. Everything you break stays broken — Save keeps the scarred world.</p>
+</div></div>
+<div id="start"><div>
+  <h1>GOD SIM</h1>
+  <div class="sub">Destruction sandbox</div>
+  <p id="start-msg">Shaping the world…</p>
+  <button id="begin" disabled>Begin</button><button id="cont" style="display:none">Continue saved world</button>
+</div></div>
+<script>
+'use strict';
+// ===================== GOD SIM — simulation core (no DOM) =====================
+const N = 160, NN = N * N;
+const K = { GRASS: 0, FOREST: 1, FARM: 2, ROAD: 3, ROCK: 4, DAM: 5, SAND: 6 };
+const ROUTINE = 0, PANIC = 1, STUMBLE = 2, SHAKEN = 3, DEAD = 4;
+const DAYLEN = 360;
+
+function rngMaker(seed) { let a = seed >>> 0; return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function hash2(x, z, s) { let h = (Math.imul(x, 374761393) + Math.imul(z, 668265263) + Math.imul(s, 1274126177)) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; }
+function vnoise(x, z, s) { const xi = Math.floor(x), zi = Math.floor(z), fx = x - xi, fz = z - zi; const u = fx * fx * (3 - 2 * fx), v = fz * fz * (3 - 2 * fz); const a = hash2(xi, zi, s), b = hash2(xi + 1, zi, s), c = hash2(xi, zi + 1, s), d = hash2(xi + 1, zi + 1, s); return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v; }
+function fbm(x, z, s, o) { let a = 0, amp = 0.5, f = 1; for (let i = 0; i < o; i++) { a += amp * vnoise(x * f, z * f, s + i * 17); amp *= 0.5; f *= 2; } return a; }
+function sstep(a, b, x) { let t = (x - a) / (b - a); t = t < 0 ? 0 : t > 1 ? 1 : t; return t * t * (3 - 2 * t); }
+const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
+
+function b64enc(u8) { let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); }
+function b64dec(str) { const s = atob(str), u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u; }
+
+const VULN = {
+  quake: { sup: 1, roof: 0.9, wall: 0.7, deck: 1 },
+  fire: { roof: 1, wall: 0.38, sup: 0.55, deck: 0.8 },
+  flood: { wall: 1, sup: 0.6, roof: 0.12, deck: 1 },
+  blast: { sup: 1, roof: 1, wall: 1, deck: 1 },
+  crush: { sup: 1, roof: 1, wall: 1, deck: 1 },
+  impact: { roof: 1, wall: 0.8, sup: 0.5, deck: 1 },
+  stress: { sup: 1, roof: 1, wall: 1, deck: 1 }
+};
+const NAMES = ['Ada', 'Bram', 'Cora', 'Dov', 'Edda', 'Finn', 'Greta', 'Hale', 'Ines', 'Jory', 'Kell', 'Lena', 'Milo', 'Nora', 'Odo', 'Pia', 'Quin', 'Rhea', 'Sten', 'Tova', 'Ulf', 'Vera', 'Wim', 'Yara', 'Zane', 'Asa', 'Berit', 'Calder', 'Dagny', 'Eskil'];
+const SCAN = [0, 0, 2, 0, -2, 0, 0, 2, 0, -2, 2, 2, -2, 2, 2, -2, -2, -2, 4, 0, -4, 0, 0, 4, 0, -4, 3, 3, -3, 3, 3, -3, -3, -3];
+
+class World {
+  constructor(seed) {
+    this.seed = seed >>> 0;
+    this.h = new Float32Array(NN); this.h0 = new Float32Array(NN);
+    this.w = new Float32Array(NN); this.wb = new Float32Array(NN); this.dw = new Float32Array(NN);
+    this.flow = new Float32Array(NN); this.f0 = new Float32Array(NN);
+    this.flx = new Float32Array(NN); this.flz = new Float32Array(NN);
+    this.fuel = new Float32Array(NN); this.burn = new Float32Array(NN);
+    this.scorch = new Uint8Array(NN); this.crack = new Uint8Array(NN); this.mud = new Uint8Array(NN);
+    this.kind = new Uint8Array(NN); this.tree = new Uint8Array(NN); this.flag = new Uint8Array(NN);
+    this.bmap = new Int16Array(NN); this.bridge = new Uint8Array(NN);
+    this.buildings = []; this.npcs = []; this.debris = []; this.rubble = []; this.fires = [];
+    this.threats = []; this.quakes = []; this.meteors = []; this.emitters = []; this.craterCells = [];
+    this.pathQ = []; this.camps = [];
+    this.time = 0.3; this.day = 1; this.tickN = 0; this.clock = 0;
+    this.windA = 0.6; this.windS = 0.7; this.wind = [0, 0];
+    this.rain = 0; this.rainT = 200 + Math.random() * 150;
+    this.alarm = 0; this.screamT = 0; this.damBroken = false; this.settling = false;
+    this.terrDirty = true; this.staticDirty = true;
+    this.seepHold = 0; this.finger = null; this._dg = { x: 0, z: 0, r: 7 };
+    this.rnd = Math.random;
+    this.fx = { burst() { }, sound() { }, shake() { }, flash() { }, log() { } };
+    // A* scratch
+    this._g = new Float32Array(NN); this._came = new Int32Array(NN); this._st = new Uint32Array(NN); this._stamp = 0;
+    this._hi = new Int32Array(NN * 4); this._hf = new Float32Array(NN * 4);
+    this.gen();
+  }
+
+  // ------------------------------------------------------------ generation
+  rx(z) { return 80 + 10 * Math.sin(z * 0.043 + this.ph) + 3 * Math.sin(z * 0.11 + this.ph * 2); }
+  bed(z) { return z < 57 ? 6.83 + (57 - z) * 0.16 : 6.83 - (z - 57) * 0.064; }
+  rdist(x, z) { const zc = z < 20 ? 20 : z; const dr = 10 * 0.043 * Math.cos(zc * 0.043 + this.ph) + 3 * 0.11 * Math.cos(zc * 0.11 + this.ph * 2); let d = Math.abs(x - this.rx(zc)) / Math.sqrt(1 + dr * dr); if (z < 22) d += (22 - z) * 3; return d; }
+
+  gen() {
+    const s = this.seed, g = rngMaker(s); this.grng = g;
+    this.ph = g() * 6.28;
+    const h = this.h, kind = this.kind;
+    const vcz = 100, vcx = Math.round(this.rx(vcz) + 16); this.vc = { x: vcx, z: vcz };
+    const lk = { x: clamp(Math.round(this.rx(120) - 40), 18, 60), z: 122 }; this.lake = lk;
+    for (let z = 0; z < N; z++) for (let x = 0; x < N; x++) {
+      const i = z * N + x, d = this.rdist(x, z), zc = z < 20 ? 20 : z;
+      const dv = Math.hypot(x - vcx, z - vcz);
+      const roll = (fbm(x * 0.035, z * 0.035, s, 4) - 0.5) * (1 - 0.8 * sstep(26, 10, dv));
+      let v = this.bed(zc) + 1.2 * sstep(1.3, 4.2, d) + 0.03 * Math.max(0, d - 4.2) + roll * 7 * Math.min(1, d / 26);
+      const gz = sstep(24, 30, z) * sstep(63, 58, z);
+      if (gz > 0) { v -= gz * 1.6 * sstep(11, 5, d); v += gz * 10 * sstep(10, 16, d); }
+      const m = sstep(72, 30, z), rd = 1 - Math.abs(2 * fbm(x * 0.05, z * 0.05, s + 99, 4) - 1);
+      v += m * (rd * rd * 22 + 3) * sstep(5, 16, d);
+      const dl = Math.hypot(x - lk.x, z - lk.z); v -= 2.8 * sstep(9, 3, dl);
+      if (z >= 57 && z <= 59 && d < 17) { v = Math.max(v, this.bed(57) + (d < 1.6 ? 6.2 : 7.2)); kind[i] = K.DAM; }
+      const ed = Math.min(x, z, N - 1 - x, N - 1 - z); v = -2 + (v + 2) * sstep(0, 9, ed);
+      h[i] = v;
+    }
+    // surface kinds
+    const farms = [[Math.round(this.rx(98) - 22), 97, 9, 7], [vcx + 22, vcz + 24, 10, 5], [vcx + 32, vcz - 17, 6, 6]];
+    const roadx = z => z < vcz - 12 ? Math.round(vcx + this.rx(z) - this.rx(vcz - 12)) : z > vcz + 12 ? Math.round(vcx + this.rx(z) - this.rx(vcz + 12)) : vcx;
+    this.farmCells = [];
+    for (let z = 0; z < N; z++) for (let x = 0; x < N; x++) {
+      const i = z * N + x; if (kind[i] === K.DAM) continue;
+      const d = this.rdist(x, z), dv = Math.hypot(x - vcx, z - vcz), v = h[i];
+      let k = K.GRASS;
+      if (v > 17) k = K.ROCK; else if (d < 5 && z >= 20) k = K.SAND;
+      else {
+        for (const f of farms) if (Math.abs(x - f[0]) <= f[2] && Math.abs(z - f[1]) <= f[3] && d > 6.5) { k = K.FARM; }
+        if (k === K.GRASS) {
+          const fo = fbm(x * 0.055, z * 0.055, s + 5, 3);
+          if (fo > 0.5 && d > 7 && dv > 19 && v > 0.8 && v < 16) { k = K.FOREST; if (g() < 0.72) this.tree[i] = 1; }
+          else if (v > 0.8 && d > 6 && g() < (dv < 19 ? 0.02 : 0.012)) this.tree[i] = 1;
+        }
+      }
+      if (v < 0.4) { k = K.SAND; this.tree[i] = 0; }
+      kind[i] = k; if (k === K.FARM) this.farmCells.push(i);
+    }
+    // roads
+    const road = (x, z) => { if (x < 2 || z < 2 || x > N - 3 || z > N - 3) return false; const i = z * N + x; if (this.rdist(x, z) < 5.2) return false; kind[i] = K.ROAD; this.tree[i] = 0; return true; };
+    for (let z = vcz; z >= vcz - 30; z--) { if (!road(roadx(z), z)) break; road(roadx(z) + 1, z); }
+    for (let z = vcz; z <= vcz + 36; z++) { if (!road(roadx(z), z)) break; road(roadx(z) + 1, z); }
+    for (let x = vcx; x <= Math.min(N - 14, vcx + 46); x++) { road(x, vcz); road(x, vcz + 1); }
+    const bxa = Math.floor(this.rx(vcz) - 6), bxb = Math.ceil(this.rx(vcz + 1) + 6);
+    for (let x = vcx; x >= bxb; x--) { road(x, vcz); road(x, vcz + 1); }
+    for (let x = bxa; x >= bxa - 9; x--) { road(x, vcz); road(x, vcz + 1); }
+    for (let x = bxa; x <= bxb; x++) for (let dz = 0; dz < 2; dz++) { const i = (vcz + dz) * N + x; if (kind[i] !== K.ROAD) kind[i] = K.SAND; }
+    // buildings
+    this.addB('church', vcx + 6.5, vcz - 6.5, true, [-1, 0]);
+    this.addB('tavern', vcx + 6.5, vcz + 7, true, [-1, 0]);
+    this.addB('mill', Math.round(this.rx(vcz - 5) + 7.5), vcz - 5, false, [0, 1], true);
+    for (const dz of [-24, -18, -12, -6, 14, 20, 26, 32]) { if (dz !== -6) this.addB('house', roadx(vcz + dz) + 5, vcz + dz, true, [-1, 0]); this.addB('house', roadx(vcz + dz) - 4, vcz + dz, true, [1, 0]); }
+    this.addB('house', vcx - 4, vcz + 7, true, [1, 0]);
+    for (const dx of [13, 19, 25, 31]) { this.addB('house', vcx + dx, vcz - 4, false, [0, 1]); this.addB('house', vcx + dx, vcz + 5, false, [0, -1]); }
+    this.addB('house', Math.round(this.rx(vcz + 6) + 8.5), vcz + 6, false, [0, -1], true);
+    this.addB('house', Math.round(this.rx(vcz + 6) + 8.5) + 6, vcz + 6, false, [0, -1], true);
+    this.addB('house', Math.round(this.rx(vcz + 13) + 8.5), vcz + 13, true, [1, 0], true);
+    this.addB('barn', farms[0][0] - farms[0][2] - 4, farms[0][1], true, [1, 0]);
+    this.addB('barn', farms[1][0] + farms[1][2] + 4, farms[1][1], true, [-1, 0]);
+    this.addB('barn', farms[2][0], farms[2][1] - farms[2][3] - 3.5, false, [0, 1]);
+    this.addBridge(bxa, bxb, vcz);
+    this.well = { x: vcx - 3, z: vcz - 2.5 };
+    for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) { const i = (Math.round(this.well.z) + dz) * N + Math.round(this.well.x) + dx; this.tree[i] = 0; if (kind[i] === K.GRASS) kind[i] = K.ROAD; }
+    this.genCount = this.buildings.length;
+    // fuel
+    for (let i = 0; i < NN; i++) { const k = kind[i]; this.fuel[i] = k === K.GRASS ? 0.18 : k === K.FOREST ? (this.tree[i] ? 1 : 0.55) : k === K.FARM ? 0.5 : k === K.SAND ? 0.03 : 0; if (this.tree[i] && k !== K.FOREST) this.fuel[i] = 0.7; if (this.bmap[i]) { this.fuel[i] = 0; this.tree[i] = 0; } if (h[i] < 0) { this.flag[i] |= 2; this.tree[i] = 0; } }
+    // water prefill
+    const L = this.bed(57) + 6.2;
+    for (let z = 22; z < N; z++) for (let x = 0; x < N; x++) {
+      const i = z * N + x, d = this.rdist(x, z);
+      if (z < 57 && z > 18 && d < 18 && h[i] < L + 0.04) this.w[i] = L + 0.04 - h[i];
+      else if (d < 3 && h[i] > 0) this.w[i] = Math.max(0, this.bed(z) + 0.5 - h[i]);
+    }
+    const lc = h[lk.z * N + lk.x] + 2.0;
+    for (let z = lk.z - 10; z <= lk.z + 10; z++) for (let x = lk.x - 10; x <= lk.x + 10; x++) { const i = z * N + x; if (h[i] < lc && Math.hypot(x - lk.x, z - lk.z) < 9) { this.w[i] = lc - h[i]; this.tree[i] = 0; this.fuel[i] = 0; if (kind[i] !== K.ROAD) kind[i] = K.SAND; } }
+    this.spring = []; const sx = Math.round(this.rx(22)); for (let dx = -1; dx <= 1; dx++) this.spring.push(23 * N + sx + dx);
+    this.h0.set(h);
+    this.settling = true; for (let k = 0; k < 3600; k++) this.flowStep(); this.settling = false;
+    this.wb.set(this.w); this.f0.set(this.flow);
+    // work spots
+    this.forestEdge = []; this.bankCells = [];
+    for (let z = 4; z < N - 4; z++) for (let x = 4; x < N - 4; x++) {
+      const i = z * N + x, dv = Math.hypot(x - vcx, z - vcz); if (dv > 48 || this.w[i] > 0.05) continue;
+      if (kind[i] === K.GRASS && (kind[i + 1] === K.FOREST || kind[i - 1] === K.FOREST || kind[i + N] === K.FOREST || kind[i - N] === K.FOREST)) this.forestEdge.push(i);
+      if (kind[i] === K.SAND && this.rdist(x, z) > 3.6 && dv < 34 && h[i] > 0.5) this.bankCells.push(i);
+    }
+    // villagers
+    let id = 0;
+    for (const b of this.buildings) {
+      const cnt = b.type === 'house' ? 3 : b.type === 'tavern' ? 4 : b.type === 'mill' || b.type === 'barn' ? 2 : b.type === 'church' ? 1 : 0;
+      for (let k = 0; k < cnt; k++) {
+        const r = g(); let job, wi;
+        if (b.type === 'church') { job = 'priest'; wi = this.ci(b.doorX, b.doorZ); }
+        else if (b.type === 'mill') { job = 'miller'; wi = this.ci(b.doorX, b.doorZ); }
+        else if (b.type === 'barn' || r < 0.4) { job = 'farmer'; wi = this.farmCells[(g() * this.farmCells.length) | 0]; }
+        else if (r < 0.58 && this.forestEdge.length) { job = 'woodcutter'; wi = this.forestEdge[(g() * this.forestEdge.length) | 0]; }
+        else if (r < 0.7 && this.bankCells.length) { job = 'fisher'; wi = this.bankCells[(g() * this.bankCells.length) | 0]; }
+        else if (r < 0.85) { job = 'trader'; wi = this.ci(vcx + 2 + g() * 4 - 2, vcz + 3 + g() * 3); }
+        else { job = 'child'; wi = this.ci(b.doorX + g() * 6 - 3, b.doorZ + g() * 6 - 3); }
+        const n = { id: id, name: NAMES[id % NAMES.length] + (id >= NAMES.length ? ' ' + 'IVX'[(id / NAMES.length | 0) - 1 > 2 ? 2 : (id / NAMES.length | 0) - 1] + '.' : ''), job, home: b.id, wx: wi % N, wz: (wi / N) | 0, x: b.doorX, z: b.doorZ, y: 0, hp: 1, st: ROUTINE, inside: false, path: null, pi: 0, goal: '', gx: 0, gz: 0, t: 0, calm: 0, senseT: g(), idleT: g() * 3, repT: 0, face: 0, tx: 0, tz: 0, moving: false, working: false, homeless: false, campT: 0, c: [0.3 + g() * 0.5, 0.25 + g() * 0.4, 0.2 + g() * 0.5], jx: g() * 0.5 - 0.25, jz: g() * 0.5 - 0.25, child: job === 'child', onFire: 0, cause: '' };
+        id++; this.npcs.push(n);
+      }
+    }
+    this.terrDirty = true; this.staticDirty = true;
+  }
+
+  ci(x, z) { const xi = clamp((x + 0.5) | 0, 0, N - 1), zi = clamp((z + 0.5) | 0, 0, N - 1); return zi * N + xi; }
+  hAt(x, z) { x = x < 0 ? 0 : x > N - 1.001 ? N - 1.001 : x; z = z < 0 ? 0 : z > N - 1.001 ? N - 1.001 : z; const xi = x | 0, zi = z | 0, fx = x - xi, fz = z - zi, i = zi * N + xi, h = this.h; return h[i] * (1 - fx) * (1 - fz) + h[i + 1] * fx * (1 - fz) + h[i + N] * (1 - fx) * fz + h[i + N + 1] * fx * fz; }
+  bridgeOK(i) { const s = this.bridge[i]; if (!s) return false; const b = this.bridgeB; return b && b.parts[b.deckIdx[s - 1]].st === 0; }
+  walkH(i) { return this.bridgeOK(i) ? this.bridgeB.y : this.h[i]; }
+
+  addB(type, cx, cz, ridgeZ, face, force) {
+    const D = { house: [3.2, 3.8, 2.0], tavern: [4.6, 5.2, 2.6], church: [4.4, 8, 3.2], mill: [3.6, 4.4, 2.8], barn: [3.8, 4.8, 2.4], tent: [1.7, 1.7, 1.3] }[type];
+    let w = D[0], d = D[1]; const hgt = D[2]; if (!ridgeZ) { const t = w; w = d; d = t; }
+    const x0 = Math.ceil(cx - w / 2 - 0.3), x1 = Math.floor(cx + w / 2 + 0.3), z0 = Math.ceil(cz - d / 2 - 0.3), z1 = Math.floor(cz + d / 2 + 0.3);
+    if (x0 < 4 || z0 < 4 || x1 > N - 5 || z1 > N - 5) return null;
+    let sum = 0, cnt = 0;
+    for (let z = z0 - 1; z <= z1 + 1; z++) for (let x = x0 - 1; x <= x1 + 1; x++) { const i = z * N + x; if (this.bmap[i] || this.w[i] > 0.05) return null; if (!force && (this.rdist(x, z) < 5.5 || (this.kind[i] === K.ROAD && x >= x0 && x <= x1 && z >= z0 && z <= z1))) return null; sum += this.h[i]; cnt++; }
+    let y = sum / cnt; if (force && type !== "tent") { let mx = y; for (let z = z0 - 1; z <= z1 + 1; z++) for (let x = x0 - 1; x <= x1 + 1; x++) mx = Math.max(mx, this.h[z * N + x]); y = (y + mx) / 2; }
+    const id = this.buildings.length, g = this.grng;
+    const b = { id, type, x: cx, z: cz, y, w, d, hgt, parts: [], fire: 0, fuel: 1, ruin: false, active: false, shake: 0, wet: 0, cells: [], tough: type === 'church' ? 1.7 : type === 'barn' ? 0.85 : type === 'tent' ? 0.5 : 1, flam: type === 'church' ? 0.45 : type === 'tent' ? 1.5 : 1, doorX: cx + face[0] * (w / 2 + 1.1), doorZ: cz + face[1] * (d / 2 + 1.1), logged: false, home: type !== 'bridge', failT: 0 };
+    for (let z = z0 - 1; z <= z1 + 1; z++) for (let x = x0 - 1; x <= x1 + 1; x++) { const i = z * N + x; this.h[i] = y; if (type !== 'tent') this.h0[i] = y; this.tree[i] = 0; if (x >= x0 && x <= x1 && z >= z0 && z <= z1) { this.bmap[i] = id + 1; b.cells.push(i); this.fuel[i] = 0; } }
+    const P = (role, geo, ox, oy, oz, sx, sy, sz, ry, c, hp, dep) => { b.parts.push({ role, g: geo, ox, oy, oz, sx, sy, sz, ry: ry || 0, c, hp: hp || 1, st: 0, char: 0, lean: 0, dep: dep === undefined ? -1 : dep, ls: g() < 0.5 ? -1 : 1 }); return b.parts.length - 1; };
+    if (type === 'tent') { P('roof', 1, 0, 0.65, 0, 1.7, 1.3, 1.7, 0.6, [0.83, 0.78, 0.66], 0.5); this.buildings.push(b); this.staticDirty = true; this.terrDirty = true; return b; }
+    const wallC = type === 'church' ? [0.74, 0.73, 0.7] : type === 'barn' ? [0.6, 0.25, 0.2] : type === 'mill' ? [0.78, 0.7, 0.55] : [[0.87, 0.81, 0.69], [0.8, 0.72, 0.6], [0.9, 0.88, 0.82], [0.76, 0.66, 0.55]][(g() * 4) | 0];
+    const roofC = type === 'church' ? [0.33, 0.36, 0.44] : type === 'barn' ? [0.4, 0.3, 0.24] : [[0.62, 0.27, 0.2], [0.72, 0.58, 0.3], [0.5, 0.3, 0.24], [0.68, 0.33, 0.22]][(g() * 4) | 0];
+    const tim = [0.36, 0.25, 0.17];
+    let bw = w, bd = d, bz = 0, bx = 0;
+    if (type === 'church') { if (ridgeZ) { bd = d - 2; bz = 1; } else { bw = w - 2; bx = 1; } }
+    P('base', 0, 0, 0.06, 0, w + 0.5, 0.14, d + 0.5, 0, [0.52, 0.5, 0.47]);
+    for (const sxn of [-1, 1]) for (const szn of [-1, 1]) P('sup', 0, bx + sxn * bw / 2, hgt / 2, bz + szn * bd / 2, 0.3, hgt, 0.3, 0, tim);
+    const wf = P('wall', 0, bx, hgt / 2, bz - bd / 2, bw, hgt, 0.18, 0, wallC), wbk = P('wall', 0, bx, hgt / 2, bz + bd / 2, bw, hgt, 0.18, 0, wallC);
+    const wl = P('wall', 0, bx - bw / 2, hgt / 2, bz, 0.18, hgt, bd, 0, wallC), wr = P('wall', 0, bx + bw / 2, hgt / 2, bz, 0.18, hgt, bd, 0, wallC);
+    const rh = Math.min(bw, bd) * 0.42; let r1;
+    if (bd >= bw) { r1 = P('roof', 2, bx, hgt + rh / 2, bz - bd / 4, bw + 0.6, rh, bd / 2 + 0.25, 0, roofC, 0.8); P('roof', 2, bx, hgt + rh / 2, bz + bd / 4, bw + 0.6, rh, bd / 2 + 0.25, 0, roofC, 0.8); }
+    else { r1 = P('roof', 2, bx - bw / 4, hgt + rh / 2, bz, bd + 0.6, rh, bw / 2 + 0.25, Math.PI / 2, roofC, 0.8); P('roof', 2, bx + bw / 4, hgt + rh / 2, bz, bd + 0.6, rh, bw / 2 + 0.25, Math.PI / 2, roofC, 0.8); }
+    const dw = face[0] ? (face[0] < 0 ? wl : wr) : (face[1] < 0 ? wf : wbk);
+    if (face[0]) P('decor', 0, bx + face[0] * (bw / 2 + 0.06), 0.55, bz, 0.1, 1.1, 0.7, 0, tim, 1, dw); else P('decor', 0, bx, 0.55, bz + face[1] * (bd / 2 + 0.06), 0.7, 1.1, 0.1, 0, tim, 1, dw);
+    if (type === 'house' || type === 'tavern') P('decor', 0, bx + (bd >= bw ? bw * 0.22 : -bw * 0.25), hgt + rh * 0.75, bz + (bd >= bw ? -bd * 0.25 : bd * 0.2), 0.42, rh * 0.9, 0.42, 0, [0.45, 0.4, 0.38], 1, r1);
+    // windows
+    if (face[0]) { P('decor', 0, bx + face[0] * (bw / 2 + 0.05), hgt * 0.62, bz + bd * 0.3, 0.08, 0.5, 0.5, 0, [0.2, 0.24, 0.3], 1, dw).valueOf(); b.parts[b.parts.length - 1].win = 1; P('decor', 0, bx + face[0] * (bw / 2 + 0.05), hgt * 0.62, bz - bd * 0.3, 0.08, 0.5, 0.5, 0, [0.2, 0.24, 0.3], 1, dw); b.parts[b.parts.length - 1].win = 1; }
+    else { P('decor', 0, bx + bw * 0.3, hgt * 0.62, bz + face[1] * (bd / 2 + 0.05), 0.5, 0.5, 0.08, 0, [0.2, 0.24, 0.3], 1, dw); b.parts[b.parts.length - 1].win = 1; P('decor', 0, bx - bw * 0.3, hgt * 0.62, bz + face[1] * (bd / 2 + 0.05), 0.5, 0.5, 0.08, 0, [0.2, 0.24, 0.3], 1, dw); b.parts[b.parts.length - 1].win = 1; }
+    if (type === 'church') { const tx = ridgeZ ? 0 : -w / 2 + 1, tz = ridgeZ ? -d / 2 + 1 : 0; const t = P('wall', 0, tx, 3.2, tz, 1.9, 6.4, 1.9, 0, wallC, 1.3); P('roof', 1, tx, 6.4 + 1.3, tz, 2.3, 2.6, 2.3, 0, roofC, 0.8, t); }
+    if (type === 'mill') { P('decor', 0, ridgeZ ? -w / 2 - 0.2 : 0, 1.3, ridgeZ ? 0 : -d / 2 - 0.2, ridgeZ ? 0.25 : 2.2, 2.2, ridgeZ ? 2.2 : 0.25, 0, tim, 1, ridgeZ ? wl : wf); }
+    this.buildings.push(b); this.staticDirty = true; this.terrDirty = true; return b;
+  }
+
+  addBridge(xa, xb, z) {
+    const len = xb - xa, dy = Math.max(this.h[z * N + xa], this.h[z * N + xb]) + 0.3;
+    const b = { id: this.buildings.length, type: 'bridge', x: (xa + xb) / 2, z: z + 0.5, y: dy, w: len, d: 2.4, hgt: 0.4, parts: [], fire: 0, fuel: 1, ruin: false, active: false, shake: 0, wet: 0, cells: [], tough: 1.2, flam: 0.5, doorX: xa, doorZ: z, home: false, deckIdx: [], logged: false, failT: 0 };
+    const tim = [0.42, 0.3, 0.2], P = (role, ox, oy, oz, sx, sy, sz, dep) => { b.parts.push({ role, g: 0, ox, oy, oz, sx, sy, sz, ry: 0, c: role === 'sup' ? [0.5, 0.48, 0.45] : tim, hp: 1, st: 0, char: 0, lean: 0, dep: dep === undefined ? -1 : dep, ls: 1 }); return b.parts.length - 1; };
+    const sl = len / 3;
+    for (let k = 0; k < 3; k++) { const di = P('deck', -len / 2 + sl * (k + 0.5), -0.1, 0, sl + 0.5, 0.22, 2.4); b.deckIdx.push(di); P('decor', -len / 2 + sl * (k + 0.5), 0.3, -1.15, sl, 0.12, 0.1, di); P('decor', -len / 2 + sl * (k + 0.5), 0.3, 1.15, sl, 0.12, 0.1, di); }
+    for (let k = 1; k < 3; k++) for (const s of [-1, 1]) { const px = -len / 2 + sl * k; const gh = this.h[z * N + Math.round(b.x + px)]; const ph = dy - gh + 0.4; P('sup', px, -ph / 2, s * 0.9, 0.4, ph, 0.4); }
+    for (let x = xa; x <= xb; x++) for (let dz = 0; dz < 2; dz++) this.bridge[(z + dz) * N + x] = 1 + Math.min(2, ((x - xa) / sl) | 0);
+    this.buildings.push(b); this.bridgeB = b;
+  }
+
+  // ------------------------------------------------------------ water
+  stepWater() { this.flowStep(); this.flowStep(); this.flowStep(); if (!this.settling) this.waterExtras(); }
+  flowStep() {
+    const h = this.h, w = this.w, dw = this.dw, fl = this.flow, flx = this.flx, flz = this.flz;
+    for (let z = 0; z < N; z++) {
+      let i = z * N;
+      for (let x = 0; x < N; x++, i++) {
+        const wi = w[i]; let a = 0, bq = 0;
+        if (x < N - 1) { const j = i + 1, wj = w[j]; if (wi > 0 || wj > 0) { const dl = h[i] + wi - h[j] - wj; let f; if (dl > 0) { f = dl * 0.12 * Math.min(1.6, 0.08 + wi * 2.3); const m = wi * 0.24; if (f > m) f = m; } else { f = dl * 0.12 * Math.min(1.6, 0.08 + wj * 2.3); const m = -wj * 0.24; if (f < m) f = m; } dw[i] -= f; dw[j] += f; a = f; } }
+        if (z < N - 1) { const j = i + N, wj = w[j]; if (wi > 0 || wj > 0) { const dl = h[i] + wi - h[j] - wj; let f; if (dl > 0) { f = dl * 0.12 * Math.min(1.6, 0.08 + wi * 2.3); const m = wi * 0.24; if (f > m) f = m; } else { f = dl * 0.12 * Math.min(1.6, 0.08 + wj * 2.3); const m = -wj * 0.24; if (f < m) f = m; } dw[i] -= f; dw[j] += f; bq = f; } }
+        flx[i] = flx[i] * 0.9 + a * 0.1; flz[i] = flz[i] * 0.9 + bq * 0.1;
+        fl[i] = Math.abs(flx[i]) + Math.abs(flz[i]);
+      }
+    }
+    const flag = this.flag;
+    for (let i = 0; i < NN; i++) { let v = w[i] + dw[i]; dw[i] = 0; if (flag[i] & 2) v = -h[i]; else if (v < 0.0005) v = 0; w[i] = v; }
+    for (const i of this.spring) w[i] += 0.013;
+  }
+  waterExtras() {
+    const h = this.h, w = this.w, fl = this.flow, flag = this.flag, t = this.tickN;
+    if (this.seepHold > 0) this.seepHold--; else if (this.craterCells.length) { const h0 = this.h0; for (const i of this.craterCells) if (h[i] < h0[i] - 1 && h[i] + w[i] < h0[i] - 0.7) w[i] += 0.0005; }
+    if (this.rain > 0) { const r = this.rain * 0.00004; for (let i = 0; i < NN; i++) if (h[i] > 0) w[i] += r; }
+    if (t % 8 === 0) {
+      const off = (t / 8) % 4, wb = this.wb, f0 = this.f0, h0 = this.h0, kind = this.kind, mud = this.mud; let ch = false;
+      for (let i = off; i < NN; i += 4) {
+        const wi = w[i]; if (wi <= 0) { if (wb[i] > 0) wb[i] *= 0.97; continue; }
+        if (wi < 0.05 && !(flag[i] & 2)) w[i] = Math.max(0, wi - 0.0035);
+        const ex = wi - wb[i];
+        if (ex > 0.3 && mud[i] < 250) { mud[i] += 5; ch = true; if (kind[i] === K.FARM || kind[i] === K.GRASS) this.fuel[i] = Math.min(this.fuel[i], 0.06); }
+        wb[i] += ex * (this.clock < 45 ? 0.5 : 0.008);
+        const thr = f0[i] * 1.7 + 0.012;
+        if (fl[i] > thr && kind[i] !== K.DAM && !this.bmap[i] && h0[i] - h[i] < 2.5 && !(flag[i] & 2)) { h[i] -= Math.min(0.03, (fl[i] - thr) * 0.6); ch = true; }
+      }
+      if (ch) this.terrDirty = true;
+    }
+  }
+
+  // ------------------------------------------------------------ fire
+  igniteCell(i) { if (this.burn[i] > 0 || this.fuel[i] < 0.03 || this.w[i] > 0.03) return false; this.burn[i] = 0.3; this.fires.push(i); if (this.tree[i] === 1) { this.tree[i] = 2; this.staticDirty = true; } this.terrDirty = true; return true; }
+  igniteB(b) { if (b.fire > 0 || b.fuel <= 0 || b.ruin || b.wet > 0.4) return; b.fire = 0.2; b.active = true; this.addThreat(b.x, b.z, 6, 5); if (!b.logF) { b.logF = true; this.fx.log(this.bname(b) + ' is on fire'); } }
+  bname(b) { return b.type === 'house' ? 'A house' : 'The ' + b.type; }
+  stepFire(dt) {
+    const F = this.fires, burn = this.burn, fuel = this.fuel, w = this.w, h = this.h, rnd = this.rnd, wx = this.wind[0], wz = this.wind[1], rainF = this.rain > 0.3 ? 0.4 : 1;
+    for (let k = F.length - 1; k >= 0; k--) {
+      const i = F[k]; let out = false;
+      if (w[i] > 0.05) { out = true; this.scorch[i] = Math.max(this.scorch[i], 140); }
+      else {
+        fuel[i] -= (this.kind[i] === K.FOREST ? 0.07 : 0.11) * dt; burn[i] = Math.min(1, burn[i] + dt * 1.5);
+        if (this.rain > 0.3 && this.kind[i] !== K.FOREST && rnd() < 0.02) out = true;
+        if (fuel[i] <= 0) { fuel[i] = 0; out = true; this.scorch[i] = 255; }
+      }
+      if (out) { burn[i] = 0; if (this.tree[i] === 2) { this.tree[i] = 3; this.staticDirty = true; } F[k] = F[F.length - 1]; F.pop(); this.terrDirty = true; continue; }
+      const x = i % N, z = (i / N) | 0; if (x < 1 || z < 1 || x > N - 2 || z > N - 2) continue;
+      for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
+        if (!dx && !dz) continue; const j = i + dz * N + dx;
+        const bi = this.bmap[j]; if (bi) { const b = this.buildings[bi - 1]; if (!b.fire && b.fuel > 0 && rnd() < 0.012 * b.flam) this.igniteB(b); continue; }
+        if (burn[j] > 0 || fuel[j] < 0.03) continue;
+        const dg = dx && dz ? 0.7071 : 1;
+        const wf = Math.max(0.12, 1 + 1.7 * (dx * wx + dz * wz) * dg), sl = clamp(1 + (h[j] - h[i]) * 0.5, 0.6, 1.8);
+        if (rnd() < dt * 0.24 * (0.08 + fuel[j]) * wf * sl * dg * burn[i] * rainF) this.igniteCell(j);
+      }
+      if (rnd() < 0.006 * this.windS * rainF) { const r = 3 + rnd() * 5, tx = Math.round(x + wx * r + rnd() * 2 - 1), tz = Math.round(z + wz * r + rnd() * 2 - 1); if (tx > 0 && tz > 0 && tx < N - 1 && tz < N - 1) this.igniteCell(tz * N + tx); }
+    }
+  }
+
+  // ------------------------------------------------------------ structures
+  damage(b, amt, type, ox, oz, pow) {
+    if (b.ruin) return; const V = VULN[type]; b.active = true;
+    for (const p of b.parts) {
+      if (p.st || p.role === 'base' || p.role === 'decor') continue;
+      const v = V[p.role] || 1; p.hp -= amt * v * (0.6 + 0.8 * this.rnd()) / b.tough;
+      if (type !== 'fire' && type !== 'flood') p.lean = Math.min(1, p.lean + amt * v * 0.45);
+      if (p.hp <= 0) this.failPart(b, p, type, ox, oz, pow);
+    }
+  }
+  hit(b, role, amt, type) { for (const p of b.parts) if (!p.st && p.role === role) { p.hp -= amt * (0.5 + this.rnd()) / b.tough; p.lean = Math.min(1, p.lean + amt * 0.3); if (p.hp <= 0) this.failPart(b, p, type || 'stress', b.x, b.z, 0); } }
+  failPart(b, p, type, ox, oz, pow) {
+    if (p.st) return; p.st = 1; b.active = true; b.failT = 0.6;
+    const rnd = this.rnd, px = b.x + p.ox, py = b.y + p.oy, pz = b.z + p.oz, ch = p.char, c = [p.c[0] * (1 - 0.75 * ch), p.c[1] * (1 - 0.8 * ch), p.c[2] * (1 - 0.8 * ch)];
+    const vol = p.sx * p.sy * p.sz;
+    if (type === 'crush') {
+      const gy = this.hAt(px, pz);
+      this.addRubble(px + rnd() * 0.4 - 0.2, gy + 0.06, pz + rnd() * 0.4 - 0.2, Math.max(p.sx, 0.3) * 1.05, 0.1, Math.max(p.sz, p.sy * 0.5, 0.3), 0, p.ry + rnd() * 0.5, 0, p.g === 2 ? 0 : p.g, c[0] * 0.8, c[1] * 0.8, c[2] * 0.8);
+    } else {
+      let dx = p.ox, dz = p.oz, vx, vy, vz, wxa = 0, wza = 0, wya = 0;
+      if (type === 'blast') { dx = px - ox; dz = pz - oz; const l = Math.hypot(dx, dz) || 1, sp = (5 + 9 * rnd()) * (0.6 + (pow || 0.5)); vx = dx / l * sp; vz = dz / l * sp; vy = 4 + 8 * rnd(); wxa = rnd() * 10 - 5; wza = rnd() * 10 - 5; wya = rnd() * 6 - 3; }
+      else {
+        const l = Math.hypot(dx, dz); if (l < 0.2) { const a = rnd() * 6.28; dx = Math.cos(a); dz = Math.sin(a); } else { dx /= l; dz /= l; }
+        if (p.role === 'roof' || p.role === 'deck') { vx = dx * 0.4; vz = dz * 0.4; vy = -0.5; wxa = rnd() * 1.6 - 0.8; wza = rnd() * 1.6 - 0.8; }
+        else { const sp = 0.8 + rnd() * 1.6; vx = dx * sp; vz = dz * sp; vy = 0.6; const wm = 1.6 + rnd() * 1.6; wxa = dz * wm; wza = -dx * wm; }
+      }
+      this.debris.push({ x: px, y: py, z: pz, vx, vy, vz, rx: 0, ry: p.ry, rz: 0, wx: wxa, wy: wya, wz: wza, sx: p.sx, sy: p.sy, sz: p.sz, g: p.g, c, b: 0, from: b.id, mass: vol, hot: 0 });
+      const nch = vol > 0.3 ? 2 : 1;
+      for (let k = 0; k < nch; k++) { const s = 0.2 + rnd() * 0.35; this.debris.push({ x: px + (rnd() - 0.5) * p.sx, y: py + (rnd() - 0.5) * p.sy, z: pz + (rnd() - 0.5) * p.sz, vx: (vx || 0) * 0.7 + rnd() * 3 - 1.5, vy: (vy || 0) + rnd() * 3, vz: (vz || 0) * 0.7 + rnd() * 3 - 1.5, rx: 0, ry: rnd() * 6, rz: 0, wx: rnd() * 8 - 4, wy: 0, wz: rnd() * 8 - 4, sx: s, sy: s * 0.7, sz: s, g: 0, c: [c[0] * 0.85, c[1] * 0.85, c[2] * 0.85], b: 0, from: b.id, mass: 0.05, hot: 0 }); }
+    }
+    this.fx.burst('dust', px, py, pz, 5 + Math.min(10, vol * 3 | 0), Math.max(p.sx, p.sz) * 0.6, 1);
+    this.fx.sound(p.role === 'decor' ? 'crack' : 'collapse', px, pz, clamp(0.25 + vol * 0.12, 0.2, 1));
+    this.addThreat(b.x, b.z, 7, 4);
+    for (const q of b.parts) if (!q.st && q.role !== 'base' && q.role !== 'decor') { q.hp -= 0.05 * rnd(); q.lean = Math.min(1, q.lean + 0.05); }
+    for (const n of this.npcs) if (n.home === b.id && n.inside && n.st !== DEAD) { if (type === 'crush' || type === 'blast' || rnd() < 0.25) { n.hp -= type === 'crush' || type === 'blast' ? 0.6 : 0.3; n.cause = 'buried'; } n.inside = false; n.x = b.doorX; n.z = b.doorZ; this.panic(n, b.x, b.z, 9); }
+    if (!b.logged) { b.logged = true; this.fx.log(this.bname(b) + ' is breaking apart'); }
+  }
+  addRubble(x, y, z, sx, sy, sz, rx, ry, rz, g, r, gg, bb) { this.rubble.push([x, y, z, sx, sy, sz, rx, ry, rz, g, r, gg, bb]); if (this.rubble.length > 2400) this.rubble.splice(0, 300); this.staticDirty = true; }
+
+  tickB(b, dt) {
+    const rnd = this.rnd; let stress = false;
+    b.y = b.type === 'bridge' ? b.y : this.h[this.ci(b.x, b.z)];
+    if (b.failT > 0) b.failT -= dt;
+    if (b.fire > 0) {
+      b.fire = Math.min(1, b.fire + dt * 0.25); b.fuel -= dt * 0.012 * (this.rain > 0.3 ? 0.6 : 1);
+      this.damage(b, dt * 0.04 * b.fire * b.flam, 'fire', b.x, b.z);
+      for (const p of b.parts) if (!p.st && p.role !== 'base') p.char = Math.min(1, p.char + dt * 0.05 * b.fire * (p.role === 'roof' ? 1.4 : 0.8));
+      if (rnd() < dt * 0.45 && b.cells.length) { const i = b.cells[(rnd() * b.cells.length) | 0], x = i % N + ((rnd() * 5) | 0) - 2, z = ((i / N) | 0) + ((rnd() * 5) | 0) - 2; const j = clamp(z, 1, N - 2) * N + clamp(x, 1, N - 2); const bi = this.bmap[j]; if (bi && bi - 1 !== b.id) { if (rnd() < 0.25) this.igniteB(this.buildings[bi - 1]); } else this.igniteCell(j); }
+      if (b.fuel <= 0 || b.wet > 0.8) { b.fire = 0; b.burnt = true; if (b.fuel <= 0) b.fuel = 0; }
+      stress = true;
+    }
+    if (b.wet > 0.18) { this.damage(b, dt * 0.1 * Math.min(2.5, b.wet + 0.1), 'flood', b.x, b.z); stress = true; }
+    let sA = 0, sT = 0, wA = 0, wT = 0, rA = 0, alive = 0;
+    for (const p of b.parts) { if (p.role === 'sup') { sT++; if (!p.st) sA++; } else if (p.role === 'wall') { wT++; if (!p.st) wA++; } else if (p.role === 'roof' || p.role === 'deck') { if (!p.st) rA++; } if (!p.st && p.role !== 'base' && p.role !== 'decor') alive++; }
+    if (b.type !== 'tent') {
+      if (rA && sT && sA / sT < 0.75) { this.hit(b, b.type === 'bridge' ? 'deck' : 'roof', dt * (sA / sT < 0.4 ? 0.9 : 0.3)); stress = true; }
+      if (wT) { if (wA / wT < 0.6) { if (rA) this.hit(b, 'roof', dt * 0.8); if (sA) this.hit(b, 'sup', dt * 0.35); stress = true; } if (sA === 0 && wA) { this.hit(b, 'wall', dt * 0.35); stress = true; } if (rA === 0 && wA && wA < wT) { this.hit(b, 'wall', dt * 0.12); stress = true; } }
+    }
+    for (const p of b.parts) { if (p.st || p.role === 'base') continue; if (p.hp <= 0) { this.failPart(b, p, 'stress', b.x, b.z, 0); stress = true; } else if (p.dep >= 0 && b.parts[p.dep].st) { this.failPart(b, p, 'stress', b.x, b.z, 0); stress = true; } }
+    if (alive === 0 && !b.ruin) { b.ruin = true; b.fire = 0; this.fx.log(this.bname(b) + (b.type === 'bridge' ? ' has fallen' : b.type === 'tent' ? ' is gone' : ' has collapsed')); for (const n of this.npcs) if (n.home === b.id && n.inside && n.st !== DEAD) { n.inside = false; n.cause = 'buried'; this.kill(n); } }
+    b.active = !b.ruin && (stress || b.failT > 0 || b.shake > 0);
+  }
+
+  stepDebris(dt) {
+    const D = this.debris, rnd = this.rnd;
+    for (let k = D.length - 1; k >= 0; k--) {
+      const d = D[k]; d.vy -= 20 * dt; d.x += d.vx * dt; d.y += d.vy * dt; d.z += d.vz * dt; d.rx += d.wx * dt; d.ry += d.wy * dt; d.rz += d.wz * dt;
+      if (d.x < 1 || d.z < 1 || d.x > N - 2 || d.z > N - 2) { D[k] = D[D.length - 1]; D.pop(); continue; }
+      const half = Math.min(d.sx, d.sy, d.sz) * 0.5, gy = this.hAt(d.x, d.z) + half;
+      if (d.y > gy) continue;
+      if (d.vy < -5 && d.b < 1) { d.y = gy; d.vy = -d.vy * 0.25; d.vx *= 0.5; d.vz *= 0.5; d.wx *= 0.5; d.wz *= 0.5; d.b++; if (d.mass > 0.5) { this.fx.burst('dust', d.x, d.y, d.z, 3, 0.5, 0.6); this.fx.sound('thud', d.x, d.z, 0.4); } continue; }
+      const i = this.ci(d.x, d.z);
+      if (d.mass > 0.4) {
+        this.fx.burst('dust', d.x, gy, d.z, 4, 0.6, 0.7); this.fx.sound('thud', d.x, d.z, clamp(d.mass * 0.2, 0.2, 0.8));
+        const bi = this.bmap[i]; if (bi && bi - 1 !== d.from && d.mass > 1.2) { const b2 = this.buildings[bi - 1]; if (!b2.ruin) this.damage(b2, 0.2 + Math.min(0.5, d.mass * 0.08), 'impact', d.x, d.z); }
+        for (const n of this.npcs) if (n.st !== DEAD && !n.inside && Math.abs(n.x - d.x) < 1.1 && Math.abs(n.z - d.z) < 1.1) { n.hp -= 0.45; n.cause = 'crushed by debris'; this.panic(n, d.x, d.z, 6); }
+      }
+      if (this.w[i] > 0.25) this.fx.burst('splash', d.x, this.h[i] + this.w[i], d.z, 4, 0.3, 1);
+      if (d.hot && rnd() < 0.4) this.igniteCell(i);
+      let rx = (rnd() - 0.5) * 0.3, rz = (rnd() - 0.5) * 0.3, sy = d.sy, y = gy - half;
+      if (d.g === 0 && d.sy > Math.min(d.sx, d.sz) * 1.5) { rx = Math.PI / 2 + rx; y += Math.min(d.sx, d.sz) * 0.5; }
+      else if (d.g === 2 || d.g === 1) { sy *= 0.55; y += sy * 0.45; rz += (rnd() < 0.5 ? -0.35 : 0.35); }
+      else y += d.sy * 0.5;
+      if (this.w[i] < 1.2) this.addRubble(d.x, y, d.z, d.sx, sy, d.sz, rx, d.ry, rz, d.g, d.c[0], d.c[1], d.c[2]);
+      D[k] = D[D.length - 1]; D.pop();
+    }
+  }
+
+  // ------------------------------------------------------------ threats / npcs
+  addThreat(x, z, r, ttl) { this.threats.push({ x, z, r, ttl }); }
+  dangerAt(n) {
+    const T = this.threats; for (let k = 0; k < T.length; k++) { const t = T[k], dx = n.x - t.x, dz = n.z - t.z; if (dx * dx + dz * dz < t.r * t.r) return t; }
+    const f = this.finger; if (f) { const dx = n.x - f.x, dz = n.z - f.z; if (dx * dx + dz * dz < f.r * f.r) return f; }
+    const xi = (n.x + 0.5) | 0, zi = (n.z + 0.5) | 0; let sx = 0, sz = 0, c = 0;
+    for (let k = 0; k < SCAN.length; k += 2) { const x = xi + SCAN[k], z = zi + SCAN[k + 1]; if (x < 0 || z < 0 || x >= N || z >= N) continue; const i = z * N + x; if (this.burn[i] > 0 || (this.w[i] > 0.18 && this.w[i] - this.wb[i] > 0.15 && !this.bridgeOK(i))) { sx += x; sz += z; c++; } }
+    if (c) { this._dg.x = sx / c; this._dg.z = sz / c; this._dg.r = 7; return this._dg; }
+    return null;
+  }
+  panic(n, fx, fz, r) {
+    if (n.st === DEAD) return; n.tx = fx; n.tz = fz; n.tr = r || 7; n.calm = 0; this.alarm = 22;
+    if (n.inside) { n.inside = false; const b = this.buildings[n.home]; if (b) { n.x = b.doorX; n.z = b.doorZ; } }
+    if (n.st !== PANIC && n.st !== STUMBLE) { n.st = PANIC; n.path = null; n.goal = ''; n.working = false; this.pickFlee(n); if (this.screamT <= 0) { this.screamT = 0.22; this.fx.sound('scream', n.x, n.z, 0.7); } }
+  }
+  safeCell(i) { return this.h[i] > 0.3 && this.burn[i] === 0 && (this.w[i] < 0.3 || this.bridgeOK(i)) && !(this.bmap[i] && !this.buildings[this.bmap[i] - 1].ruin); }
+  pickFlee(n) {
+    const rnd = this.rnd, base = Math.atan2(n.z - n.tz, n.x - n.tx) + (n.x === n.tx && n.z === n.tz ? rnd() * 6.28 : 0); let best = -1e9, bx = n.x, bz = n.z;
+    for (let k = 0; k < 7; k++) {
+      const a = base + (rnd() - 0.5) * (0.8 + k * 0.5), dist = (n.tr || 7) + 9 + rnd() * 14, x = clamp(n.x + Math.cos(a) * dist, 6, N - 7), z = clamp(n.z + Math.sin(a) * dist, 6, N - 7), i = this.ci(x, z);
+      if (!this.safeCell(i)) continue; const sc = Math.cos(a - base) * 8 + this.h[i] * 1.2 + rnd() * 2; if (sc > best) { best = sc; bx = x; bz = z; }
+    }
+    n.gx = bx; n.gz = bz; this.reqPath(n, bx, bz);
+  }
+  reqPath(n, x, z) { n.px = x; n.pz = z; if (!n.queued) { n.queued = true; this.pathQ.push(n); } }
+  kill(n) { if (n.st === DEAD) return; n.st = DEAD; n.hp = 0; n.path = null; n.inside = false; n.deadT = 0; this.fx.log(n.name + ' the ' + n.job + ' has died' + (n.cause ? ' (' + n.cause + ')' : '')); }
+
+  passCost(i, from, n) {
+    const bi = this.bmap[i]; let c = 1.15, ruin = false;
+    if (bi) { if (!this.buildings[bi - 1].ruin) return -1; ruin = true; }
+    const br = this.bridgeOK(i), wd = br ? 0 : this.w[i];
+    if (wd > 0.45 || this.burn[i] > 0.02) return -1;
+    const hi = br ? this.bridgeB.y : this.h[i]; if (hi < 0.05) return -1;
+    const dh = Math.abs(hi - this.walkH(from)); if (dh > 1.15) return -1;
+    const k = this.kind[i]; if (k === K.ROAD) c = 0.8; else if (k === K.FOREST) c = 1.7;
+    return c + wd * 6 + dh * 1.5 + (ruin ? 2 : 0);
+  }
+  findPath(si, ti) {
+    if (si === ti) return [];
+    const g = this._g, came = this._came, st = this._st, hi = this._hi, hf = this._hf, stamp = (this._stamp += 2), tx = ti % N, tz = (ti / N) | 0;
+    let hn = 0, exp = 0, best = si, bestH = 1e9;
+    const push = (i, f) => { let k = hn++; while (k > 0) { const p = (k - 1) >> 1; if (hf[p] <= f) break; hi[k] = hi[p]; hf[k] = hf[p]; k = p; } hi[k] = i; hf[k] = f; };
+    g[si] = 0; st[si] = stamp; came[si] = -1; push(si, 0);
+    while (hn > 0 && exp < 7000) {
+      const i = hi[0]; hn--; if (hn > 0) { const li = hi[hn], lf = hf[hn]; let k = 0; for (; ;) { let c = k * 2 + 1; if (c >= hn) break; if (c + 1 < hn && hf[c + 1] < hf[c]) c++; if (hf[c] >= lf) break; hi[k] = hi[c]; hf[k] = hf[c]; k = c; } hi[k] = li; hf[k] = lf; }
+      if (st[i] === stamp + 1) continue; st[i] = stamp + 1; exp++;
+      if (i === ti) { best = ti; break; }
+      const x = i % N, z = (i / N) | 0, hd = Math.abs(x - tx) + Math.abs(z - tz); if (hd < bestH) { bestH = hd; best = i; }
+      for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
+        if (!dx && !dz) continue; const nx = x + dx, nz = z + dz; if (nx < 1 || nz < 1 || nx > N - 2 || nz > N - 2) continue;
+        const j = nz * N + nx; if (st[j] === stamp + 1) continue;
+        const c = this.passCost(j, i); if (c < 0) continue;
+        if (dx && dz && (this.passCost(i + dx, i) < 0 || this.passCost(i + dz * N, i) < 0)) continue;
+        const ng = g[i] + c * (dx && dz ? 1.414 : 1);
+        if (st[j] === stamp && ng >= g[j]) continue;
+        g[j] = ng; st[j] = stamp; came[j] = i; if (hn < hi.length - 1) push(j, ng + Math.hypot(nx - tx, nz - tz) * 0.85);
+      }
+    }
+    const out = []; let c = best; while (c !== si && c >= 0) { out.push(c); c = came[c]; } out.reverse(); return out;
+  }
+
+  move(n, speed, dt) { // returns 1 arrived, 0 moving, -1 blocked/no path
+    if (!n.path || n.pi >= n.path.length) { n.path = null; n.moving = false; return 1; }
+    const c = n.path[n.pi], cx = (c % N) + n.jx, cz = ((c / N) | 0) + n.jz, dx = cx - n.x, dz = cz - n.z, l = Math.hypot(dx, dz);
+    const cur = this.ci(n.x, n.z), wd = this.bridgeOK(cur) ? 0 : this.w[cur];
+    if (wd > 0.2) speed *= 0.5; if (n.hp < 0.5) speed *= 0.6;
+    if (l < 0.25 || l < speed * dt) { n.pi++; if (n.pi < n.path.length && this.passCost(n.path[n.pi], c) < 0) { n.path = null; n.moving = false; return -1; } return 0; }
+    n.x += dx / l * speed * dt; n.z += dz / l * speed * dt; n.face = Math.atan2(dx, dz); n.moving = true; return 0;
+  }
+  drift(n, tx, tz, speed, dt) { const dx = tx - n.x, dz = tz - n.z, l = Math.hypot(dx, dz); if (l < 0.15) { n.moving = false; return true; } const nx = n.x + dx / l * speed * dt, nz = n.z + dz / l * speed * dt; if (this.passCost(this.ci(nx, nz), this.ci(n.x, n.z)) < 0) { n.moving = false; return true; } n.x = nx; n.z = nz; n.face = Math.atan2(dx, dz); n.moving = true; return false; }
+
+  habitable(b) { if (!b || b.ruin || b.fire > 0 || b.wet > 0.3) return false; for (const p of b.parts) if (p.role === 'roof' && !p.st) return true; return false; }
+  campFor(n) {
+    let c = n.campRef; if (c) { const i = this.ci(c.x, c.z); if (c.dead || this.burn[i] > 0 || this.w[i] > 0.1) { c.dead = true; n.campRef = null; c = null; } }
+    if (c) return c;
+    let best = null, bd = 1e9; for (const k of this.camps) { if (k.dead || k === n.badCamp) continue; const d = Math.hypot(k.x - n.x, k.z - n.z); if (d < bd) { bd = d; best = k; } }
+    if (!best || (n.badCamp && bd > 18)) best = n.badCamp ? this.newCamp(n.x, n.z, 2, 14) : this.newCamp(this.vc.x, this.vc.z, 14, 48);
+    n.campRef = best; return best;
+  }
+  newCamp(cx, cz, rmin, rmax) {
+    let best = -1e9, bx = -1, bz = 0; const rnd = this.rnd;
+    for (let k = 0; k < 120; k++) {
+      const a = rnd() * 6.28, r = rmin + rnd() * (rmax - rmin), x = Math.round(cx + Math.cos(a) * r), z = Math.round(cz + Math.sin(a) * r); if (x < 8 || z < 8 || x > N - 9 || z > N - 9) continue;
+      let ok = true, mn = 1e9, mx = -1e9;
+      for (let dz = -3; dz <= 3 && ok; dz++) for (let dx = -3; dx <= 3; dx++) { const i = (z + dz) * N + x + dx; if (this.w[i] > 0.02 || this.burn[i] > 0 || this.bmap[i] || this.scorch[i] > 80 || this.kind[i] === K.FOREST || this.crack[i] > 20) { ok = false; break; } mn = Math.min(mn, this.h[i]); mx = Math.max(mx, this.h[i]); }
+      if (!ok || mx - mn > 1.2) continue;
+      let td = 0; for (const t of this.threats) td = Math.max(td, t.r + 8 - Math.hypot(t.x - x, t.z - z));
+      if (td > 0) continue;
+      const sc = -r * 0.25 + this.h[z * N + x] * 1.5 + rnd(); if (sc > best) { best = sc; bx = x; bz = z; }
+    }
+    if (bx < 0) return null;
+    const c = { x: bx, z: bz, tents: 0, slot: 0, dead: false }; this.camps.push(c); this.fuel[bz * N + bx] = 0; this.fx.log('Survivors are making camp'); return c;
+  }
+
+  stepNPC(n, dt) {
+    if (n.st === DEAD) { n.deadT += dt; return; }
+    const rnd = this.rnd, ci = this.ci(n.x, n.z);
+    if (!n.inside) {
+      if (this.burn[ci] > 0.25) { n.hp -= dt * 0.4; n.onFire = 1.5; n.cause = 'burned'; if (n.st !== PANIC) this.panic(n, n.x, n.z, 6); }
+      const wd = this.bridgeOK(ci) ? 0 : this.w[ci];
+      if (wd > 0.7) { n.hp -= dt * 0.11; n.cause = 'drowned'; n.x = clamp(n.x + this.flx[ci] * 60 * dt * 3, 2, N - 3); n.z = clamp(n.z + this.flz[ci] * 60 * dt * 3, 2, N - 3); if (n.st !== PANIC && n.st !== STUMBLE) this.panic(n, n.x, n.z, 6); }
+      n.y = this.walkH(ci) + (wd > 0.7 ? wd - 0.5 : 0);
+    }
+    if (n.onFire > 0) n.onFire -= dt;
+    if (n.hp <= 0) { this.kill(n); return; }
+    n.senseT -= dt;
+    if (n.senseT <= 0) { n.senseT = 0.3 + rnd() * 0.2; const dg = this.dangerAt(n); if (dg) { if (n.st === STUMBLE) { n.tx = dg.x; n.tz = dg.z; } else this.panic(n, dg.x, dg.z, dg.r); } else if (n.st === PANIC) n.calm += 0.4; }
+    switch (n.st) {
+      case STUMBLE: n.t -= dt; n.moving = false; if (n.t <= 0) { n.st = SHAKEN; this.panic(n, n.tx, n.tz, n.tr); } break;
+      case PANIC: {
+        const r = n.path ? this.move(n, 3.3, dt) : 1;
+        if (r !== 0 && !n.queued) { if (n.calm > 2.5) { n.st = SHAKEN; n.t = 3 + rnd() * 5; n.moving = false; } else if (n.calm < 0.5) this.pickFlee(n); else n.moving = false; }
+        else if (r !== 0) { const a = Math.atan2(n.z - n.tz, n.x - n.tx); this.drift(n, n.x + Math.cos(a) * 3, n.z + Math.sin(a) * 3, 3, dt); }
+        break;
+      }
+      case SHAKEN: n.t -= dt; n.moving = false; if (n.t <= 0 && this.alarm <= 0) { n.st = ROUTINE; n.goal = ''; } break;
+      default: this.routine(n, dt);
+    }
+  }
+  routine(n, dt) {
+    const rnd = this.rnd; if (n.hp < 1) n.hp = Math.min(1, n.hp + dt * 0.004);
+    const hr = this.time * 24, home = this.buildings[n.home], ok = this.habitable(home);
+    let goal, gx, gz;
+    if (!ok) {
+      n.homeless = true; const c = this.campFor(n); if (!c) { n.moving = false; return; }
+      goal = 'camp'; gx = c.x; gz = c.z;
+      if (Math.hypot(n.x - c.x, n.z - c.z) < 5) {
+        n.campT += dt;
+        if (n.campT > 6 + (n.id % 8)) {
+          n.campT = 0; let hl = 0, cap = 0; for (const m of this.npcs) if (m.st !== DEAD && m.homeless) hl++;
+          for (const b of this.buildings) if (b.type === 'tent' && !b.ruin) cap += 3;
+          let tent = null; for (const b of this.buildings) if (b.type === 'tent' && this.habitable(b)) { let occ = 0; for (const m of this.npcs) if (m.home === b.id && m.st !== DEAD) occ++; if (occ < 3) { tent = b; break; } }
+          if (!tent && c.tents < 40) { for (let k = 0; k < 10 && !tent; k++) { let s = c.slot++, ring = 0; while (s >= 5 + ring * 4) { s -= 5 + ring * 4; ring++; } const a = s / (5 + ring * 4) * 6.283 + ring * 0.4, r = 5 + ring * 4; tent = this.addB('tent', Math.round(c.x + Math.cos(a) * r), Math.round(c.z + Math.sin(a) * r), true, [-Math.cos(a), -Math.sin(a)], true); } if (tent) { c.tents++; tent.doorX = tent.x - Math.cos(Math.atan2(tent.z - c.z, tent.x - c.x)) * 1.6; tent.doorZ = tent.z - Math.sin(Math.atan2(tent.z - c.z, tent.x - c.x)) * 1.6; this.fx.log(n.name + ' raised a tent'); this.fx.sound('hammer', tent.x, tent.z, 0.6); } }
+          if (tent) { n.home = tent.id; n.homeless = false; n.goal = ''; }
+        }
+      }
+    } else {
+      n.homeless = false;
+      if (hr < 6 || hr >= 21) { goal = 'home'; gx = home.doorX; gz = home.doorZ; }
+      else if ((hr >= 12 && hr < 13.5) || hr >= 18) { goal = 'plaza'; gx = this.vc.x + 1 + (n.id % 7) - 3; gz = this.vc.z + 1 + ((n.id * 3) % 7) - 3; if (home.type === 'tent') { gx = home.doorX + (n.id % 3) - 1; gz = home.doorZ + (n.id % 2); } }
+      else { goal = 'work'; gx = n.wx; gz = n.wz; }
+    }
+    if (n.goal !== goal) { n.goal = goal; n.gx = gx; n.gz = gz; n.inside = false; n.working = false; n.arr = false; n.fail = 0; this.reqPath(n, gx, gz); return; }
+    if (n.inside) return;
+    if (n.path) { const r = this.move(n, n.child ? 2.1 : 1.55, dt); if (r === -1) { n.repT = 0.5; } return; }
+    if (n.queued) return;
+    const dist = Math.hypot(n.x - n.gx, n.z - n.gz);
+    if (!n.arr && dist > 2.2 && n.fail < 4) { n.repT -= dt; n.moving = false; if (n.repT <= 0) { n.repT = 3 + rnd() * 4; n.fail++; this.reqPath(n, n.gx, n.gz); } return; }
+    if (goal === 'camp' && n.fail >= 4 && dist > 6) { n.badCamp = n.campRef; n.campRef = null; n.goal = ''; n.fail = 0; return; }
+    n.arr = true;
+    if (goal === 'home') { if (dist < 2.5) { n.inside = true; n.moving = false; n.x = home.doorX; n.z = home.doorZ; } return; }
+    n.idleT -= dt;
+    if (n.idleT <= 0) { n.idleT = 2 + rnd() * 5; const a = rnd() * 6.28, r = goal === 'work' ? 2.5 : 3.5; n.ix = n.gx + Math.cos(a) * r * rnd(); n.iz = n.gz + Math.sin(a) * r * rnd(); n.wandering = true; }
+    if (n.wandering) { if (this.drift(n, n.ix, n.iz, 0.9, dt)) { n.wandering = false; } n.working = false; }
+    else { n.moving = false; n.working = goal === 'work'; }
+  }
+
+  // ------------------------------------------------------------ powers
+  nearDam(x, z, r) { const xi = Math.round(x), zi = Math.round(z), R = Math.ceil(r); for (let dz = -R; dz <= R; dz++) for (let dx = -R; dx <= R; dx++) { const X = xi + dx, Z = zi + dz; if (X < 0 || Z < 0 || X >= N || Z >= N) continue; if (this.kind[Z * N + X] === K.DAM && this.h[Z * N + X] > this.h0[Z * N + X] - 1) return true; } return false; }
+  breakDam(x, z, I) {
+    const r = 2.5 + 3.5 * I, xi = Math.round(x), zi = Math.round(z), R = Math.ceil(r), rnd = this.rnd; let n = 0;
+    for (let dz = -R; dz <= R; dz++) for (let dx = -R; dx <= R; dx++) {
+      const X = xi + dx, Z = zi + dz; if (X < 1 || Z < 1 || X >= N - 1 || Z >= N - 1) continue; const i = Z * N + X, d = Math.hypot(dx, dz); if (d > r || this.kind[i] !== K.DAM) continue;
+      const tgt = this.bed(Z) - 0.8 + 3 * Math.pow(d / r, 3); if (this.h[i] > tgt) {
+        if (n % 2 === 0) this.debris.push({ x: X, y: this.h[i], z: Z, vx: rnd() * 4 - 2, vy: 2 + rnd() * 4, vz: 3 + rnd() * 5, rx: 0, ry: rnd() * 6, rz: 0, wx: rnd() * 6 - 3, wy: 0, wz: rnd() * 6 - 3, sx: 0.5 + rnd() * 0.7, sy: 0.4 + rnd() * 0.5, sz: 0.5 + rnd() * 0.7, g: 0, c: [0.6, 0.6, 0.58], b: 0, from: -1, mass: 0.6, hot: 0 });
+        this.h[i] = tgt; this.crack[i] = 200; n++;
+      }
+    }
+    if (n) { this.terrDirty = true; this.fx.burst('dust', x, this.hAt(x, z) + 3, z, 30, 3, 1.5); this.fx.sound('dambreak', x, z, 1); this.fx.shake(0.5); this.checkDam(); }
+    return n;
+  }
+  checkDam() { if (this.damBroken) return; for (let z = 57; z <= 59; z++) for (let x = 0; x < N; x++) { const i = z * N + x; if (this.kind[i] === K.DAM && this.h[i] < this.h0[i] - 1.6) { this.damBroken = true; this.fx.log('THE DAM IS BREACHED — the reservoir is emptying'); this.addThreat(this.rx(64), 64, 10, 20); return; } } }
+  carve(x, z, I, dt) { // flood power brush: dig a channel
+    if (this.nearDam(x, z, 2 + I)) { this.breakDam(x, z, I); return; }
+    const r = 1.2 + 1.3 * I, xi = Math.round(x), zi = Math.round(z), R = Math.ceil(r), lim = 1.5 + 2.5 * I; let ch = false;
+    for (let dz = -R; dz <= R; dz++) for (let dx = -R; dx <= R; dx++) {
+      const X = xi + dx, Z = zi + dz; if (X < 2 || Z < 2 || X >= N - 2 || Z >= N - 2) continue; const i = Z * N + X, d = Math.hypot(dx, dz); if (d > r || (this.flag[i] & 2)) continue;
+      const tgt = this.h0[i] - lim * (1 - (d / r) * (d / r)); if (this.h[i] > tgt) { this.h[i] = Math.max(tgt, this.h[i] - dt * 9); this.mud[i] = Math.max(this.mud[i], 170); this.fuel[i] = 0; if (this.tree[i] === 1) { this.tree[i] = 4; this.staticDirty = true; } ch = true; const bi = this.bmap[i]; if (bi) this.damage(this.buildings[bi - 1], dt * 2, 'quake', x, z); }
+    }
+    if (ch) { this.terrDirty = true; this.staticDirty = true; if (this.rnd() < 0.3) this.fx.burst('dust', x, this.hAt(x, z) + 0.3, z, 2, r, 0.6); }
+  }
+
+  quake(x0, z0, x1, z1, I) {
+    let len = Math.hypot(x1 - x0, z1 - z0); if (len < 4) { const a = this.rnd() * 6.28; x1 = x0 + Math.cos(a) * 6; z1 = z0 + Math.sin(a) * 6; len = 6; }
+    const ux = (x1 - x0) / len, uz = (z1 - z0) / len, nx = -uz, nz = ux, n = Math.ceil(len / 1.3), pts = [], rnd = this.rnd;
+    for (let k = 0; k <= n; k++) { const t = k / n, o = (k > 0 && k < n) ? (rnd() - 0.5) * 2.4 : 0; pts.push([x0 + (x1 - x0) * t + nx * o, z0 + (z1 - z0) * t + nz * o]); }
+    const Rs = 5 + 7 * I, amp = 0.35 + 1.0 * I, ci = [], amt = [], tp = [];
+    const X0 = Math.max(2, Math.floor(Math.min(x0, x1) - Rs)), X1 = Math.min(N - 3, Math.ceil(Math.max(x0, x1) + Rs)), Z0 = Math.max(2, Math.floor(Math.min(z0, z1) - Rs)), Z1 = Math.min(N - 3, Math.ceil(Math.max(z0, z1) + Rs));
+    for (let z = Z0; z <= Z1; z++) for (let x = X0; x <= X1; x++) { const i = z * N + x; if (this.flag[i] & 2) continue; const px = x - x0, pz = z - z0, t = (px * ux + pz * uz) / len; if (t <= 0 || t >= 1) continue; const d = px * nx + pz * nz, ad = Math.abs(d); if (ad >= Rs) continue; const f = 1 - ad / Rs; ci.push(i); amt.push((d >= 0 ? 1 : -1) * amp * f * f * Math.sqrt(Math.sin(Math.PI * t))); tp.push(t); }
+    const R = 12 + 20 * I, q = { pts, I, t: 0, dur: 5 + 5 * I, prog: 0, done: 0, R, ci, amt, tp, bl: [], x0, z0, x1, z1 };
+    const segD = (x, z) => { const px = x - x0, pz = z - z0, t = clamp((px * ux + pz * uz) / len, 0, 1); return Math.hypot(px - ux * len * t, pz - uz * len * t); };
+    for (const b of this.buildings) { const d = segD(b.x, b.z); if (d < R && !b.ruin) q.bl.push({ b, d }); }
+    for (const m of this.npcs) { if (m.st === DEAD) continue; const d = segD(m.x, m.z); if (d < R) { const px = m.x - x0, pz = m.z - z0, t = clamp((px * ux + pz * uz) / len, 0, 1); if (m.inside) { m.inside = false; } m.st = STUMBLE; m.t = 0.6 + rnd() * 1.4; m.path = null; m.tx = x0 + ux * len * t; m.tz = z0 + uz * len * t; m.tr = R * 0.5; this.alarm = 22; } }
+    for (let s = 0; s <= len; s += 6) this.addThreat(x0 + ux * s, z0 + uz * s, R * 0.55, q.dur + 2);
+    this.quakes.push(q); this.fx.log('The earth splits open'); this.fx.sound('scream', (x0 + x1) / 2, (z0 + z1) / 2, 0.8);
+    return q;
+  }
+  crackSeg(ax, az, bx, bz, I) {
+    const len = Math.hypot(bx - ax, bz - az), st = Math.max(1, Math.ceil(len / 0.5)), wd = 0.8 + 0.9 * I, R = Math.ceil(wd) + 2, rnd = this.rnd, depth = (1.2 + 3 * I) * (0.7 + 0.5 * rnd());
+    for (let s = 0; s <= st; s++) {
+      const x = ax + (bx - ax) * s / st, z = az + (bz - az) * s / st, xi = Math.round(x), zi = Math.round(z);
+      for (let dz = -R; dz <= R; dz++) for (let dx = -R; dx <= R; dx++) {
+        const X = xi + dx, Z = zi + dz; if (X < 2 || Z < 2 || X > N - 3 || Z > N - 3) continue; const i = Z * N + X; if (this.flag[i] & 2) continue; const d = Math.hypot(X - x, Z - z);
+        if (d < wd) { const nc = depth * (1 - (d / wd) * (d / wd)), oc = this.crack[i] / 255 * 5; if (nc > oc) { this.h[i] -= nc - oc; this.crack[i] = Math.min(255, nc / 5 * 255); this.fuel[i] = 0; if (this.tree[i]) this.tree[i] = 0; const bi = this.bmap[i]; if (bi) this.damage(this.buildings[bi - 1], 0.25, 'quake', x, z); } }
+        else if (d < wd + 2 && this.tree[i] === 1 && rnd() < 0.08 * I) this.tree[i] = 4;
+      }
+    }
+    this.fx.burst('dust', bx, this.hAt(bx, bz) + 0.5, bz, 6, 1.2, 1); this.fx.sound('crack', bx, bz, 0.5 + 0.4 * I);
+    if (!this.damBroken) this.checkDam();
+    this.terrDirty = true; this.staticDirty = true;
+  }
+  stepQuake(q, dt) {
+    q.t += dt; const env = Math.sin(Math.PI * Math.min(1, q.t / q.dur)); this.fx.shake(q.I * env * 0.5);
+    const pr = Math.min(1.3, q.t / (q.dur * 0.5)), prev = q.prog; q.prog = pr;
+    const k1 = Math.floor(Math.min(1, pr) * (q.pts.length - 1));
+    while (q.done < k1) { const a = q.pts[q.done], b = q.pts[q.done + 1]; this.crackSeg(a[0], a[1], b[0], b[1], q.I); q.done++; }
+    if (pr > prev) { const h = this.h, ci = q.ci, amt = q.amt, tp = q.tp; for (let k = 0; k < ci.length; k++) { const f1 = clamp((pr - tp[k]) / 0.3, 0, 1), f0 = clamp((prev - tp[k]) / 0.3, 0, 1); if (f1 > f0) h[ci[k]] += amt[k] * (f1 - f0); } this.terrDirty = true; this.staticDirty = true; }
+    for (const e of q.bl) { const f = 1 - e.d / q.R; e.b.shake = env * q.I * f; e.b.active = true; this.damage(e.b, dt * q.I * 0.6 * f * f * env, 'quake', e.b.x, e.b.z); }
+    if (q.t >= q.dur) { for (const e of q.bl) e.b.shake = 0; return true; }
+    return false;
+  }
+
+  meteor(x, z, I) { const m = { x, z, I, t: 0, T: 2.8, sx: x - 34, sy: this.hAt(x, z) + 70, sz: z - 24, px: 0, py: 0, pz: 0 }; this.meteors.push(m); this.addThreat(x, z, (4 + 7 * I) * 2.6, 4); this.fx.sound('whoosh', x, z, 1); this.fx.log('A star falls from the heavens'); return m; }
+  impact(m) {
+    const I = m.I, R = 4 + 7 * I, depth = 2.5 + 4 * I, xi = Math.round(m.x), zi = Math.round(m.z), RR = Math.ceil(R * 3.3), rnd = this.rnd, gy = this.hAt(m.x, m.z);
+    let steam = false;
+    for (let dz = -RR; dz <= RR; dz++) for (let dx = -RR; dx <= RR; dx++) {
+      const X = xi + dx, Z = zi + dz; if (X < 2 || Z < 2 || X > N - 3 || Z > N - 3) continue; const i = Z * N + X; if (this.flag[i] & 2) continue; const d = Math.hypot(X - m.x, Z - m.z), u = d / R;
+      if (u < 1.6) { let dh = 0; if (u < 1) { dh = -depth * Math.pow(1 - u * u, 1.3); if (this.w[i] > 0.05) steam = true; this.w[i] = 0; this.fuel[i] = 0; if (this.burn[i] > 0) this.burn[i] = 0.01; if (!(this.flag[i] & 1)) { this.flag[i] |= 1; this.craterCells.push(i); } } const e = (u - 1.05) / 0.2; dh += depth * 0.2 * Math.exp(-e * e); this.h[i] += dh; }
+      if (u < 1.35) { this.scorch[i] = 255; this.tree[i] = 0; }
+      else if (u < 2.3) { this.scorch[i] = Math.max(this.scorch[i], 150); if (this.tree[i] === 1 || this.tree[i] === 2) this.tree[i] = rnd() < 0.6 ? 4 : 3; if (rnd() < 0.3) this.igniteCell(i); }
+      else if (u < 3.2) { if (rnd() < 0.22) this.igniteCell(i); }
+    }
+    this.fires = this.fires.filter(i => this.burn[i] > 0.02 || (this.burn[i] = 0, false));
+    for (const b of this.buildings) {
+      if (b.ruin) continue; const d = Math.hypot(b.x - m.x, b.z - m.z) - Math.max(b.w, b.d) * 0.4;
+      if (d < R * 1.3) { for (const p of b.parts) if (!p.st && p.role !== 'base') this.failPart(b, p, 'blast', m.x, m.z, I); }
+      else if (d < R * 2.4) { this.damage(b, 1.3 * (1 - (d - R * 1.3) / (R * 1.1)) + 0.15, 'blast', m.x, m.z, I); if (rnd() < 0.6) this.igniteB(b); }
+      else if (d < R * 4) this.damage(b, 0.22, 'quake', m.x, m.z);
+    }
+    for (const n of this.npcs) {
+      if (n.st === DEAD) continue; const d = Math.hypot(n.x - m.x, n.z - m.z);
+      if (d < R * 1.25) { n.cause = 'meteor'; n.inside = false; this.kill(n); n.deadT = 999; }
+      else if (d < R * 2.2) { n.hp -= 0.5 + rnd() * 0.4; n.cause = 'meteor blast'; n.inside = false; n.st = STUMBLE; n.t = 1 + rnd(); n.tx = m.x; n.tz = m.z; n.tr = R * 2; n.path = null; this.alarm = 22; }
+      else if (d < R * 5.5) this.panic(n, m.x, m.z, R * 2.5);
+    }
+    const ne = 10 + (18 * I) | 0;
+    for (let k = 0; k < ne; k++) { const a = rnd() * 6.28, sp = 5 + rnd() * 12 * (0.5 + I), s = 0.3 + rnd() * 0.8; this.debris.push({ x: m.x + Math.cos(a) * R * 0.5, y: gy + 0.5, z: m.z + Math.sin(a) * R * 0.5, vx: Math.cos(a) * sp, vy: 8 + rnd() * 12, vz: Math.sin(a) * sp, rx: 0, ry: rnd() * 6, rz: 0, wx: rnd() * 8 - 4, wy: 0, wz: rnd() * 8 - 4, sx: s, sy: s * 0.8, sz: s, g: 0, c: [0.2, 0.17, 0.15], b: 0, from: -1, mass: s * 2, hot: 1 }); }
+    this.addRubble(m.x, gy - depth + 0.3, m.z, 0.9 + I, 0.8 + I * 0.6, 0.9 + I, 0.3, rnd() * 6, 0.2, 0, 0.16, 0.13, 0.12);
+    this.emitters.push({ x: m.x, z: m.z, ttl: 25, r: R * 0.6, type: 'smoke' }); this.seepHold = 1500;
+    this.addThreat(m.x, m.z, R * 2.5, 8);
+    this.fx.flash(0.9); this.fx.shake(1 + I); this.fx.sound('boom', m.x, m.z, 1);
+    this.fx.burst('fire', m.x, gy + 1, m.z, 60, R * 0.5, 2 + I * 2); this.fx.burst('smoke', m.x, gy + 2, m.z, 40, R * 0.7, 2); this.fx.burst('ring', m.x, gy + 0.5, m.z, 80, R, 1 + I); this.fx.burst('dust', m.x, gy + 1, m.z, 50, R, 2.5);
+    if (steam) this.fx.burst('steam', m.x, gy + 1, m.z, 40, R * 0.6, 2);
+    this.fx.log('Impact — a crater ' + Math.round(R * 2) + ' paces wide');
+    if (!this.damBroken) this.checkDam();
+    this.terrDirty = true; this.staticDirty = true;
+  }
+
+  fingerPress(x, z, I) {
+    const R = 1.6 + 2.4 * I, depth = 0.5 + 1.1 * I, xi = Math.round(x), zi = Math.round(z), RR = Math.ceil(R * 1.5), rnd = this.rnd;
+    for (let dz = -RR; dz <= RR; dz++) for (let dx = -RR; dx <= RR; dx++) {
+      const X = xi + dx, Z = zi + dz; if (X < 2 || Z < 2 || X > N - 3 || Z > N - 3) continue; const i = Z * N + X; if (this.flag[i] & 2) continue; const u = Math.hypot(X - x, Z - z) / R;
+      if (u < 1) { if (this.h0[i] - this.h[i] < 7) this.h[i] -= depth * (1 - u * u); this.mud[i] = Math.max(this.mud[i], 140); this.fuel[i] *= 0.3; if (this.tree[i]) this.tree[i] = this.tree[i] === 3 ? 3 : 5; if (this.burn[i] > 0) this.fuel[i] = 0; }
+      else if (u < 1.45) { const e = (u - 1.2) / 0.15; this.h[i] += depth * 0.18 * Math.exp(-e * e); }
+    }
+    for (const b of this.buildings) {
+      if (b.ruin || Math.hypot(b.x - x, b.z - z) > R + Math.max(b.w, b.d)) continue; let any = false;
+      for (const p of b.parts) { if (p.st || p.role === 'base') continue; const d = Math.hypot(b.x + p.ox - x, b.z + p.oz - z) - Math.max(p.sx, p.sz) * 0.35; if (d < R) { this.failPart(b, p, 'crush', x, z, I); any = true; } }
+      if (!any) this.damage(b, 0.2, 'quake', x, z);
+    }
+    for (const n of this.npcs) { if (n.st === DEAD) continue; const d = Math.hypot(n.x - x, n.z - z); if (d < R * 0.95 && !n.inside) { n.cause = 'crushed'; this.kill(n); n.flat = true; } else if (d < R * 3.5 + 5) this.panic(n, x, z, R * 2 + 5); }
+    this.addThreat(x, z, R * 2 + 4, 3);
+    const gy = this.hAt(x, z); this.fx.burst('dust', x, gy + 0.3, z, 24, R, 1.5); this.fx.burst('ring', x, gy + 0.3, z, 30, R * 0.8, 0.5); this.fx.shake(0.25 + 0.3 * I); this.fx.sound('thud', x, z, 1); this.fx.sound('crack', x, z, 0.5);
+    if (!this.damBroken) this.checkDam();
+    this.terrDirty = true; this.staticDirty = true;
+  }
+
+  ignite(x, z, I) {
+    const R = 1.5 + 4 * I, xi = Math.round(x), zi = Math.round(z), RR = Math.ceil(R); let n = 0;
+    for (let dz = -RR; dz <= RR; dz++) for (let dx = -RR; dx <= RR; dx++) { const X = xi + dx, Z = zi + dz; if (X < 1 || Z < 1 || X > N - 2 || Z > N - 2) continue; if (Math.hypot(dx, dz) > R) continue; const i = Z * N + X; if (this.igniteCell(i)) n++; const bi = this.bmap[i]; if (bi) { const b = this.buildings[bi - 1]; if (!b.fire && b.fuel > 0 && !b.ruin) { this.igniteB(b); n++; } } }
+    if (this.bridgeB && !this.bridgeB.ruin && Math.hypot(this.bridgeB.x - x, this.bridgeB.z - z) < R + 3) this.igniteB(this.bridgeB);
+    this.fx.burst('fire', x, this.hAt(x, z) + 0.5, z, 20, R * 0.6, 1.5); if (n) this.fx.sound('ignite', x, z, 0.8);
+    return n;
+  }
+
+  // ------------------------------------------------------------ main tick
+  tick(dt) {
+    this.tickN++; this.clock += dt;
+    this.time += dt / DAYLEN; if (this.time >= 1) { this.time -= 1; this.day++; }
+    this.windA += (Math.sin(this.clock * 0.05) * 0.3 + Math.sin(this.clock * 0.013 + 2) * 0.5) * dt * 0.05; this.windS = 0.6 + 0.35 * Math.sin(this.clock * 0.021 + 1);
+    this.wind[0] = Math.cos(this.windA) * this.windS; this.wind[1] = Math.sin(this.windA) * this.windS;
+    this.rainT -= dt; if (this.rainT <= 0) { if (this.rain > 0) { this.rain = 0; this.rainT = 220 + this.rnd() * 240; } else { this.rain = 1; this.rainT = 28 + this.rnd() * 20; this.fx.log('Rain sweeps over the valley'); } }
+    if (this.alarm > 0) this.alarm -= dt; if (this.screamT > 0) this.screamT -= dt;
+    this.stepWater();
+    if (this.tickN % 6 === 0) this.stepFire(dt * 6);
+    for (let k = this.quakes.length - 1; k >= 0; k--) if (this.stepQuake(this.quakes[k], dt)) this.quakes.splice(k, 1);
+    for (let k = this.meteors.length - 1; k >= 0; k--) { const m = this.meteors[k]; m.t += dt; const u = Math.min(1, m.t / m.T), e = u * u; const gy = this.hAt(m.x, m.z); m.px = m.sx + (m.x - m.sx) * e; m.py = m.sy + (gy - m.sy) * e; m.pz = m.sz + (m.z - m.sz) * e; if (u >= 1) { this.impact(m); this.meteors.splice(k, 1); } }
+    for (let k = this.emitters.length - 1; k >= 0; k--) { this.emitters[k].ttl -= dt; if (this.emitters[k].ttl <= 0) this.emitters.splice(k, 1); }
+    if (this.tickN % 30 === 0) for (const b of this.buildings) {
+      if (b.ruin) continue; let dp = 0;
+      if (b.type === 'bridge') { const i = this.ci(b.x, b.z); dp = this.h[i] + this.w[i] - (b.y - 0.5); }
+      else for (const i of b.cells) { const v = this.h[i] + this.w[i] - b.y; if (this.w[i] > 0.05 && v > dp) dp = v; }
+      b.wet = dp; if (dp > 0.18) { b.active = true; if (!b.logW && dp > 0.5) { b.logW = true; this.fx.log(this.bname(b) + ' is flooding'); } }
+    }
+    for (const b of this.buildings) if (b.active) this.tickB(b, dt);
+    if (this.debris.length) this.stepDebris(dt);
+    for (let k = this.threats.length - 1; k >= 0; k--) { this.threats[k].ttl -= dt; if (this.threats[k].ttl <= 0) this.threats.splice(k, 1); }
+    for (let k = 0; k < 6 && this.pathQ.length; k++) { const n = this.pathQ.shift(); n.queued = false; if (n.st === DEAD) continue; n.path = this.findPath(this.ci(n.x, n.z), this.ci(n.px, n.pz)); n.pi = 0; if (!n.path.length) n.path = null; }
+    for (const n of this.npcs) this.stepNPC(n, dt);
+  }
+
+  stats() { let alive = 0, inj = 0, dead = 0, hl = 0, pan = 0; for (const n of this.npcs) { if (n.st === DEAD) dead++; else { alive++; if (n.hp < 0.5) inj++; if (n.homeless) hl++; if (n.st === PANIC || n.st === STUMBLE) pan++; } } let bs = 0, bt = 0, tents = 0; for (const b of this.buildings) { if (b.type === 'bridge') continue; if (b.type === 'tent') { if (!b.ruin) tents++; continue; } bt++; if (!b.ruin) bs++; } return { alive, inj, dead, hl, pan, bs, bt, tents, fires: this.fires.length }; }
+
+  // ------------------------------------------------------------ save / load
+  serialize() {
+    const q16 = (a, s) => { const o = new Int16Array(NN); for (let i = 0; i < NN; i++) o[i] = clamp(Math.round(a[i] * s), -32768, 32767); return b64enc(new Uint8Array(o.buffer)); };
+    const q8 = a => { const o = new Uint8Array(NN); for (let i = 0; i < NN; i++) o[i] = clamp(Math.round(a[i] * 255), 0, 255); return b64enc(o); };
+    const r2 = v => Math.round(v * 100) / 100;
+    return {
+      v: 1, seed: this.seed, time: this.time, day: this.day, clock: this.clock, windA: this.windA, damBroken: this.damBroken, camps: this.camps.filter(c => !c.dead),
+      h: q16(this.h, 100), w: q16(this.w, 1000), fuel: q8(this.fuel), burn: q8(this.burn), scorch: b64enc(this.scorch), crack: b64enc(this.crack), mud: b64enc(this.mud), tree: b64enc(this.tree), flag: b64enc(this.flag),
+      B: this.buildings.map(b => ({ t: b.type, x: b.x, z: b.z, y: r2(b.y), f: r2(b.fire), fu: r2(b.fuel), r: b.ruin ? 1 : 0, dx: r2(b.doorX), dz: r2(b.doorZ), p: b.parts.map(p => [p.st, Math.round(p.hp * 100), Math.round(p.char * 100), Math.round(p.lean * 100)]) })),
+      R: this.rubble.map(r => r.map(r2)),
+      P: this.npcs.map(n => [r2(n.x), r2(n.z), r2(n.hp), n.st, n.home, n.inside ? 1 : 0, n.homeless ? 1 : 0, n.flat ? 1 : 0, n.st === DEAD ? Math.min(999, Math.round(n.deadT)) : 0])
+    };
+  }
+  static load(s) {
+    const w = new World(s.seed); const d16 = (str, a, sc) => { const u = b64dec(str), o = new Int16Array(u.buffer); for (let i = 0; i < NN; i++) a[i] = o[i] / sc; }, d8 = (str, a) => { const u = b64dec(str); for (let i = 0; i < NN; i++) a[i] = u[i] / 255; };
+    for (let k = w.genCount; k < s.B.length; k++) { const e = s.B[k]; if (e.t === 'tent') { const sv = w.w; w.w = new Float32Array(NN); const b = w.addB('tent', e.x, e.z, true, [1, 0], true); w.w = sv; if (!b) { const dummy = { id: w.buildings.length, type: 'tent', x: e.x, z: e.z, y: e.y, w: 1, d: 1, hgt: 1, parts: [], ruin: true, cells: [], fire: 0, fuel: 0, tough: 1, flam: 1, doorX: e.x, doorZ: e.z }; w.buildings.push(dummy); } } }
+    d16(s.h, w.h, 100); d16(s.w, w.w, 1000); d8(s.fuel, w.fuel); d8(s.burn, w.burn);
+    w.scorch.set(b64dec(s.scorch)); w.crack.set(b64dec(s.crack)); w.mud.set(b64dec(s.mud)); w.tree.set(b64dec(s.tree)); w.flag.set(b64dec(s.flag));
+    w.wb.set(w.w); w.fires = []; w.craterCells = [];
+    for (let i = 0; i < NN; i++) { if (w.burn[i] > 0) w.fires.push(i); if (w.flag[i] & 1) w.craterCells.push(i); }
+    s.B.forEach((e, k) => { const b = w.buildings[k]; if (!b) return; b.y = e.y; b.fire = e.f; b.fuel = e.fu; b.ruin = !!e.r; b.doorX = e.dx; b.doorZ = e.dz; b.logged = b.logF = b.logW = true; e.p.forEach((q, j) => { const p = b.parts[j]; if (!p) return; p.st = q[0]; p.hp = q[1] / 100; p.char = q[2] / 100; p.lean = q[3] / 100; }); b.active = !b.ruin; });
+    w.rubble = s.R.map(r => r.slice());
+    s.P.forEach((e, k) => { const n = w.npcs[k]; if (!n) return; n.x = e[0]; n.z = e[1]; n.hp = e[2]; n.st = e[3] === DEAD ? DEAD : ROUTINE; n.home = e[4]; n.inside = !!e[5]; n.homeless = !!e[6]; n.flat = !!e[7]; n.deadT = e[8]; n.goal = ''; n.path = null; n.y = w.walkH(w.ci(n.x, n.z)); });
+    w.time = s.time; w.day = s.day; w.clock = s.clock; w.windA = s.windA; w.damBroken = s.damBroken; w.camps = s.camps || [];
+    w.terrDirty = true; w.staticDirty = true; return w;
+  }
+}
+
+if (typeof module !== 'undefined') module.exports = { World, N, NN, K, ROUTINE, PANIC, STUMBLE, SHAKEN, DEAD, DAYLEN };
+
+// ===================== GOD SIM — WebGL2 renderer + particles =====================
+const M4 = {
+  persp(fov, asp, n, f) { const t = 1 / Math.tan(fov / 2), o = new Float32Array(16); o[0] = t / asp; o[5] = t; o[10] = (f + n) / (n - f); o[11] = -1; o[14] = 2 * f * n / (n - f); return o; },
+  look(e, c, u) { let zx = e[0] - c[0], zy = e[1] - c[1], zz = e[2] - c[2], l = Math.hypot(zx, zy, zz); zx /= l; zy /= l; zz /= l; let xx = u[1] * zz - u[2] * zy, xy = u[2] * zx - u[0] * zz, xz = u[0] * zy - u[1] * zx; l = Math.hypot(xx, xy, xz); xx /= l; xy /= l; xz /= l; const yx = zy * xz - zz * xy, yy = zz * xx - zx * xz, yz = zx * xy - zy * xx; return new Float32Array([xx, yx, zx, 0, xy, yy, zy, 0, xz, yz, zz, 0, -(xx * e[0] + xy * e[1] + xz * e[2]), -(yx * e[0] + yy * e[1] + yz * e[2]), -(zx * e[0] + zy * e[1] + zz * e[2]), 1]); },
+  mul(a, b) { const o = new Float32Array(16); for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) o[c * 4 + r] = a[r] * b[c * 4] + a[4 + r] * b[c * 4 + 1] + a[8 + r] * b[c * 4 + 2] + a[12 + r] * b[c * 4 + 3]; return o; }
+};
+
+const COMMON = `
+uniform vec3 uSun,uSunC,uAmb,uFog,uCam; uniform float uFogD; uniform vec4 uLights[6];
+vec3 shade(vec3 base, vec3 n, vec3 wp){
+  float d=max(dot(n,uSun),0.0);
+  vec3 c=base*(uAmb*(0.75+0.25*n.y)+uSunC*d);
+  for(int i=0;i<6;i++){ vec3 L=uLights[i].xyz-wp; float dd=dot(L,L); float a=uLights[i].w/(1.0+dd*0.035); c+=base*vec3(1.0,0.48,0.14)*a*max(dot(n,normalize(L)),0.25); }
+  return c; }
+vec3 fog(vec3 c, vec3 wp){ float fd=distance(wp,uCam); return mix(c,uFog,1.0-exp(-fd*fd*uFogD)); }
+`;
+const TERR_VS = `#version 300 es
+in vec3 aPos; in vec3 aCol; in float aGlow; uniform mat4 uVP; out vec3 vCol; out vec3 vW; out float vGlow;
+void main(){ vW=aPos; vCol=aCol; vGlow=aGlow; gl_Position=uVP*vec4(aPos,1.0); }`;
+const TERR_FS = `#version 300 es
+precision highp float; in vec3 vCol; in vec3 vW; in float vGlow; out vec4 o;
+uniform vec4 uMark,uMarkC,uShadow; uniform float uTime;` + COMMON + `
+void main(){ vec3 n=normalize(cross(dFdx(vW),dFdy(vW))); if(n.y<0.0) n=-n;
+  vec3 c=shade(vCol,n,vW);
+  float fl=0.75+0.25*sin(uTime*13.0+vW.x*3.1+vW.z*2.3);
+  c+=vec3(1.0,0.42,0.06)*vGlow*fl*0.9;
+  float sd=distance(vW.xz,uShadow.xy); c*=1.0-uShadow.w*smoothstep(uShadow.z,uShadow.z*0.45,sd);
+  float md=distance(vW.xz,uMark.xy); float ring=smoothstep(0.22,0.0,abs(md-uMark.z));
+  c=mix(c,uMarkC.rgb,clamp(ring+(md<uMark.z?0.13:0.0),0.0,1.0)*uMarkC.a);
+  o=vec4(fog(c,vW),1.0); }`;
+const WAT_VS = `#version 300 es
+in vec3 aPos; in vec2 aDF; uniform mat4 uVP; out vec3 vW; out vec2 vDF;
+void main(){ vW=aPos; vDF=aDF; gl_Position=uVP*vec4(aPos,1.0); }`;
+const WAT_FS = `#version 300 es
+precision highp float; in vec3 vW; in vec2 vDF; out vec4 o; uniform float uTime;` + COMMON + `
+void main(){ float d=vDF.x; if(d<0.012) discard;
+  vec2 p=vW.xz; float t=uTime;
+  vec3 n=normalize(vec3(0.07*sin(p.x*2.1+t*1.7)+0.05*sin(p.y*3.3-t*2.3)+0.03*sin((p.x+p.y)*5.0+t*3.0),1.0,0.07*cos(p.y*2.4+t*1.3)+0.05*sin(p.x*3.7+t*2.1)));
+  vec3 base=mix(vec3(0.30,0.58,0.62),vec3(0.07,0.22,0.40),smoothstep(0.0,2.2,d));
+  base=mix(base,vec3(0.36,0.30,0.20),clamp(vDF.y*9.0,0.0,0.55));
+  vec3 c=base*(uAmb*1.1+uSunC*(0.35+0.5*max(dot(n,uSun),0.0)));
+  vec3 v=normalize(uCam-vW); vec3 h=normalize(v+uSun); c+=uSunC*pow(max(dot(n,h),0.0),70.0)*0.9;
+  float foam=smoothstep(0.012,0.05,vDF.y)*(0.55+0.45*sin(p.x*7.0+p.y*5.0+t*9.0));
+  c=mix(c,vec3(0.92,0.95,0.97)*(uAmb+uSunC*0.7),clamp(foam,0.0,0.75));
+  for(int i=0;i<6;i++){ vec3 L=uLights[i].xyz-vW; float dd=dot(L,L); c+=vec3(1.0,0.45,0.12)*uLights[i].w/(1.0+dd*0.03)*0.5; }
+  float a=smoothstep(0.012,0.22,d)*0.86+clamp(foam,0.0,0.3);
+  o=vec4(fog(c,vW),clamp(a,0.0,0.96)); }`;
+const INS_VS = `#version 300 es
+in vec3 aPos; in vec3 aNor; in vec3 iPos; in vec3 iScl; in vec3 iRot; in vec4 iCol; uniform mat4 uVP;
+out vec3 vN; out vec3 vW; out vec4 vC;
+mat3 rot(vec3 r){ float cx=cos(r.x),sx=sin(r.x),cy=cos(r.y),sy=sin(r.y),cz=cos(r.z),sz=sin(r.z);
+  mat3 X=mat3(1,0,0, 0,cx,sx, 0,-sx,cx); mat3 Y=mat3(cy,0,-sy, 0,1,0, sy,0,cy); mat3 Z=mat3(cz,sz,0, -sz,cz,0, 0,0,1); return Y*X*Z; }
+void main(){ mat3 R=rot(iRot); vec3 p=R*(aPos*iScl)+iPos; vN=R*normalize(aNor/max(iScl,vec3(0.001))); vW=p; vC=iCol; gl_Position=uVP*vec4(p,1.0); }`;
+const INS_FS = `#version 300 es
+precision highp float; in vec3 vN; in vec3 vW; in vec4 vC; out vec4 o;` + COMMON + `
+void main(){ vec3 n=normalize(vN); vec3 c=shade(vC.rgb,n,vW); c=mix(c,vC.rgb*1.5,clamp(vC.a,0.0,1.0)); o=vec4(fog(c,vW),1.0); }`;
+const PAR_VS = `#version 300 es
+in vec4 aPS; in vec4 aCol; uniform mat4 uVP; uniform float uPx; out vec4 vC;
+void main(){ gl_Position=uVP*vec4(aPS.xyz,1.0); gl_PointSize=clamp(aPS.w*uPx/gl_Position.w,1.0,400.0); vC=aCol; }`;
+const PAR_FS = `#version 300 es
+precision highp float; in vec4 vC; out vec4 o;
+void main(){ float r=length(gl_PointCoord-0.5)*2.0; float a=vC.a*smoothstep(1.0,0.25,r); if(a<0.004) discard; o=vec4(vC.rgb,a); }`;
+
+function geoBox() { const p = [], n = []; const F = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]; for (const f of F) { const u = [f[1], f[2], f[0]], v = [f[1] * u[2] - f[2] * u[1], f[2] * u[0] - f[0] * u[2], f[0] * u[1] - f[1] * u[0]]; const q = [[-1, -1], [1, -1], [1, 1], [-1, -1], [1, 1], [-1, 1]]; for (const [a, b] of q) { p.push((f[0] + u[0] * a + v[0] * b) * 0.5, (f[1] + u[1] * a + v[1] * b) * 0.5, (f[2] + u[2] * a + v[2] * b) * 0.5); n.push(f[0], f[1], f[2]); } } return { p, n }; }
+function triGeo(tris) { const p = [], n = []; for (const t of tris) { const [a, b, c] = t; const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2], vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2]; let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx; const l = Math.hypot(nx, ny, nz) || 1; nx /= l; ny /= l; nz /= l; for (const q of t) { p.push(q[0], q[1], q[2]); n.push(nx, ny, nz); } } return { p, n }; }
+function geoPyr() { const a = [-.5, -.5, -.5], b = [.5, -.5, -.5], c = [.5, -.5, .5], d = [-.5, -.5, .5], t = [0, .5, 0]; return triGeo([[a, t, b], [b, t, c], [c, t, d], [d, t, a], [a, b, c], [a, c, d]]); }
+function geoPrism() { const a = [-.5, -.5, -.5], b = [.5, -.5, -.5], c = [.5, -.5, .5], d = [-.5, -.5, .5], r0 = [0, .5, -.5], r1 = [0, .5, .5]; return triGeo([[a, r0, b], [d, c, r1], [b, r0, r1], [b, r1, c], [a, d, r1], [a, r1, r0], [a, b, c], [a, c, d]]); }
+
+class Batch {
+  constructor(gl, prog, geo) { this.gl = gl; this.n = 0; this.cap = 2048; this.data = new Float32Array(this.cap * 13); this.vc = geo.p.length / 3; this.vao = gl.createVertexArray(); gl.bindVertexArray(this.vao); const vb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vb); const d = new Float32Array(this.vc * 6); for (let i = 0; i < this.vc; i++) { d.set(geo.p.slice(i * 3, i * 3 + 3), i * 6); d.set(geo.n.slice(i * 3, i * 3 + 3), i * 6 + 3); } gl.bufferData(gl.ARRAY_BUFFER, d, gl.STATIC_DRAW); const A = (nm, sz, st, off, div) => { const l = gl.getAttribLocation(prog, nm); if (l < 0) return; gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, sz, gl.FLOAT, false, st, off); gl.vertexAttribDivisor(l, div); }; A('aPos', 3, 24, 0, 0); A('aNor', 3, 24, 12, 0); this.ib = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, this.ib); gl.bufferData(gl.ARRAY_BUFFER, this.data.byteLength, gl.DYNAMIC_DRAW); A('iPos', 3, 52, 0, 1); A('iScl', 3, 52, 12, 1); A('iRot', 3, 52, 24, 1); A('iCol', 4, 52, 36, 1); gl.bindVertexArray(null); this.bufCap = this.cap; }
+  begin() { this.n = 0; }
+  push(x, y, z, sx, sy, sz, rx, ry, rz, r, g, b, e) { if (this.n >= this.cap) { this.cap *= 2; const d = new Float32Array(this.cap * 13); d.set(this.data); this.data = d; } const o = this.n * 13, D = this.data; D[o] = x; D[o + 1] = y; D[o + 2] = z; D[o + 3] = sx; D[o + 4] = sy; D[o + 5] = sz; D[o + 6] = rx; D[o + 7] = ry; D[o + 8] = rz; D[o + 9] = r; D[o + 10] = g; D[o + 11] = b; D[o + 12] = e; this.n++; }
+  upload() { const gl = this.gl; gl.bindBuffer(gl.ARRAY_BUFFER, this.ib); if (this.bufCap < this.cap) { gl.bufferData(gl.ARRAY_BUFFER, this.data.byteLength, gl.DYNAMIC_DRAW); this.bufCap = this.cap; } gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.data, 0, this.n * 13); }
+  draw() { if (!this.n) return; const gl = this.gl; gl.bindVertexArray(this.vao); gl.drawArraysInstanced(gl.TRIANGLES, 0, this.vc, this.n); }
+}
+
+class Particles {
+  constructor(max) { this.max = max; this.n = 0; const F = () => new Float32Array(max); this.x = F(); this.y = F(); this.z = F(); this.vx = F(); this.vy = F(); this.vz = F(); this.s = F(); this.gr = F(); this.life = F(); this.ml = F(); this.r = F(); this.g = F(); this.b = F(); this.a = F(); this.gv = F(); this.dr = F(); this.wd = F(); this.add = new Uint8Array(max); this.bufN = new Float32Array(max * 8); this.bufA = new Float32Array(max * 8); this.cn = 0; this.ca = 0; }
+  one(x, y, z, vx, vy, vz, s, gr, life, r, g, b, a, add, gv, dr, wd) { let i; if (this.n < this.max) i = this.n++; else i = (Math.random() * this.max) | 0; this.x[i] = x; this.y[i] = y; this.z[i] = z; this.vx[i] = vx; this.vy[i] = vy; this.vz[i] = vz; this.s[i] = s; this.gr[i] = gr; this.life[i] = life; this.ml[i] = life; this.r[i] = r; this.g[i] = g; this.b[i] = b; this.a[i] = a; this.add[i] = add; this.gv[i] = gv; this.dr[i] = dr; this.wd[i] = wd; }
+  burst(type, x, y, z, n, sp, pw) {
+    const R = Math.random; sp = sp || 1; pw = pw || 1;
+    for (let k = 0; k < n; k++) {
+      const a = R() * 6.283, rr = Math.sqrt(R()) * sp, ox = Math.cos(a) * rr, oz = Math.sin(a) * rr;
+      switch (type) {
+        case 'dust': { const t = 0.55 + R() * 0.2; this.one(x + ox, y + R() * 0.5, z + oz, ox * 0.8 + (R() - .5), (0.4 + R() * 1.4) * pw, oz * 0.8 + (R() - .5), 0.7 + R() * 1.1, 1.3, 1.4 + R() * 1.8, t + 0.1, t, t - 0.12, 0.42, 0, -0.5, 1.6, 0.4); break; }
+        case 'smoke': { const t = 0.1 + R() * 0.14; this.one(x + ox, y + R(), z + oz, (R() - .5) * 0.6, 1.4 + R() * 2.2 * pw, (R() - .5) * 0.6, 0.8 + R() * 0.9, 1.1, 3 + R() * 3.5, t, t, t, 0.5, 0, 0.3, 0.3, 1); break; }
+        case 'fire': this.one(x + ox, y + R() * 0.4, z + oz, (R() - .5) * pw, (1.5 + R() * 2.5) * pw, (R() - .5) * pw, 0.5 + R() * 0.7 * Math.min(2, pw), -0.5, 0.35 + R() * 0.55, 1, 0.45 + R() * 0.3, 0.1, 0.85, 1, 0.5, 0.5, 0.3); break;
+        case 'spark': this.one(x + ox, y, z + oz, (R() - .5) * 6 * pw, (2 + R() * 6) * pw, (R() - .5) * 6 * pw, 0.1 + R() * 0.1, 0, 0.6 + R() * 1.1, 1, 0.75, 0.3, 1, 1, -9, 0.3, 0.5); break;
+        case 'splash': this.one(x + ox, y, z + oz, (R() - .5) * 2.5, 2.5 + R() * 3.5 * pw, (R() - .5) * 2.5, 0.2 + R() * 0.2, 0.2, 0.5 + R() * 0.4, 0.85, 0.92, 1, 0.7, 0, -12, 0.2, 0); break;
+        case 'steam': this.one(x + ox, y, z + oz, (R() - .5), 2 + R() * 3, (R() - .5), 1 + R(), 1.8, 2.5 + R() * 2, 0.9, 0.9, 0.9, 0.4, 0, 0.2, 0.4, 1); break;
+        case 'ring': { const s = (10 + R() * 5) * pw; this.one(x + Math.cos(a) * 0.5, y + R() * 0.4, z + Math.sin(a) * 0.5, Math.cos(a) * s, 0.5 + R(), Math.sin(a) * s, 1.2 + R() * 1.2, 2.5, 0.7 + R() * 0.5, 0.88, 0.83, 0.74, 0.5, 0, 0, 1.2, 0); break; }
+        case 'rain': this.one(x + ox, y + R() * 6, z + oz, 0, -26, 0, 0.13, 0, 0.7, 0.7, 0.8, 0.95, 0.5, 0, 0, 0, 0.6); break;
+        case 'ember': this.one(x + ox, y, z + oz, (R() - .5), 1 + R() * 2.5, (R() - .5), 0.1 + R() * 0.08, 0, 1.5 + R() * 2, 1, 0.6, 0.2, 1, 1, 0.3, 0.2, 1.5); break;
+      }
+    }
+  }
+  update(dt, wx, wz) {
+    let cn = 0, ca = 0; const bn = this.bufN, ba = this.bufA;
+    for (let i = 0; i < this.n; i++) {
+      this.life[i] -= dt;
+      if (this.life[i] <= 0) { const l = --this.n; if (i !== l) { this.x[i] = this.x[l]; this.y[i] = this.y[l]; this.z[i] = this.z[l]; this.vx[i] = this.vx[l]; this.vy[i] = this.vy[l]; this.vz[i] = this.vz[l]; this.s[i] = this.s[l]; this.gr[i] = this.gr[l]; this.life[i] = this.life[l]; this.ml[i] = this.ml[l]; this.r[i] = this.r[l]; this.g[i] = this.g[l]; this.b[i] = this.b[l]; this.a[i] = this.a[l]; this.add[i] = this.add[l]; this.gv[i] = this.gv[l]; this.dr[i] = this.dr[l]; this.wd[i] = this.wd[l]; i--; } continue; }
+      const dk = Math.max(0, 1 - this.dr[i] * dt); this.vx[i] *= dk; this.vz[i] *= dk; this.vy[i] = this.vy[i] * dk + this.gv[i] * dt;
+      this.x[i] += (this.vx[i] + wx * this.wd[i] * 2.5) * dt; this.y[i] += this.vy[i] * dt; this.z[i] += (this.vz[i] + wz * this.wd[i] * 2.5) * dt; this.s[i] = Math.max(0.02, this.s[i] + this.gr[i] * dt);
+      const u = this.life[i] / this.ml[i], al = this.a[i] * (u < 0.7 ? u / 0.7 : Math.min(1, (1 - u) / 0.12 + 0.2));
+      if (this.add[i]) { const o = ca * 8; ba[o] = this.x[i]; ba[o + 1] = this.y[i]; ba[o + 2] = this.z[i]; ba[o + 3] = this.s[i]; ba[o + 4] = this.r[i]; ba[o + 5] = this.g[i]; ba[o + 6] = this.b[i]; ba[o + 7] = al; ca++; }
+      else { const o = cn * 8; bn[o] = this.x[i]; bn[o + 1] = this.y[i]; bn[o + 2] = this.z[i]; bn[o + 3] = this.s[i]; bn[o + 4] = this.r[i]; bn[o + 5] = this.g[i]; bn[o + 6] = this.b[i]; bn[o + 7] = al; cn++; }
+    }
+    this.cn = cn; this.ca = ca;
+  }
+}
+
+class Renderer {
+  constructor(canvas) {
+    const gl = this.gl = canvas.getContext('webgl2', { antialias: true, alpha: false, powerPreference: 'high-performance' });
+    if (!gl) throw new Error('WebGL2 is not available in this browser');
+    this.canvas = canvas;
+    const mk = (vs, fs) => { const c = (t, s) => { const sh = gl.createShader(t); gl.shaderSource(sh, s); gl.compileShader(sh); if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(sh)); return sh; }; const p = gl.createProgram(); gl.attachShader(p, c(gl.VERTEX_SHADER, vs)); gl.attachShader(p, c(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(p); if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p)); p.u = {}; const n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS); for (let i = 0; i < n; i++) { const nm = gl.getActiveUniform(p, i).name.replace('[0]', ''); p.u[nm] = gl.getUniformLocation(p, nm); } return p; };
+    this.pT = mk(TERR_VS, TERR_FS); this.pW = mk(WAT_VS, WAT_FS); this.pI = mk(INS_VS, INS_FS); this.pP = mk(PAR_VS, PAR_FS);
+    // terrain
+    this.tv = new Float32Array(NN * 7); this.wv = new Float32Array(NN * 5);
+    const idx = new Uint32Array((N - 1) * (N - 1) * 6); let k = 0;
+    for (let z = 0; z < N - 1; z++) for (let x = 0; x < N - 1; x++) { const a = z * N + x, b = a + 1, c = a + N, d = c + 1; if ((x + z) & 1) { idx[k++] = a; idx[k++] = c; idx[k++] = b; idx[k++] = b; idx[k++] = c; idx[k++] = d; } else { idx[k++] = a; idx[k++] = c; idx[k++] = d; idx[k++] = a; idx[k++] = d; idx[k++] = b; } }
+    const mkGrid = (prog, data, attrs, stride) => { const vao = gl.createVertexArray(); gl.bindVertexArray(vao); const vb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vb); gl.bufferData(gl.ARRAY_BUFFER, data.byteLength, gl.DYNAMIC_DRAW); for (const [nm, sz, off] of attrs) { const l = gl.getAttribLocation(prog, nm); gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, sz, gl.FLOAT, false, stride, off); } const eb = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, eb); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, idx, gl.STATIC_DRAW); gl.bindVertexArray(null); return { vao, vb }; };
+    this.tm = mkGrid(this.pT, this.tv, [['aPos', 3, 0], ['aCol', 3, 12], ['aGlow', 1, 24]], 28);
+    this.wm = mkGrid(this.pW, this.wv, [['aPos', 3, 0], ['aDF', 2, 12]], 20);
+    this.ic = idx.length;
+    // sea quad
+    this.sea = gl.createVertexArray(); gl.bindVertexArray(this.sea); const sb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, sb); const S = 900, y = -0.04; gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-S, y, -S, 3, 0, N + S, y, -S, 3, 0, N + S, y, N + S, 3, 0, -S, y, -S, 3, 0, N + S, y, N + S, 3, 0, -S, y, N + S, 3, 0]), gl.STATIC_DRAW); { const l = gl.getAttribLocation(this.pW, 'aPos'); gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, 3, gl.FLOAT, false, 20, 0); const m = gl.getAttribLocation(this.pW, 'aDF'); gl.enableVertexAttribArray(m); gl.vertexAttribPointer(m, 2, gl.FLOAT, false, 20, 12); } gl.bindVertexArray(null);
+    const G = [geoBox(), geoPyr(), geoPrism()];
+    this.st = G.map(g => new Batch(gl, this.pI, g)); this.dy = G.map(g => new Batch(gl, this.pI, g));
+    // particles
+    this.pvao = gl.createVertexArray(); gl.bindVertexArray(this.pvao); this.pb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, this.pb); gl.bufferData(gl.ARRAY_BUFFER, 7000 * 32, gl.DYNAMIC_DRAW); { const l = gl.getAttribLocation(this.pP, 'aPS'); gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, 4, gl.FLOAT, false, 32, 0); const m = gl.getAttribLocation(this.pP, 'aCol'); gl.enableVertexAttribArray(m); gl.vertexAttribPointer(m, 4, gl.FLOAT, false, 32, 16); } gl.bindVertexArray(null);
+    this.parts = new Particles(7000);
+    this.cam = { tx: 80, tz: 100, yaw: 0.6, pitch: 0.75, dist: 70, gtx: 80, gtz: 100, gyaw: 0.6, gpitch: 0.75, gdist: 70, shake: 0 };
+    this.eye = [0, 0, 0]; this.fov = 0.7; this.lights = new Float32Array(24); this.mark = [0, 0, 0, 0]; this.markC = [1, 1, 1, 0]; this.shadow = [0, 0, 1, 0];
+    this.time = 0; this.sel = null; this.extra = null;
+  }
+  resize() { const c = this.canvas, dpr = Math.min(window.devicePixelRatio || 1, 1.5), w = Math.max(2, (c.clientWidth * dpr) | 0), h = Math.max(2, (c.clientHeight * dpr) | 0); if (c.width !== w || c.height !== h) { c.width = w; c.height = h; } }
+
+  updateCam(dt, world) {
+    const c = this.cam, k = 1 - Math.exp(-dt * 9);
+    c.gtx = clamp(c.gtx, 2, N - 3); c.gtz = clamp(c.gtz, 2, N - 3); c.gpitch = clamp(c.gpitch, 0.3, 1.45); c.gdist = clamp(c.gdist, 7, 230);
+    c.tx += (c.gtx - c.tx) * k; c.tz += (c.gtz - c.tz) * k; c.yaw += (c.gyaw - c.yaw) * k; c.pitch += (c.gpitch - c.pitch) * k; c.dist += (c.gdist - c.dist) * k;
+    c.shake = Math.max(0, c.shake - dt * 2.2);
+    const ty = Math.max(0, world.hAt(c.tx, c.tz)) + 0.5, cp = Math.cos(c.pitch), sh = c.shake * c.shake * Math.min(3, c.dist * 0.03 + 0.4);
+    const tx = c.tx + (Math.random() - .5) * sh, tz = c.tz + (Math.random() - .5) * sh, tyy = ty + (Math.random() - .5) * sh;
+    this.tgt = [tx, tyy, tz];
+    this.eye = [tx + Math.sin(c.yaw) * cp * c.dist, tyy + Math.sin(c.pitch) * c.dist, tz + Math.cos(c.yaw) * cp * c.dist];
+    const gy = world.hAt(clamp(this.eye[0], 0, N - 1), clamp(this.eye[2], 0, N - 1)) + 1.5; if (this.eye[1] < gy) this.eye[1] = gy;
+    const asp = this.canvas.width / this.canvas.height; this.asp = asp;
+    this.P = M4.persp(this.fov, asp, 0.5, 1200); this.V = M4.look(this.eye, this.tgt, [0, 1, 0]); this.VP = M4.mul(this.P, this.V);
+  }
+  ray(mx, my) { // mx,my in [-1,1]
+    const e = this.eye, t = this.tgt; let fx = t[0] - e[0], fy = t[1] - e[1], fz = t[2] - e[2], l = Math.hypot(fx, fy, fz); fx /= l; fy /= l; fz /= l;
+    let rx = -fz, rz = fx, rl = Math.hypot(rx, rz); rx /= rl; rz /= rl; const ux = -rz * fy, uy = rz * fx - rx * fz, uz = rx * fy;
+    const th = Math.tan(this.fov / 2); let dx = fx + rx * mx * th * this.asp + ux * my * th, dy = fy + uy * my * th, dz = fz + rz * mx * th * this.asp + uz * my * th; l = Math.hypot(dx, dy, dz); return [dx / l, dy / l, dz / l];
+  }
+  pick(mx, my, world) {
+    const d = this.ray(mx, my), e = this.eye; let t = 0, pt = 0; const inside = (x, z) => x >= 0 && z >= 0 && x <= N - 1 && z <= N - 1;
+    for (let s = 0; s < 900; s++) { pt = t; t += 0.4 + t * 0.012; const x = e[0] + d[0] * t, y = e[1] + d[1] * t, z = e[2] + d[2] * t; if (y < -3) return null; if (inside(x, z) && y < world.hAt(x, z)) { let a = pt, b = t; for (let k = 0; k < 10; k++) { const m = (a + b) / 2, X = e[0] + d[0] * m, Z = e[2] + d[2] * m; if (inside(X, Z) && e[1] + d[1] * m < world.hAt(X, Z)) b = m; else a = m; } return { x: e[0] + d[0] * b, z: e[2] + d[2] * b, y: e[1] + d[1] * b }; } }
+    return null;
+  }
+  project(x, y, z) { const m = this.VP, w = m[3] * x + m[7] * y + m[11] * z + m[15]; return [(m[0] * x + m[4] * y + m[8] * z + m[12]) / w, (m[1] * x + m[5] * y + m[9] * z + m[13]) / w, w]; }
+
+  buildTerrain(w) {
+    const tv = this.tv, h = w.h, kind = w.kind;
+    for (let z = 0; z < N; z++) for (let x = 0; x < N; x++) {
+      const i = z * N + x, o = i * 7, hv = h[i], nz = hash2(x, z, 7), k = kind[i];
+      let r, g, b;
+      const xm = x > 0 ? i - 1 : i, xp = x < N - 1 ? i + 1 : i, zm = z > 0 ? i - N : i, zp = z < N - 1 ? i + N : i;
+      const sl = Math.max(Math.abs(h[xp] - h[xm]), Math.abs(h[zp] - h[zm])) * 0.5;
+      if (k === K.GRASS) { r = 0.34 + nz * 0.06; g = 0.55 + nz * 0.07; b = 0.24; }
+      else if (k === K.FOREST) { r = 0.22 + nz * 0.04; g = 0.40 + nz * 0.06; b = 0.19; }
+      else if (k === K.FARM) { if (z & 1) { r = 0.80; g = 0.69; b = 0.30; } else { r = 0.60; g = 0.62; b = 0.26; } if (w.fuel[i] < 0.2) { r = 0.5; g = 0.42; b = 0.28; } }
+      else if (k === K.ROAD) { r = 0.63 + nz * 0.04; g = 0.54 + nz * 0.04; b = 0.41; }
+      else if (k === K.DAM) { r = 0.66; g = 0.66; b = 0.64 + nz * 0.04; }
+      else if (k === K.SAND) { r = 0.74 + nz * 0.04; g = 0.68 + nz * 0.04; b = 0.50; }
+      else { r = 0.5; g = 0.48; b = 0.46; }
+      if (k !== K.DAM && k !== K.ROAD) {
+        const rk = clamp((sl - 0.75) * 2.5, 0, 1) + clamp((hv - 15) * 0.4, 0, 1); if (rk > 0) { const t = Math.min(1, rk), q = 0.44 + nz * 0.1; r += (q - r) * t; g += (q * 0.97 - g) * t; b += (q * 0.94 - b) * t; }
+        if (hv > 21) { const t = clamp((hv - 21) * 0.5, 0, 1) * (sl < 2.2 ? 1 : 0.3); r += (0.93 - r) * t; g += (0.95 - g) * t; b += (0.98 - b) * t; }
+      }
+      const m = w.mud[i]; if (m) { const t = m / 255 * 0.8; r += (0.42 - r) * t; g += (0.33 - g) * t; b += (0.22 - b) * t; }
+      const c = w.crack[i]; if (c) { const t = Math.min(0.9, c / 255 * 1.5 + 0.25); r += (0.19 - r) * t; g += (0.15 - g) * t; b += (0.12 - b) * t; }
+      const s = w.scorch[i]; if (s) { const t = s / 255 * 0.9; r += (0.09 - r) * t; g += (0.08 - g) * t; b += (0.075 - b) * t; }
+      if (hv < 0.25) { const t = clamp((0.25 - hv) * 1.2, 0, 1); r += (0.55 - r) * t; g += (0.52 - g) * t; b += (0.4 - b) * t; }
+      if (w.w[i] > 0.08) { r *= 0.72; g *= 0.76; b *= 0.8; }
+      tv[o] = x; tv[o + 1] = hv; tv[o + 2] = z; tv[o + 3] = r; tv[o + 4] = g; tv[o + 5] = b; tv[o + 6] = w.burn[i];
+    }
+    const gl = this.gl; gl.bindBuffer(gl.ARRAY_BUFFER, this.tm.vb); gl.bufferSubData(gl.ARRAY_BUFFER, 0, tv);
+  }
+  buildWater(w) {
+    const wv = this.wv, h = w.h, ww = w.w, fl = w.flow;
+    for (let i = 0, o = 0; i < NN; i++, o += 5) { const d = ww[i]; wv[o] = i % N; wv[o + 1] = h[i] + d - (d < 0.03 ? 0.06 : 0); wv[o + 2] = (i / N) | 0; wv[o + 3] = d; wv[o + 4] = (w.flag[i] & 2) ? 0 : fl[i]; }
+    const gl = this.gl; gl.bindBuffer(gl.ARRAY_BUFFER, this.wm.vb); gl.bufferSubData(gl.ARRAY_BUFFER, 0, wv);
+  }
+  buildStatic(w) {
+    const [B, P, R] = this.st; B.begin(); P.begin(); R.begin();
+    const tree = w.tree, h = w.h;
+    for (let i = 0; i < NN; i++) {
+      const t = tree[i]; if (!t) continue; const x = i % N, z = (i / N) | 0, a = hash2(x, z, 3), b = hash2(x, z, 4), c = hash2(x, z, 5);
+      const px = x + a * 0.7 - 0.35, pz = z + b * 0.7 - 0.35, y = h[i] - 0.05, s = 0.8 + c * 0.7, ry = c * 6.28;
+      if (t === 1 || t === 2) {
+        const e = t === 2 ? 0.7 : 0; B.push(px, y + 0.3 * s, pz, 0.16 * s, 0.6 * s, 0.16 * s, 0, ry, 0, 0.36, 0.25, 0.16, 0);
+        if (a < 0.62) { const g = t === 2 ? [0.95, 0.45, 0.1] : [0.13 + b * 0.07, 0.36 + c * 0.1, 0.17]; P.push(px, y + 1.1 * s, pz, 0.95 * s, 1.3 * s, 0.95 * s, 0, ry, 0, g[0], g[1], g[2], e); P.push(px, y + 1.85 * s, pz, 0.66 * s, 1.0 * s, 0.66 * s, 0, ry + 0.6, 0, g[0] * 1.1, g[1] * 1.1, g[2] * 1.1, e); }
+        else { const g = t === 2 ? [0.95, 0.45, 0.1] : [0.27 + b * 0.1, 0.5 + c * 0.1, 0.18]; B.push(px, y + 1.0 * s, pz, 0.85 * s, 0.75 * s, 0.85 * s, 0, ry, 0, g[0], g[1], g[2], e); B.push(px + 0.15, y + 1.5 * s, pz - 0.1, 0.55 * s, 0.5 * s, 0.55 * s, 0, ry + 0.8, 0, g[0] * 1.08, g[1] * 1.08, g[2] * 1.08, e); }
+      }
+      else if (t === 3) { B.push(px, y + 0.5 * s, pz, 0.11 * s, 1.1 * s, 0.11 * s, a * 0.2 - 0.1, ry, b * 0.2 - 0.1, 0.07, 0.06, 0.06, 0); B.push(px + 0.1, y + 0.75 * s, pz, 0.06, 0.45 * s, 0.06, 0, ry, 0.8, 0.07, 0.06, 0.06, 0); }
+      else if (t === 4) { B.push(px, y + 0.14, pz, 0.16 * s, 1.5 * s, 0.16 * s, Math.PI / 2, ry, 0, 0.33, 0.23, 0.15, 0); P.push(px + Math.sin(ry) * 1.2 * s, y + 0.35, pz + Math.cos(ry) * 1.2 * s, 0.8 * s, 1.2 * s, 0.8 * s, Math.PI / 2, ry, 0, 0.25, 0.33, 0.14, 0); }
+      else B.push(px, y + 0.08, pz, 1.0 * s, 0.07, 1.0 * s, 0, ry, 0, 0.2, 0.27, 0.13, 0);
+    }
+    for (const r of w.rubble) this.st[r[9]].push(r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7], r[8], r[10], r[11], r[12], 0);
+    const wl = w.well, wy = w.hAt(wl.x, wl.z); B.push(wl.x, wy + 0.3, wl.z, 1.1, 0.6, 1.1, 0, 0.3, 0, 0.55, 0.53, 0.5, 0); B.push(wl.x - 0.5, wy + 0.9, wl.z, 0.1, 1.2, 0.1, 0, 0.3, 0, 0.36, 0.25, 0.17, 0); B.push(wl.x + 0.5, wy + 0.9, wl.z, 0.1, 1.2, 0.1, 0, 0.3, 0, 0.36, 0.25, 0.17, 0); R.push(wl.x, wy + 1.65, wl.z, 1.5, 0.45, 1.3, 0, 0.3, 0, 0.5, 0.3, 0.24, 0);
+    for (const b of this.st) b.upload();
+  }
+  buildDynamic(w) {
+    const D = this.dy; for (const b of D) b.begin(); const [B, P] = D, T = this.time;
+    const night = w.time < 0.24 || w.time > 0.8;
+    for (const b of w.buildings) {
+      const sh = b.shake || 0, fl = b.fire > 0 ? b.fire * (0.3 + 0.2 * Math.sin(T * 17 + b.id)) : 0;
+      for (let j = 0; j < b.parts.length; j++) {
+        const p = b.parts[j]; if (p.st) continue; const ch = p.char * 0.85; let r = p.c[0] * (1 - ch) + 0.08 * ch, g = p.c[1] * (1 - ch) + 0.07 * ch, bl = p.c[2] * (1 - ch) + 0.07 * ch, e = p.role === 'base' ? 0 : fl;
+        if (p.win && night && !b.ruin && b.fire <= 0 && (b.id * 7 + j) % 3) { r = 1; g = 0.78; bl = 0.38; e = 0.9; }
+        let rx = 0, rz = 0, ox = 0, oy = 0; const ln = p.lean;
+        if (ln > 0 && p.role !== 'base') { if (p.role === 'wall') { if (p.sx > p.sz) rx = ln * 0.3 * (p.oz < 0 ? -1 : 1); else rz = ln * 0.3 * (p.ox < 0 ? 1 : -1); } else if (p.role === 'sup') { rx = ln * 0.25 * p.ls; rz = ln * 0.2 * -p.ls; } else if (p.role !== 'decor') { rz = ln * 0.16 * p.ls; oy = -ln * 0.18; } }
+        if (sh > 0 && p.role !== 'base') { rx += Math.sin(T * 43 + j * 1.7) * sh * 0.06; rz += Math.cos(T * 37 + j * 2.3) * sh * 0.06; ox = Math.sin(T * 51 + j) * sh * 0.07; }
+        D[p.g].push(b.x + p.ox + ox, b.y + p.oy + oy, b.z + p.oz, p.sx, p.sy, p.sz, rx, p.ry, rz, r, g, bl, e);
+      }
+    }
+    for (const d of w.debris) D[d.g].push(d.x, d.y, d.z, d.sx, d.sy, d.sz, d.rx, d.ry, d.rz, d.c[0], d.c[1], d.c[2], d.hot ? 0.8 : 0);
+    for (const n of w.npcs) {
+      if (n.inside) continue; const s = n.child ? 0.68 : 1, c = n.c;
+      if (n.st === DEAD) { if (n.deadT >= 999) continue; if (n.flat) B.push(n.x, n.y + 0.03, n.z, 0.5, 0.04, 0.3, 0, n.face, 0, c[0] * 0.5, c[1] * 0.3, c[2] * 0.3, 0); else { B.push(n.x, n.y + 0.1, n.z, 0.26 * s, 0.44 * s, 0.18 * s, Math.PI / 2, n.face, 0, c[0] * 0.55, c[1] * 0.55, c[2] * 0.55, 0); B.push(n.x + Math.sin(n.face) * 0.32 * s, n.y + 0.1, n.z + Math.cos(n.face) * 0.32 * s, 0.18 * s, 0.18 * s, 0.18 * s, 0, n.face, 0, 0.62, 0.5, 0.42, 0); } continue; }
+      const ci = w.ci(n.x, n.z), wd = w.bridgeOK(ci) ? 0 : w.w[ci]; let y = n.y, rx = 0;
+      const e = n.onFire > 0 ? 0.8 : 0, pan = n.st === PANIC;
+      if (n.moving) y += Math.abs(Math.sin(T * (pan ? 16 : 9) + n.id)) * 0.07;
+      if (n.st === STUMBLE) { rx = 1.25; y -= 0.12; } else if (n.working) rx = 0.25 + Math.sin(T * 4 + n.id) * 0.25;
+      if (wd > 0.7) y = w.h[ci] + wd - 0.62 * s;
+      const cr = e ? 1 : c[0], cg = e ? 0.5 : c[1], cb = e ? 0.15 : c[2];
+      B.push(n.x, y + 0.33 * s, n.z, 0.26 * s, 0.44 * s, 0.18 * s, rx, n.face, 0, cr, cg, cb, e);
+      const hx = Math.sin(n.face) * Math.sin(rx) * 0.4 * s, hz = Math.cos(n.face) * Math.sin(rx) * 0.4 * s;
+      B.push(n.x + hx, y + (0.33 + 0.33 * Math.cos(rx)) * s, n.z + hz, 0.18 * s, 0.18 * s, 0.18 * s, rx, n.face, 0, 0.9, 0.72, 0.58, 0);
+      if (pan) { const ax = Math.cos(n.face) * 0.17 * s, az = -Math.sin(n.face) * 0.17 * s, wv = Math.sin(T * 14 + n.id) * 0.25; B.push(n.x + ax, y + 0.72 * s, n.z + az, 0.07, 0.3 * s, 0.07, 0, n.face, 0.3 + wv, cr, cg, cb, e); B.push(n.x - ax, y + 0.72 * s, n.z - az, 0.07, 0.3 * s, 0.07, 0, n.face, -0.3 - wv, cr, cg, cb, e); }
+      if (n === this.sel) P.push(n.x, y + 1.25, n.z, 0.3, 0.35, 0.3, Math.PI, T * 2, 0, 1, 0.85, 0.2, 1);
+    }
+    for (const m of w.meteors) { const s = 1 + m.I * 1.6; B.push(m.px, m.py, m.pz, s, s * 0.85, s, m.t * 5, m.t * 3, m.t * 4, 1, 0.55, 0.2, 1); B.push(m.px, m.py, m.pz, s * 0.75, s * 0.9, s * 0.8, m.t * 3 + 1, m.t * 6, 0.7, 0.25, 0.18, 0.15, 0.2); }
+    for (const c of w.camps) { if (c.dead) continue; const y = w.hAt(c.x, c.z); B.push(c.x, y + 0.08, c.z, 0.8, 0.12, 0.14, 0, 0.5, 0, 0.3, 0.2, 0.13, 0); B.push(c.x, y + 0.1, c.z, 0.8, 0.12, 0.14, 0, 2.1, 0, 0.3, 0.2, 0.13, 0); P.push(c.x, y + 0.3, c.z, 0.35, 0.5 + 0.1 * Math.sin(T * 15), 0.35, 0, T, 0, 1, 0.6, 0.15, 1); }
+    if (this.extra) this.extra(B, P);
+    for (const b of D) b.upload();
+  }
+
+  env(w) {
+    const a = (w.time - 0.25) * 6.2832, el = Math.sin(a), day = sstep(-0.12, 0.22, el), dusk = clamp(1 - Math.abs(el) / 0.3, 0, 1) * 0.8;
+    let sx = Math.cos(a) * 0.65, sy = Math.abs(el) * 0.9 + 0.25, sz = 0.45; const l = Math.hypot(sx, sy, sz); this.sun = [sx / l, sy / l, sz / l];
+    const mix = (n, d, k) => [n[0] + (d[0] - n[0]) * k, n[1] + (d[1] - n[1]) * k, n[2] + (d[2] - n[2]) * k];
+    let sc = mix([0.34, 0.4, 0.6], [1.0, 0.95, 0.84], day), am = mix([0.27, 0.31, 0.46], [0.44, 0.48, 0.55], day), fg = mix([0.09, 0.12, 0.22], [0.62, 0.78, 0.92], day);
+    sc = mix(sc, [1.0, 0.6, 0.35], dusk * 0.6); fg = mix(fg, [0.93, 0.62, 0.45], dusk * 0.55);
+    if (w.rain > 0) { fg = mix(fg, [0.45, 0.5, 0.56], 0.6 * day + 0.1); sc = mix(sc, [0.5, 0.52, 0.56], 0.5); }
+    const sm = Math.min(0.5, w.fires.length / 2500); fg = mix(fg, [0.35, 0.27, 0.22], sm); sc = mix(sc, [0.9, 0.5, 0.3], sm * 0.8);
+    this.sunC = sc; this.amb = am; this.fogC = fg;
+  }
+  setLights(w) {
+    const L = []; for (const m of w.meteors) L.push([m.px, m.py, m.pz, 5]);
+    for (const b of w.buildings) if (b.fire > 0) L.push([b.x, b.y + b.hgt + 1, b.z, 1.2 + b.fire * 1.8]);
+    for (const c of w.camps) if (!c.dead) L.push([c.x, w.hAt(c.x, c.z) + 0.8, c.z, 0.9]);
+    if (w.fires.length) { const bk = this._bk || (this._bk = new Float32Array(100 * 3)); bk.fill(0); const F = w.fires, st = Math.max(1, (F.length / 600) | 0); for (let k = 0; k < F.length; k += st) { const i = F[k], x = i % N, z = (i / N) | 0, q = ((z >> 4) * 10 + (x >> 4)) * 3; bk[q] += x; bk[q + 1] += z; bk[q + 2] += 1; } for (let q = 0; q < 300; q += 3) if (bk[q + 2] > 0) { const x = bk[q] / bk[q + 2], z = bk[q + 1] / bk[q + 2]; L.push([x, w.hAt(x, z) + 2.5, z, Math.min(3.5, 0.5 + bk[q + 2] * st * 0.03)]); } }
+    const c = this.cam; L.sort((a, b) => (b[3] / (1 + Math.hypot(b[0] - c.tx, b[2] - c.tz) * 0.02)) - (a[3] / (1 + Math.hypot(a[0] - c.tx, a[2] - c.tz) * 0.02)));
+    const fl = 0.85 + 0.15 * Math.sin(this.time * 19); for (let k = 0; k < 6; k++) { const o = k * 4, e = L[k]; if (e) { this.lights[o] = e[0]; this.lights[o + 1] = e[1]; this.lights[o + 2] = e[2]; this.lights[o + 3] = e[3] * fl; } else this.lights[o + 3] = 0; }
+  }
+
+  draw(w, dt) {
+    const gl = this.gl; this.time += dt; this.resize();
+    if (w.terrDirty) { this.buildTerrain(w); w.terrDirty = false; }
+    if (w.staticDirty) { this.buildStatic(w); w.staticDirty = false; }
+    this.buildWater(w); this.buildDynamic(w); this.env(w); this.setLights(w);
+    gl.viewport(0, 0, this.canvas.width, this.canvas.height); gl.clearColor(this.fogC[0], this.fogC[1], this.fogC[2], 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.disable(gl.BLEND); gl.disable(gl.CULL_FACE);
+    const fogD = 0.0000028 + (w.rain > 0 ? 0.000004 : 0);
+    const common = p => { gl.useProgram(p); gl.uniformMatrix4fv(p.u.uVP, false, this.VP); if (p.u.uSun) gl.uniform3fv(p.u.uSun, this.sun); if (p.u.uSunC) gl.uniform3fv(p.u.uSunC, this.sunC); if (p.u.uAmb) gl.uniform3fv(p.u.uAmb, this.amb); if (p.u.uFog) gl.uniform3fv(p.u.uFog, this.fogC); if (p.u.uCam) gl.uniform3fv(p.u.uCam, this.eye); if (p.u.uFogD) gl.uniform1f(p.u.uFogD, fogD); if (p.u.uLights) gl.uniform4fv(p.u.uLights, this.lights); if (p.u.uTime) gl.uniform1f(p.u.uTime, this.time); };
+    common(this.pT); gl.uniform4fv(this.pT.u.uMark, this.mark); gl.uniform4fv(this.pT.u.uMarkC, this.markC); gl.uniform4fv(this.pT.u.uShadow, this.shadow);
+    gl.bindVertexArray(this.tm.vao); gl.drawElements(gl.TRIANGLES, this.ic, gl.UNSIGNED_INT, 0);
+    common(this.pI); for (const b of this.st) b.draw(); for (const b of this.dy) b.draw();
+    gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
+    common(this.pW); gl.bindVertexArray(this.sea); gl.drawArrays(gl.TRIANGLES, 0, 6); gl.bindVertexArray(this.wm.vao); gl.drawElements(gl.TRIANGLES, this.ic, gl.UNSIGNED_INT, 0);
+    const ps = this.parts; ps.update(dt, w.wind[0], w.wind[1]);
+    gl.useProgram(this.pP); gl.uniformMatrix4fv(this.pP.u.uVP, false, this.VP); gl.uniform1f(this.pP.u.uPx, this.canvas.height * this.P[5] * 0.5);
+    gl.bindVertexArray(this.pvao); gl.bindBuffer(gl.ARRAY_BUFFER, this.pb);
+    if (ps.cn) { gl.bufferSubData(gl.ARRAY_BUFFER, 0, ps.bufN, 0, ps.cn * 8); gl.drawArrays(gl.POINTS, 0, ps.cn); }
+    if (ps.ca) { gl.blendFunc(gl.SRC_ALPHA, gl.ONE); gl.bufferSubData(gl.ARRAY_BUFFER, 0, ps.bufA, 0, ps.ca * 8); gl.drawArrays(gl.POINTS, 0, ps.ca); }
+    gl.depthMask(true); gl.bindVertexArray(null);
+  }
+}
+
+// ===================== GOD SIM — procedural audio (WebAudio, placeholder synthesis) =====================
+class AudioEngine {
+  constructor() { this.ctx = null; this.on = false; this.muted = false; this.last = {}; this.loops = {}; }
+  start() {
+    if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; }
+    const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+    const c = this.ctx = new AC(); this.master = c.createGain(); this.master.gain.value = 0.8;
+    const comp = c.createDynamicsCompressor(); this.master.connect(comp); comp.connect(c.destination);
+    this.bus = { amb: c.createGain(), sfx: c.createGain(), voice: c.createGain() }; this.bus.amb.gain.value = 0.9; this.bus.sfx.gain.value = 1; this.bus.voice.gain.value = 0.7;
+    for (const k in this.bus) this.bus[k].connect(this.master);
+    const len = c.sampleRate * 2, buf = c.createBuffer(1, len, c.sampleRate), d = buf.getChannelData(0); for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1; this.noise = buf;
+    const loop = (name, type, freq, q) => { const s = c.createBufferSource(); s.buffer = buf; s.loop = true; const f = c.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q; const g = c.createGain(); g.gain.value = 0; s.connect(f); f.connect(g); g.connect(this.bus.amb); s.start(0, Math.random() * 1.5); this.loops[name] = { g, f }; };
+    loop('wind', 'bandpass', 420, 0.6); loop('river', 'bandpass', 1500, 0.7); loop('fire', 'bandpass', 2400, 0.5); loop('roar', 'lowpass', 260, 0.4); loop('rumble', 'lowpass', 75, 0.8); loop('rain', 'highpass', 3200, 0.3); loop('flood', 'lowpass', 600, 0.5);
+    const o = c.createOscillator(); o.type = 'sine'; o.frequency.value = 36; const og = c.createGain(); og.gain.value = 0; o.connect(og); og.connect(this.bus.amb); o.start(); this.loops.sub = { g: og };
+    this.on = true; this.amb = { t: 0 };
+  }
+  setMuted(m) { this.muted = m; if (this.master) this.master.gain.value = m ? 0 : 0.8; }
+  mix(m) { // continuous layers, values 0..1
+    if (!this.on) return; const t = this.ctx.currentTime, L = this.loops, S = (n, v) => L[n].g.gain.setTargetAtTime(v, t, 0.25);
+    S('wind', 0.05 + m.wind * 0.1); S('river', m.river * 0.22); S('fire', m.fire * 0.3); S('roar', m.fire * m.fire * 0.5); S('rumble', m.quake * 0.9); S('sub', m.quake * 0.5); S('rain', m.rain * 0.16); S('flood', m.flood * 0.5);
+    L.wind.f.frequency.setTargetAtTime(350 + m.wind * 300 + Math.sin(t * 0.4) * 80, t, 0.5);
+  }
+  ambient(dt, m) { // sparse one-shots: birds, crickets, village life
+    if (!this.on) return; const a = this.amb; a.t -= dt; if (a.t > 0) return; a.t = 0.25 + Math.random() * 0.5;
+    if (m.calm) { if (m.day > 0.5 && Math.random() < 0.35) this.play('chirp', 0.25 * m.near); if (m.day < 0.3 && Math.random() < 0.6) this.play('cricket', 0.12); if (m.village > 0.05 && m.day > 0.4) { const r = Math.random(); if (r < 0.25) this.play('hammer', 0.3 * m.village); else if (r < 0.5) this.play('murmur', 0.3 * m.village); } }
+    if (m.fire > 0.05 && Math.random() < 0.8) this.play('crackle', 0.5 * m.fire);
+  }
+  env(g, t, a, peak, d) { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(Math.max(0.0002, peak), t + a); g.gain.exponentialRampToValueAtTime(0.0001, t + a + d); }
+  nz(t, dur, type, f0, f1, q, peak, att, bus) { const c = this.ctx, s = c.createBufferSource(); s.buffer = this.noise; s.loop = true; const f = c.createBiquadFilter(); f.type = type; f.Q.value = q; f.frequency.setValueAtTime(f0, t); if (f1 !== f0) f.frequency.exponentialRampToValueAtTime(f1, t + dur); const g = c.createGain(); this.env(g, t, att, peak, dur - att); s.connect(f); f.connect(g); g.connect(bus || this.bus.sfx); s.start(t, Math.random() * 1.5); s.stop(t + dur + 0.05); }
+  tone(t, dur, type, f0, f1, peak, att, bus) { const c = this.ctx, o = c.createOscillator(); o.type = type; o.frequency.setValueAtTime(f0, t); if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(f1, t + dur); const g = c.createGain(); this.env(g, t, att, peak, dur - att); o.connect(g); g.connect(bus || this.bus.sfx); o.start(t); o.stop(t + dur + 0.05); return o; }
+  play(name, vol) {
+    if (!this.on || this.muted || vol < 0.02) return; const now = performance.now(), gap = { collapse: 70, crack: 90, thud: 60, scream: 160, crackle: 60, splash: 120, ignite: 150 }[name] || 0; if (gap && now - (this.last[name] || 0) < gap) return; this.last[name] = now;
+    const t = this.ctx.currentTime + 0.01, R = Math.random, v = Math.min(1, vol);
+    switch (name) {
+      case 'collapse': this.nz(t, 0.9 + R() * 0.5, 'lowpass', 900 + R() * 600, 120, 0.7, 0.5 * v, 0.02); this.tone(t, 0.35, 'sine', 90 + R() * 30, 40, 0.5 * v, 0.01); this.nz(t + 0.05, 0.25, 'bandpass', 2500 + R() * 1500, 1200, 2, 0.15 * v, 0.005); break;
+      case 'crack': this.nz(t, 0.14 + R() * 0.1, 'bandpass', 2200 + R() * 2500, 700, 1.5, 0.4 * v, 0.003); this.nz(t + 0.03, 0.3, 'lowpass', 500, 150, 0.7, 0.25 * v, 0.01); break;
+      case 'thud': this.tone(t, 0.28, 'sine', 110 + R() * 40, 38, 0.6 * v, 0.005); this.nz(t, 0.18, 'lowpass', 500, 120, 0.7, 0.3 * v, 0.005); break;
+      case 'boom': this.tone(t, 2.2, 'sine', 70, 24, 1.0 * v, 0.01); this.nz(t, 2.6, 'lowpass', 2800, 70, 0.5, 0.95 * v, 0.01); this.nz(t + 0.12, 3.5, 'lowpass', 400, 60, 0.6, 0.5 * v, 0.4); this.nz(t, 0.3, 'highpass', 3000, 3000, 0.5, 0.3 * v, 0.002); break;
+      case 'whoosh': this.nz(t, 2.9, 'bandpass', 300, 2600, 1.2, 0.5 * v, 2.5); this.tone(t, 2.8, 'sawtooth', 420, 90, 0.08 * v, 2.2); break;
+      case 'dambreak': this.nz(t, 3.5, 'lowpass', 1800, 200, 0.5, 0.8 * v, 0.3); this.tone(t, 1.2, 'sine', 80, 30, 0.7 * v, 0.02); this.nz(t, 0.5, 'bandpass', 2500, 800, 1.5, 0.4 * v, 0.01); break;
+      case 'splash': this.nz(t, 0.4, 'bandpass', 1800, 700, 0.8, 0.3 * v, 0.01); break;
+      case 'ignite': this.nz(t, 0.8, 'bandpass', 500, 2200, 0.7, 0.35 * v, 0.25); break;
+      case 'crackle': this.nz(t, 0.03 + R() * 0.04, 'bandpass', 2500 + R() * 4000, 2000, 3, 0.25 * v, 0.002); break;
+      case 'scream': { const f = 520 + R() * 420, d = 0.45 + R() * 0.6, c = this.ctx, o = this.tone(t, d, 'sawtooth', f, f * (0.75 + R() * 0.2), 0.0001, 0.05, this.bus.voice); const g = c.createGain(), bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1100 + R() * 500; bp.Q.value = 2.5; this.env(g, t, 0.06, 0.22 * v, d - 0.06); const l = c.createOscillator(), lg = c.createGain(); l.frequency.value = 7 + R() * 5; lg.gain.value = f * 0.05; l.connect(lg); lg.connect(o.frequency); l.start(t); l.stop(t + d + 0.1); o.connect(bp); bp.connect(g); g.connect(this.bus.voice); break; }
+      case 'chirp': { const f = 2200 + R() * 2200; for (let k = 0; k < 2 + (R() * 3 | 0); k++) this.tone(t + k * 0.09, 0.07, 'sine', f, f * (1.1 + R() * 0.3), 0.07 * v, 0.01, this.bus.amb); break; }
+      case 'cricket': for (let k = 0; k < 4; k++) this.tone(t + k * 0.05, 0.03, 'square', 4300, 4300, 0.015 * v / 0.12, 0.005, this.bus.amb); break;
+      case 'hammer': this.nz(t, 0.06, 'bandpass', 1700 + R() * 500, 1200, 5, 0.25 * v, 0.002, this.bus.amb); if (R() < 0.6) this.nz(t + 0.28, 0.06, 'bandpass', 1700, 1200, 5, 0.2 * v, 0.002, this.bus.amb); break;
+      case 'murmur': this.nz(t, 0.35 + R() * 0.3, 'bandpass', 280 + R() * 300, 240 + R() * 200, 4, 0.12 * v, 0.1, this.bus.amb); break;
+      case 'bell': for (const m of [1, 2.01, 2.99, 4.2]) this.tone(t, 2.5 / m, 'sine', 330 * m, 330 * m, 0.14 * v / m, 0.005, this.bus.amb); break;
+      case 'ui': this.tone(t, 0.07, 'triangle', 660, 880, 0.08, 0.005); break;
+    }
+  }
+}
+
+// ===================== GOD SIM — input, HUD, game loop =====================
+(function () {
+  const $ = id => document.getElementById(id);
+  const canvas = $('c'), STEP = 1 / 60, KEY = 'godsim.save.v1';
+  const TOOLS = [
+    { id: 'observe', icon: '👁', name: 'Observe', hint: 'Drag to move the camera. Click a villager to follow them.' },
+    { id: 'quake', icon: '⛰️', name: 'Earthquake', hint: 'Drag a fault line across the land, then release.' },
+    { id: 'flood', icon: '🌊', name: 'Flood', hint: 'Drag to carve a channel and redirect water. Use it on the dam to break it.' },
+    { id: 'meteor', icon: '☄️', name: 'Meteor', hint: 'Click to call down a meteor.' },
+    { id: 'finger', icon: '👆', name: 'Divine Finger', hint: 'Click or hold to press the land flat.' },
+    { id: 'fire', icon: '🔥', name: 'Firestorm', hint: 'Click or drag to set the land alight. Fire follows the wind.' }
+  ];
+  let R, world, audio = new AudioEngine(), tool = 'observe', intensity = 0.6, paused = false, speed = 1, started = false, memSave = null;
+  let last = 0, acc = 0, frameN = 0, hudT = 0, follow = false, lastHour = -1;
+  const mouse = { nx: 0, ny: 0, px: 0, py: 0, down: false, mode: '', hit: null, moved: 0, inside: false };
+  const keys = {}; const ptrs = new Map(); let gest = null;
+  let qStart = null, lastCarve = null, fireT = 0, fing = { ph: 0, t: 0, x: 0, z: 0, cd: 0 };
+  const mix = { wind: 0, river: 0, fire: 0, quake: 0, rain: 0, flood: 0, village: 0, day: 1, calm: true, near: 1 };
+
+  function toast(m) { const t = $('toast'); t.textContent = m; t.classList.add('show'); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove('show'), 2600); }
+  function log(m) { const l = $('log'), d = document.createElement('div'); d.textContent = m; l.appendChild(d); while (l.children.length > 5) l.removeChild(l.firstChild); setTimeout(() => d.classList.add('old'), 7000); setTimeout(() => { if (d.parentNode) d.parentNode.removeChild(d); }, 14000); }
+  function flash(a) { const f = $('flash'); f.style.transition = 'none'; f.style.opacity = a; requestAnimationFrame(() => { f.style.transition = 'opacity 1.4s ease-out'; f.style.opacity = 0; }); }
+  function sfx(name, x, z, v) { const c = R.cam, d = Math.hypot(x - c.tx, z - c.tz), a = clamp(1.25 - d / (c.dist * 1.1 + 45), 0.06, 1); audio.play(name, v * a); }
+  function bindWorld(w) {
+    world = w; R.sel = null; follow = false; qStart = null;
+    w.fx = { burst: (t, x, y, z, n, s, p) => R.parts.burst(t, x, y, z, n, s, p), sound: sfx, shake: a => { R.cam.shake = Math.max(R.cam.shake, Math.min(1.7, a)); }, flash, log };
+    w.terrDirty = true; w.staticDirty = true;
+  }
+  function setTool(id) { tool = id; qStart = null; for (const b of document.querySelectorAll('#tools button')) b.classList.toggle('on', b.dataset.t === id); const t = TOOLS.find(t => t.id === id); $('hint').textContent = t.hint; canvas.style.cursor = id === 'observe' ? 'grab' : 'crosshair'; $('inten').style.visibility = id === 'observe' ? 'hidden' : 'visible'; audio.play('ui', 1); }
+  function setSpeed(s) { speed = s; paused = s === 0; for (const b of document.querySelectorAll('#speed button')) b.classList.toggle('on', +b.dataset.s === s); }
+
+  // ------------------------------------------------------------ save / load
+  function hasSave() { try { if (localStorage.getItem(KEY)) return true; } catch (e) { } return !!memSave; }
+  function save() { const c = R.cam, s = JSON.stringify({ world: world.serialize(), cam: [c.gtx, c.gtz, c.gyaw, c.gpitch, c.gdist] }); memSave = s; let ok = false; try { localStorage.setItem(KEY, s); ok = true; } catch (e) { } toast(ok ? 'World saved — it will be here when you come back' : 'Saved for this session only (browser storage is unavailable here)'); }
+  function load() { let s = null; try { s = localStorage.getItem(KEY); } catch (e) { } s = s || memSave; if (!s) { toast('No saved world yet'); return false; } try { const d = JSON.parse(s); bindWorld(World.load(d.world)); const c = R.cam; if (d.cam) { c.gtx = d.cam[0]; c.gtz = d.cam[1]; c.gyaw = d.cam[2]; c.gpitch = d.cam[3]; c.gdist = d.cam[4]; } R.parts.n = 0; toast('Saved world restored'); return true; } catch (e) { console.error(e); toast('That save could not be read'); return false; } }
+  function newWorld(seed) { bindWorld(new World(seed || ((Math.random() * 1e9) | 0))); const c = R.cam; c.gtx = c.tx = world.vc.x; c.gtz = c.tz = world.vc.z; c.gdist = 62; c.gpitch = 0.72; c.gyaw = 0.5; R.parts.n = 0; }
+
+  // ------------------------------------------------------------ input
+  function setMouse(e) { const r = canvas.getBoundingClientRect(); mouse.px = e.clientX - r.left; mouse.py = e.clientY - r.top; mouse.nx = mouse.px / r.width * 2 - 1; mouse.ny = 1 - mouse.py / r.height * 2; mouse.inside = true; }
+  function pan(dx, dy) { const c = R.cam, s = c.gdist * 0.0019, cy = Math.cos(c.gyaw), sy = Math.sin(c.gyaw); c.gtx += (-dx * cy - dy * sy) * s; c.gtz += (dx * sy - dy * cy) * s; follow = false; }
+  function beginAction() {
+    const h = mouse.hit = R.pick(mouse.nx, mouse.ny, world); if (!h) return;
+    if (tool === 'quake') qStart = { x: h.x, z: h.z };
+    else if (tool === 'flood') lastCarve = { x: h.x, z: h.z };
+    else if (tool === 'meteor') world.meteor(h.x, h.z, intensity);
+    else if (tool === 'fire') fireT = 0;
+  }
+  function endAction() { if (tool === 'quake' && qStart) { const h = mouse.hit; if (h) world.quake(qStart.x, qStart.z, h.x, h.z, intensity); qStart = null; } lastCarve = null; }
+  function trySelect() { let best = 30, bn = null; const r = canvas.getBoundingClientRect(); for (const n of world.npcs) { if (n.inside || (n.st === DEAD && n.deadT >= 999)) continue; const p = R.project(n.x, n.y + 0.4, n.z); if (p[2] <= 0) continue; const d = Math.hypot((p[0] + 1) / 2 * r.width - mouse.px, (1 - p[1]) / 2 * r.height - mouse.py); if (d < best) { best = d; bn = n; } } R.sel = bn; follow = !!bn; if (bn) R.cam.gdist = Math.min(R.cam.gdist, 26); }
+  canvas.addEventListener('contextmenu', e => e.preventDefault());
+  canvas.addEventListener('pointerdown', e => {
+    if (!started) return; audio.start(); canvas.setPointerCapture(e.pointerId); setMouse(e); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (e.pointerType === 'touch' && ptrs.size === 2) { if (mouse.mode === 'act') { qStart = null; lastCarve = null; } mouse.down = false; mouse.mode = 'gest'; const p = [...ptrs.values()]; gest = { d: Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y), a: Math.atan2(p[1].y - p[0].y, p[1].x - p[0].x), cx: (p[0].x + p[1].x) / 2, cy: (p[0].y + p[1].y) / 2 }; return; }
+    if (ptrs.size > 1) return;
+    mouse.down = true; mouse.moved = 0;
+    if (e.button === 2) mouse.mode = 'rot'; else if (e.button === 1 || e.shiftKey || tool === 'observe') mouse.mode = 'pan'; else { mouse.mode = 'act'; beginAction(); }
+    if (mouse.mode === 'pan') canvas.style.cursor = 'grabbing';
+  });
+  canvas.addEventListener('pointermove', e => {
+    const p = ptrs.get(e.pointerId), dx = p ? e.clientX - p.x : 0, dy = p ? e.clientY - p.y : 0; if (p) { p.x = e.clientX; p.y = e.clientY; }
+    if (mouse.mode === 'gest' && ptrs.size >= 2 && gest) { const q = [...ptrs.values()], d = Math.hypot(q[0].x - q[1].x, q[0].y - q[1].y), a = Math.atan2(q[1].y - q[0].y, q[1].x - q[0].x), cx = (q[0].x + q[1].x) / 2, cy = (q[0].y + q[1].y) / 2, c = R.cam; if (gest.d > 10 && d > 10) c.gdist *= gest.d / d; let da = a - gest.a; if (da > 3.14) da -= 6.283; if (da < -3.14) da += 6.283; c.gyaw -= da; pan(cx - gest.cx, cy - gest.cy); gest = { d, a, cx, cy }; return; }
+    setMouse(e); if (!mouse.down) return; mouse.moved += Math.abs(dx) + Math.abs(dy);
+    if (mouse.mode === 'rot') { R.cam.gyaw -= dx * 0.006; R.cam.gpitch += dy * 0.005; } else if (mouse.mode === 'pan') pan(dx, dy);
+  });
+  const up = e => {
+    ptrs.delete(e.pointerId); if (mouse.mode === 'gest') { if (ptrs.size < 2) { gest = null; mouse.mode = ''; } return; }
+    if (!mouse.down) return; mouse.down = false;
+    if (mouse.mode === 'act') endAction(); else if (mouse.mode === 'pan' && tool === 'observe' && mouse.moved < 6) trySelect();
+    mouse.mode = ''; canvas.style.cursor = tool === 'observe' ? 'grab' : 'crosshair';
+  };
+  canvas.addEventListener('pointerup', up); canvas.addEventListener('pointercancel', up);
+  canvas.addEventListener('pointerleave', () => { mouse.inside = false; });
+  canvas.addEventListener('wheel', e => { e.preventDefault(); R.cam.gdist *= Math.exp(e.deltaY * 0.0012); }, { passive: false });
+  window.addEventListener('keydown', e => {
+    if (!started) return; const k = e.key.toLowerCase(); keys[k] = true;
+    if (k >= '1' && k <= '6') setTool(TOOLS[+k - 1].id);
+    else if (k === ' ' || k === 'p') { setSpeed(paused ? 1 : 0); e.preventDefault(); }
+    else if (k === '[') setInt(intensity - 0.1); else if (k === ']') setInt(intensity + 0.1);
+    else if (k === 'm') toggleMute(); else if (k === 'escape') { R.sel = null; follow = false; qStart = null; $('help').classList.remove('show'); }
+    else if (k === 'h' || k === '?') $('help').classList.toggle('show');
+    if (k.startsWith('arrow')) e.preventDefault();
+  });
+  window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+  window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+  function setInt(v) { intensity = clamp(v, 0.1, 1); $('rng').value = Math.round(intensity * 100); $('rv').textContent = Math.round(intensity * 100) + '%'; }
+  function toggleMute() { audio.setMuted(!audio.muted); $('mute').textContent = audio.muted ? '🔇' : '🔊'; }
+
+  function keyCam(dt) {
+    const c = R.cam, s = c.gdist * 0.9 * dt; let f = 0, r = 0;
+    if (keys.w || keys.arrowup) f += 1; if (keys.s || keys.arrowdown) f -= 1; if (keys.d || keys.arrowright) r += 1; if (keys.a || keys.arrowleft) r -= 1;
+    if (f || r) { const cy = Math.cos(c.gyaw), sy = Math.sin(c.gyaw); c.gtx += (-sy * f + cy * r) * s; c.gtz += (-cy * f - sy * r) * s; follow = false; }
+    if (keys.q) c.gyaw += dt * 1.4; if (keys.e) c.gyaw -= dt * 1.4; if (keys.r) c.gpitch += dt * 0.8; if (keys.f) c.gpitch -= dt * 0.8;
+    if (keys['='] || keys['+']) c.gdist *= 1 - dt * 1.2; if (keys['-']) c.gdist *= 1 + dt * 1.2;
+    if (follow && R.sel) { c.gtx = R.sel.x; c.gtz = R.sel.z; }
+  }
+
+  // ------------------------------------------------------------ powers held down (per sim tick)
+  function toolTick(dt) {
+    const h = mouse.hit, act = mouse.down && mouse.mode === 'act';
+    world.finger = (tool === 'finger' && h && mouse.inside) ? { x: h.x, z: h.z, r: 3.5 + 2.4 * intensity } : null;
+    if (tool === 'flood' && act && h) { const a = lastCarve || h, d = Math.hypot(h.x - a.x, h.z - a.z), n = Math.max(1, Math.ceil(d)); for (let k = 1; k <= n; k++) world.carve(a.x + (h.x - a.x) * k / n, a.z + (h.z - a.z) * k / n, intensity, dt); lastCarve = { x: h.x, z: h.z }; }
+    if (tool === 'fire' && act && h) { fireT -= dt; if (fireT <= 0) { world.ignite(h.x, h.z, intensity); fireT = 0.22; } }
+    if (fing.cd > 0) fing.cd -= dt;
+    if (fing.ph === 0) { if (tool === 'finger' && act && h && fing.cd <= 0) { fing.ph = 1; fing.t = 0; fing.x = h.x; fing.z = h.z; } }
+    else if (fing.ph === 1) { fing.t += dt / 0.16; if (fing.t >= 1) { world.fingerPress(fing.x, fing.z, intensity); fing.ph = 2; fing.t = 0; } }
+    else { fing.t += dt / 0.32; if (fing.t >= 1) { fing.ph = 0; fing.cd = 0.08; } }
+  }
+  function extraDraw(B, P) {
+    const h = mouse.hit;
+    if (tool === 'quake' && qStart && h) { const d = Math.hypot(h.x - qStart.x, h.z - qStart.z), n = Math.max(2, Math.ceil(d / 1.2)); for (let k = 0; k <= n; k++) { const x = qStart.x + (h.x - qStart.x) * k / n, z = qStart.z + (h.z - qStart.z) * k / n; B.push(x, world.hAt(x, z) + 0.25, z, 0.5, 0.18, 0.5, 0, k, 0, 1, 0.35, 0.15, 1); } }
+    if (tool === 'finger' && (h && mouse.inside || fing.ph)) {
+      const fx = fing.ph ? fing.x : h.x, fz = fing.ph ? fing.z : h.z, fr = (1.6 + 2.4 * intensity) * 0.6, hov = 3.5 + fr * 2;
+      const p = fing.ph === 1 ? fing.t * fing.t : fing.ph === 2 ? 1 - fing.t : 0, ty = world.hAt(fx, fz) + hov * (1 - p) - 0.2 * p, c = [0.94, 0.77, 0.63], yw = R.cam.yaw;
+      B.push(fx, ty + 0.35 * fr, fz, 1.1 * fr, 0.7 * fr, 1.1 * fr, 0, yw, 0, c[0], c[1], c[2], 0.08);
+      B.push(fx, ty + 1.4 * fr, fz, 1.45 * fr, 1.9 * fr, 1.45 * fr, 0, yw, 0, c[0], c[1], c[2], 0.08);
+      B.push(fx, ty + 3.5 * fr, fz, 1.6 * fr, 2.5 * fr, 1.6 * fr, 0, yw, 0, c[0] * 0.97, c[1] * 0.96, c[2] * 0.95, 0.08);
+      B.push(fx, ty + 6.4 * fr, fz, 1.78 * fr, 3.4 * fr, 1.78 * fr, 0, yw, 0, c[0] * 0.95, c[1] * 0.93, c[2] * 0.92, 0.08);
+      B.push(fx + Math.sin(yw) * 0.74 * fr, ty + 1.25 * fr, fz + Math.cos(yw) * 0.74 * fr, 1.05 * fr, 1.5 * fr, 0.1 * fr, 0, yw, 0, 0.99, 0.92, 0.88, 0.15);
+      B.push(fx, ty + 2.36 * fr, fz, 1.5 * fr, 0.05 * fr, 1.5 * fr, 0, yw, 0, c[0] * 0.8, c[1] * 0.75, c[2] * 0.72, 0); B.push(fx, ty + 4.76 * fr, fz, 1.65 * fr, 0.05 * fr, 1.65 * fr, 0, yw, 0, c[0] * 0.8, c[1] * 0.75, c[2] * 0.72, 0);
+      R.shadow[0] = fx; R.shadow[1] = fz; R.shadow[2] = fr * 2.6; R.shadow[3] = 0.25 + 0.35 * p;
+    } else R.shadow[3] = 0;
+  }
+  function marker() {
+    const h = mouse.hit, m = R.mark, c = R.markC; if (!h || tool === 'observe' || !mouse.inside && !mouse.down) { c[3] = 0; return; }
+    m[0] = h.x; m[1] = h.z; c[3] = 0.75;
+    if (tool === 'quake') { m[2] = 1.2; c[0] = 1; c[1] = 0.5; c[2] = 0.2; }
+    else if (tool === 'flood') { m[2] = 1.2 + 1.3 * intensity; c[0] = 0.3; c[1] = 0.7; c[2] = 1; if (world.nearDam(h.x, h.z, 2 + intensity)) { m[2] = 2.5 + 3.5 * intensity; c[0] = 1; c[1] = 0.9; c[2] = 0.4; } }
+    else if (tool === 'meteor') { m[2] = 4 + 7 * intensity; c[0] = 1; c[1] = 0.25; c[2] = 0.15; }
+    else if (tool === 'finger') { m[2] = 1.6 + 2.4 * intensity; c[0] = 1; c[1] = 0.9; c[2] = 0.75; }
+    else { m[2] = 1.5 + 4 * intensity; c[0] = 1; c[1] = 0.55; c[2] = 0.1; }
+  }
+
+  // ------------------------------------------------------------ continuous effects
+  function emitFx(dt) {
+    const P = R.parts, w = world, rnd = Math.random, k = dt * 60, F = w.fires;
+    if (F.length) { const n = Math.min(70, 4 + F.length * 0.08) * k; for (let q = 0; q < n; q++) { const i = F[(rnd() * F.length) | 0], x = i % N, z = (i / N) | 0, t = w.tree[i] === 2, y = w.h[i] + (t ? 0.6 + rnd() * 1.4 : 0.2); P.burst('fire', x, y, z, 1, 0.5, t ? 1.3 : 0.8); if (rnd() < 0.3) P.burst('smoke', x, y + 0.8, z, 1, 0.4, 1); if (rnd() < 0.06) P.burst('ember', x, y + 1, z, 1, 0.3, 1); } }
+    for (const b of w.buildings) if (b.fire > 0 && rnd() < 0.9 * k) { const x = b.x + (rnd() - .5) * b.w, z = b.z + (rnd() - .5) * b.d; P.burst('fire', x, b.y + b.hgt * (0.4 + rnd() * 0.8), z, 2, 0.4, 1.2 + b.fire); if (rnd() < 0.5) P.burst('smoke', x, b.y + b.hgt + 1, z, 1, 0.5, 1.4); if (rnd() < 0.15) P.burst('ember', x, b.y + b.hgt, z, 1, 0.5, 1); }
+    for (const m of w.meteors) { P.burst('fire', m.px, m.py, m.pz, 5, 0.6 + m.I, 1.5); P.burst('smoke', m.px, m.py, m.pz, 1, 0.5, 0.6); P.burst('spark', m.px, m.py, m.pz, 1, 0.5, 0.6); }
+    for (const e of w.emitters) if (rnd() < 0.5 * k) P.burst('smoke', e.x, w.hAt(e.x, e.z) + 0.5, e.z, 1, e.r, 1.3);
+    for (const q of w.quakes) if (rnd() < 0.6 * k) { const p = q.pts[(rnd() * Math.max(1, q.done)) | 0]; P.burst('dust', p[0], w.hAt(p[0], p[1]) + 0.3, p[1], 1, 2.5, 0.8); }
+    const c = R.cam;
+    if (w.rain > 0) { const rr = Math.min(60, c.dist * 0.7 + 8); P.burst('rain', c.tx, Math.max(0, w.hAt(c.tx, c.tz)) + 9, c.tz, (40 * k) | 0, rr, 1); }
+    for (const cp of w.camps) if (!cp.dead && rnd() < 0.5 * k) P.burst('fire', cp.x, w.hAt(cp.x, cp.z) + 0.3, cp.z, 1, 0.12, 0.45);
+    for (let q = 0; q < 14 * k; q++) { const x = (c.tx + (rnd() - .5) * (c.dist + 20)) | 0, z = (c.tz + (rnd() - .5) * (c.dist + 20)) | 0; if (x < 1 || z < 1 || x > N - 2 || z > N - 2) continue; const i = z * N + x; if (w.flow[i] > 0.035 && w.w[i] > 0.15 && w.w[i] - w.wb[i] > 0.12) P.burst('splash', x, w.h[i] + w.w[i], z, 1, 0.5, 0.7); }
+    for (const n of w.npcs) if (n.onFire > 0 && n.st !== DEAD && rnd() < 0.5) P.burst('fire', n.x, n.y + 0.5, n.z, 1, 0.15, 0.5);
+  }
+  function audioMix(dt) {
+    const w = world, c = R.cam, rad = c.dist * 0.6 + 14; let riv = 0, fl = 0, cnt = 0;
+    for (let k = 0; k < 28; k++) { const a = k * 2.4, r = rad * Math.sqrt((k + 0.5) / 28), x = Math.round(c.tx + Math.cos(a) * r), z = Math.round(c.tz + Math.sin(a) * r); if (x < 0 || z < 0 || x >= N || z >= N) continue; const i = z * N + x; cnt++; if (w.w[i] > 0.1 && !(w.flag[i] & 2)) { riv += Math.min(1, w.flow[i] * 40); fl += Math.min(1, Math.max(0, w.w[i] - w.wb[i]) * w.flow[i] * 80); } }
+    let fire = 0; const F = w.fires, st = Math.max(1, (F.length / 300) | 0), R2 = (rad + 25) * (rad + 25); for (let k = 0; k < F.length; k += st) { const i = F[k], dx = i % N - c.tx, dz = ((i / N) | 0) - c.tz; if (dx * dx + dz * dz < R2) fire += st; }
+    for (const b of w.buildings) if (b.fire > 0 && Math.hypot(b.x - c.tx, b.z - c.tz) < rad + 25) fire += 30;
+    let qk = 0; for (const q of w.quakes) qk = Math.max(qk, q.I * Math.sin(Math.PI * Math.min(1, q.t / q.dur)));
+    let vil = 0; for (const n of w.npcs) if (n.st !== DEAD && !n.inside && Math.hypot(n.x - c.tx, n.z - c.tz) < rad + 10) vil++;
+    const near = clamp(1.2 - c.dist / 160, 0.1, 1), el = Math.sin((w.time - 0.25) * 6.2832);
+    mix.river = clamp(riv / Math.max(1, cnt) * 2.2, 0, 1) * near; mix.flood = clamp(fl / Math.max(1, cnt) * 3, 0, 1); mix.fire = clamp(fire / 220, 0, 1) * (0.4 + 0.6 * near); mix.quake = qk; mix.rain = w.rain > 0 ? 1 : 0; mix.wind = w.windS * (0.4 + c.dist / 230); mix.village = clamp(vil / 14, 0, 1) * near; mix.day = sstep(-0.1, 0.2, el); mix.calm = w.alarm <= 0; mix.near = near;
+    audio.mix(mix); audio.ambient(dt, mix);
+    const hr = Math.floor(w.time * 24); if (hr !== lastHour) { if ((hr === 12 || hr === 18 || hr === 6) && lastHour >= 0) { const ch = w.buildings.find(b => b.type === 'church'); if (ch && !ch.ruin) sfx('bell', ch.x, ch.z, 0.9); } lastHour = hr; }
+  }
+
+  // ------------------------------------------------------------ HUD
+  function hud() {
+    const s = world.stats(), t = world.time * 24, hh = Math.floor(t), mm = Math.floor((t - hh) * 60);
+    $('s-pop').textContent = s.alive; $('s-inj').textContent = s.inj; $('s-dead').textContent = s.dead; $('s-hl').textContent = s.hl; $('s-b').textContent = s.bs + '/' + s.bt; $('s-fire').textContent = s.fires + world.buildings.filter(b => b.fire > 0).length;
+    $('s-clock').textContent = 'Day ' + world.day + ' · ' + String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0') + (world.rain > 0 ? ' · rain' : '');
+    const y = R.cam.yaw, wx = world.wind[0], wz = world.wind[1]; $('s-wind').style.transform = 'rotate(' + Math.atan2(wx * Math.cos(y) - wz * Math.sin(y), -wx * Math.sin(y) - wz * Math.cos(y)) + 'rad)';
+    $('s-mood').textContent = s.pan > 0 ? s.pan + ' fleeing' : world.alarm > 0 ? 'shaken' : s.hl > 0 ? 'surviving' : 'at peace';
+    const n = R.sel, card = $('card');
+    if (n) { card.classList.add('show'); const b = world.buildings[n.home]; let st = n.st === DEAD ? 'Dead' + (n.cause ? ' — ' + n.cause : '') : n.st === PANIC ? 'Fleeing in terror' : n.st === STUMBLE ? 'Knocked to the ground' : n.st === SHAKEN ? 'Shaken, watching from a distance' : n.inside ? 'Asleep at home' : n.goal === 'camp' ? 'Sheltering at the camp' : n.goal === 'home' ? 'Heading home' : n.goal === 'plaza' ? (n.moving ? 'Walking to the square' : 'Talking in the square') : n.working ? 'Working' : n.moving ? 'Walking to work' : 'Resting';
+      $('c-name').textContent = n.name; $('c-job').textContent = n.job + (n.homeless ? ' · homeless' : b && b.type === 'tent' ? ' · lives in a tent' : ''); $('c-st').textContent = st; $('c-hp').style.width = Math.round(clamp(n.hp, 0, 1) * 100) + '%'; }
+    else card.classList.remove('show');
+  }
+
+  // ------------------------------------------------------------ loop
+  function frame(ts) {
+    const dt = Math.min(0.05, (ts - last) / 1000 || 0.016); last = ts; frameN++;
+    keyCam(dt);
+    if (!paused && started) { acc += dt * speed; let n = 0; while (acc >= STEP && n < 6) { toolTick(STEP); world.tick(STEP); acc -= STEP; n++; } if (n >= 6) acc = 0; } else if (started) { world.finger = null; }
+    R.updateCam(dt, world); mouse.hit = mouse.inside || mouse.down ? R.pick(mouse.nx, mouse.ny, world) : null; marker();
+    if (!paused && started) emitFx(dt);
+    R.draw(world, paused ? 0 : dt);
+    hudT -= dt; if (hudT <= 0) { hudT = 0.2; hud(); if (started) audioMix(0.2); }
+    requestAnimationFrame(frame);
+  }
+
+  function init() {
+    try { R = new Renderer(canvas); } catch (e) { $('start-msg').textContent = 'This browser cannot run the game: ' + e.message; $('begin').style.display = 'none'; return; }
+    R.extra = extraDraw;
+    const tb = $('tools'); TOOLS.forEach((t, i) => { const b = document.createElement('button'); b.dataset.t = t.id; b.title = t.name + ' (' + (i + 1) + ')'; b.innerHTML = '<span class="ic">' + t.icon + '</span><span class="nm">' + t.name + '</span><span class="ky">' + (i + 1) + '</span>'; b.onclick = () => { audio.start(); setTool(t.id); }; tb.appendChild(b); });
+    $('rng').oninput = e => setInt(e.target.value / 100);
+    for (const b of document.querySelectorAll('#speed button')) b.onclick = () => setSpeed(+b.dataset.s);
+    $('save').onclick = save; $('load').onclick = load; $('new').onclick = () => { newWorld(); toast('A new world is born — your saved world is untouched'); };
+    $('mute').onclick = toggleMute; $('helpb').onclick = () => $('help').classList.toggle('show'); $('help').onclick = () => $('help').classList.remove('show');
+    newWorld(); setInt(0.6); setTool('observe'); setSpeed(1);
+    $('start-msg').textContent = 'A village wakes beside the river. It does not know you are watching.';
+    $('begin').disabled = false; if (hasSave()) $('cont').style.display = '';
+    const go = cont => { audio.start(); if (cont) load(); started = true; $('start').classList.add('gone'); log('The valley wakes. ' + world.stats().alive + ' villagers begin their day.'); };
+    $('begin').onclick = () => go(false); $('cont').onclick = () => go(true);
+    window.__game = { get world() { return world; }, R, setTool, setInt, save, load, newWorld, mouse, audio, get started() { return started; }, setSpeed };
+    requestAnimationFrame(frame);
+  }
+  setTimeout(init, 30);
+})();
+
+</script>
+</body>
+</html>
