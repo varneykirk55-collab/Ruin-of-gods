@@ -536,8 +536,10 @@ class World {
     for (const m of this.meteors) { const dx = n.x - m.x, dz = n.z - m.z, R = 10 + 12 * m.I; if (dx * dx + dz * dz < R * R) return { x: m.x, z: m.z, r: R * 0.45 }; }
     for (const q of this.tornados) { const dx = n.x - q.x, dz = n.z - q.z, R = q.R * 3.1; if (dx * dx + dz * dz < R * R) return { x: q.x, z: q.z, r: q.R * 1.5 }; }
     for (const b of this.buildings) if (!b.gone && b.fire > 0 && Math.hypot(n.x-b.x,n.z-b.z) < Math.max(b.w,b.d)/2+4) return {x:b.x,z:b.z,r:Math.max(b.w,b.d)/2+4};
+    const own = this.ci(n.x,n.z);
+    if (this.w[own] > 0.45 && !this.bridgeOK(own)) return {x:n.x,z:n.z,r:7};
     const xi = (n.x + 0.5) | 0, zi = (n.z + 0.5) | 0; let sx = 0, sz = 0, c = 0;
-    for (let k = 0; k < SCAN.length; k += 2) { const x = xi + SCAN[k], z = zi + SCAN[k + 1]; if (x < 0 || z < 0 || x >= N || z >= N) continue; const i = z * N + x; if (this.burn[i] > 0 || ((this.w[i] > 0.45 || (this.w[i] > 0.18 && this.w[i] - this.wb[i] > 0.15)) && !this.bridgeOK(i))) { sx += x; sz += z; c++; } }
+    for (let k = 0; k < SCAN.length; k += 2) { const x = xi + SCAN[k], z = zi + SCAN[k + 1]; if (x < 0 || z < 0 || x >= N || z >= N) continue; const i = z * N + x; if (this.burn[i] > 0 || (this.w[i] > 0.18 && this.w[i] - this.wb[i] > 0.15 && !this.bridgeOK(i))) { sx += x; sz += z; c++; } }
     if (c) { this._dg.x = sx / c; this._dg.z = sz / c; this._dg.r = 7; return this._dg; }
     return null;
   }
