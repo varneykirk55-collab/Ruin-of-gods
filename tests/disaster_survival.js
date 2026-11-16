@@ -99,4 +99,31 @@ tests.push(['severe flooding can kill trapped NPC',n.st===DEAD]);
 for(const [name,condition] of tests)check(name,condition);
 
 })();
+
+(function() {
+  const w=new World(1234); w.rnd=rngMaker(99); w.rainT=1e9;
+  w.quake(110,95,120,110,0.4); w.meteor(115,100,0.4); w.spawnTornado(110,100,0.5);
+  const n=w.npcs[0]; n.air=1; n.vx=3; n.vy=4; n.vz=-2; n.st=PANIC; n.inside=false;
+  const saved=w.serialize(), restored=World.load(JSON.parse(JSON.stringify(saved)));
+  check('active disasters and airborne NPCs resume after load',restored.quakes.length===1&&restored.meteors.length===1&&restored.tornados.length===1&&restored.npcs[0].air===1&&restored.npcs[0].vy===4);
+  check('restored quake uses live building references',restored.quakes[0].bl.every(e=>e.b===restored.buildings[e.b.id]));
+  const legacy={...saved,v:1}, depths=new Int16Array(NN);
+  for(let i=0;i<NN;i++)depths[i]=Math.max(-32768,Math.min(32767,Math.round(w.w[i]*1000)));
+  legacy.w=Buffer.from(depths.buffer).toString('base64');
+  delete legacy.w32;delete legacy.survival;delete legacy.threats;delete legacy.quakes;delete legacy.tornados;delete legacy.meteors;
+  const old=World.load(legacy);
+  check('version 1 saves still load water and terrain',old.w.every((v,i)=>Math.abs(v-depths[i]/1000)<0.00001)&&old.h.every((v,i)=>Math.abs(v-w.h[i])<0.011));
+  const times=[];
+  for(let round=0;round<4;round++){
+    const v=restored.vc, start=Date.now();
+    restored.ignite(v.x+6,v.z+7,0.3);restored.emitWater(v.x+8,v.z+8,0.7,.1);
+    restored.spawnTornado(v.x+round*3,v.z,0.5);
+    restored.meteor(v.x+round*2,v.z+5,0.3);
+    run(restored,4);times.push(Date.now()-start);
+  }
+  check('repeated disaster debris and rubble stay bounded',restored.tornados.length<=3&&restored.debris.length<=420&&restored.rubble.length<=2400);
+  check('repeated disasters retain finite nonnegative water',restored.w.every(v=>Number.isFinite(v)&&v>=0));
+  console.log('repeated disaster simulation ms per four-second round: '+times.join(','));
+})();
+
 console.log(checks+' disaster survival checks passed');
