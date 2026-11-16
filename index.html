@@ -1799,7 +1799,7 @@ class AudioEngine {
   function endAction() { if (tool === 'quake' && qStart) { const h = mouse.hit; if (h) world.quake(qStart.x, qStart.z, h.x, h.z, intensity); qStart = null; } lastCarve = null; delStroke = null; delCarve = null; mouse.landDelete = false; }
   function deletionTarget() {
     if (!mouse.hit && !mouse.inside) return null;
-    const d = R.ray(mouse.nx, mouse.ny), h = mouse.hit;
+    const d = R.ray(mouse.nx, mouse.ny), h = mouse.hit = R.pick(mouse.nx, mouse.ny, world);
     return world.queryDelete(R.eye[0], R.eye[1], R.eye[2], d[0], d[1], d[2], h ? h.x : null, h ? h.z : null, 0);
   }
   function delKey(o) {
@@ -1980,8 +1980,8 @@ class AudioEngine {
 
   // ------------------------------------------------------------ loop
   function frame(ts) {
-    const dt = Math.min(0.05, (ts - last) / 1000 || 0.016); last = ts; frameN++;
-    fps.n++; fps.acc += dt; fps.worst = Math.max(fps.worst, dt * 1000); if (fps.n >= 30) { fps.ms = fps.acc / fps.n * 1000; fps.fps = 1000 / fps.ms; fps.n = 0; fps.acc = 0; fps.worst = dt * 1000; }
+    const elapsed = (ts - last) / 1000 || 0.016, dt = Math.min(0.05, elapsed); last = ts; frameN++;
+    fps.n++; fps.acc += elapsed; fps.worst = Math.max(fps.worst, elapsed * 1000); if (fps.n >= 30) { fps.ms = fps.acc / fps.n * 1000; fps.fps = 1000 / fps.ms; fps.n = 0; fps.acc = 0; fps.worst = dt * 1000; }
     keyCam(dt);
     if (!paused && started) { acc += dt * speed; let n = 0; while (acc >= STEP && n < 6) { toolTick(STEP); world.tick(STEP); acc -= STEP; n++; } if (n >= 6) acc = 0; } else if (started) { world.finger = null; }
     if (started) world.decayFades(dt);
