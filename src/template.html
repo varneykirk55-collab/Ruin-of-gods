@@ -25,9 +25,9 @@
   #speed { display:flex; } #speed button { border-radius:0; margin-left:-1px; padding:7px 9px; }
   #speed button:first-child { border-radius:8px 0 0 8px; margin-left:0; } #speed button:last-child { border-radius:0 8px 8px 0; }
   #bar { position:fixed; left:50%; bottom:10px; transform:translateX(-50%); padding:8px; display:flex; flex-direction:column; gap:6px; align-items:center; max-width:calc(100vw - 16px); }
-  #tools { display:flex; gap:6px; }
-  #tools button { position:relative; display:flex; flex-direction:column; align-items:center; gap:1px; min-width:72px; padding:7px 6px 5px; background:rgba(255,255,255,.04); }
-  #tools .ic { font-size:22px; line-height:1.1; } #tools .nm { font-size:11px; color:var(--dim); white-space:nowrap; }
+  #tools { display:flex; gap:4px; flex-wrap:nowrap; justify-content:center; }
+  #tools button { position:relative; display:flex; flex-direction:column; align-items:center; gap:1px; min-width:58px; padding:6px 5px 4px; background:rgba(255,255,255,.04); }
+  #tools .ic { font-size:20px; line-height:1.1; } #tools .nm { font-size:10px; color:var(--dim); white-space:nowrap; }
   #tools .ky { position:absolute; top:3px; right:6px; font-size:10px; color:var(--dim); opacity:.7; }
   #tools button.on { background:rgba(232,104,58,.22); border-color:var(--ember); } #tools button.on .nm { color:var(--ink); }
   #row2 { display:flex; align-items:center; gap:12px; width:100%; padding:0 4px; min-height:22px; }
@@ -87,7 +87,7 @@
 <div id="help"><div class="panel">
   <h2>Controls</h2>
   <table>
-    <tr><td>1 – 7</td><td>Choose Observe, Earthquake, Flood, Meteor, Divine Finger, Firestorm, Lightning</td></tr>
+    <tr><td>1 – 9</td><td>Observe, Earthquake, Flood, Meteor, Divine Finger, Firestorm, Lightning, Tornado, Divine Deletion</td></tr>
     <tr><td>Left mouse</td><td>Use the chosen power. With Observe: drag to move, click a villager to follow</td></tr>
     <tr><td>Right-drag</td><td>Rotate and tilt the camera</td></tr>
     <tr><td>Shift-drag / middle-drag</td><td>Move the camera while a power is selected</td></tr>
@@ -97,7 +97,7 @@
     <tr><td>Space</td><td>Pause · <b>M</b> mute · <b>Esc</b> stop following</td></tr>
     <tr><td>Touch</td><td>One finger uses the power; two fingers move, pinch to zoom, twist to rotate</td></tr>
   </table>
-  <p style="color:var(--dim);margin:12px 0 0">Earthquake: drag a line, release. Flood: drag a trench from the river toward low ground, or use it on the stone dam upstream. Everything you break stays broken — Save keeps the scarred world.</p>
+  <p style="color:var(--dim);margin:12px 0 0">Earthquake: drag a line, release. Flood: drag a trench from the river toward low ground, or use it on the stone dam upstream. Tornado: click to touch down, then move the mouse to steer the funnel. Divine Deletion: hover until the frame appears, then click or drag — it unmakes the thing you chose and nothing around it. Everything you break stays broken — Save keeps the scarred world, including what you deleted.</p>
 </div></div>
 <div id="start"><div>
   <h1>GOD SIM</h1>
