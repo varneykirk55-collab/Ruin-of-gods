@@ -30,7 +30,7 @@ class AudioEngine {
   nz(t, dur, type, f0, f1, q, peak, att, bus) { const c = this.ctx, s = c.createBufferSource(); s.buffer = this.noise; s.loop = true; const f = c.createBiquadFilter(); f.type = type; f.Q.value = q; f.frequency.setValueAtTime(f0, t); if (f1 !== f0) f.frequency.exponentialRampToValueAtTime(f1, t + dur); const g = c.createGain(); this.env(g, t, att, peak, dur - att); s.connect(f); f.connect(g); g.connect(bus || this.bus.sfx); s.start(t, Math.random() * 1.5); s.stop(t + dur + 0.05); }
   tone(t, dur, type, f0, f1, peak, att, bus) { const c = this.ctx, o = c.createOscillator(); o.type = type; o.frequency.setValueAtTime(f0, t); if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(f1, t + dur); const g = c.createGain(); this.env(g, t, att, peak, dur - att); o.connect(g); g.connect(bus || this.bus.sfx); o.start(t); o.stop(t + dur + 0.05); return o; }
   play(name, vol) {
-    if (!this.on || this.muted || vol < 0.02) return; const now = performance.now(), gap = { collapse: 70, crack: 90, thud: 60, scream: 160, crackle: 60, splash: 120, ignite: 150 }[name] || 0; if (gap && now - (this.last[name] || 0) < gap) return; this.last[name] = now;
+    if (!this.on || this.muted || vol < 0.02) return; const now = performance.now(), gap = { thunder: 140, zap: 60, collapse: 70, crack: 90, thud: 60, scream: 160, crackle: 60, splash: 120, ignite: 150 }[name] || 0; if (gap && now - (this.last[name] || 0) < gap) return; this.last[name] = now;
     const t = this.ctx.currentTime + 0.01, R = Math.random, v = Math.min(1, vol);
     switch (name) {
       case 'collapse': this.nz(t, 0.9 + R() * 0.5, 'lowpass', 900 + R() * 600, 120, 0.7, 0.5 * v, 0.02); this.tone(t, 0.35, 'sine', 90 + R() * 30, 40, 0.5 * v, 0.01); this.nz(t + 0.05, 0.25, 'bandpass', 2500 + R() * 1500, 1200, 2, 0.15 * v, 0.005); break;
@@ -39,6 +39,9 @@ class AudioEngine {
       case 'boom': this.tone(t, 2.2, 'sine', 70, 24, 1.0 * v, 0.01); this.nz(t, 2.6, 'lowpass', 2800, 70, 0.5, 0.95 * v, 0.01); this.nz(t + 0.12, 3.5, 'lowpass', 400, 60, 0.6, 0.5 * v, 0.4); this.nz(t, 0.3, 'highpass', 3000, 3000, 0.5, 0.3 * v, 0.002); break;
       case 'whoosh': this.nz(t, 2.9, 'bandpass', 300, 2600, 1.2, 0.5 * v, 2.5); this.tone(t, 2.8, 'sawtooth', 420, 90, 0.08 * v, 2.2); break;
       case 'dambreak': this.nz(t, 3.5, 'lowpass', 1800, 200, 0.5, 0.8 * v, 0.3); this.tone(t, 1.2, 'sine', 80, 30, 0.7 * v, 0.02); this.nz(t, 0.5, 'bandpass', 2500, 800, 1.5, 0.4 * v, 0.01); break;
+      case 'thunder': this.nz(t, 0.25, 'highpass', 2600, 1500, 0.5, 0.9 * v, 0.002); this.tone(t, 0.7, 'sine', 62, 28, 0.9 * v, 0.005); for (let k = 0; k < 4; k++) this.nz(t + 0.12 + k * 0.45 + R() * 0.3, 1.5 + R() * 1.2, 'lowpass', 520 - k * 70, 70, 0.6, 0.65 * v * (1 - k * 0.18), 0.12); break;
+      case 'zap': this.nz(t, 0.35, 'bandpass', 4200, 1500, 3, 0.4 * v, 0.003); this.tone(t, 0.3, 'sawtooth', 120, 90, 0.12 * v, 0.005); break;
+      case 'charge': this.nz(t, 0.55, 'bandpass', 180, 3200, 2, 0.3 * v, 0.5); this.tone(t, 0.5, 'sine', 40, 90, 0.4 * v, 0.45); break;
       case 'splash': this.nz(t, 0.4, 'bandpass', 1800, 700, 0.8, 0.3 * v, 0.01); break;
       case 'ignite': this.nz(t, 0.8, 'bandpass', 500, 2200, 0.7, 0.35 * v, 0.25); break;
       case 'crackle': this.nz(t, 0.03 + R() * 0.04, 'bandpass', 2500 + R() * 4000, 2000, 3, 0.25 * v, 0.002); break;

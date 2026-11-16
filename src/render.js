@@ -91,6 +91,8 @@ class Particles {
         case 'steam': this.one(x + ox, y, z + oz, (R() - .5), 2 + R() * 3, (R() - .5), 1 + R(), 1.8, 2.5 + R() * 2, 0.9, 0.9, 0.9, 0.4, 0, 0.2, 0.4, 1); break;
         case 'ring': { const s = (10 + R() * 5) * pw; this.one(x + Math.cos(a) * 0.5, y + R() * 0.4, z + Math.sin(a) * 0.5, Math.cos(a) * s, 0.5 + R(), Math.sin(a) * s, 1.2 + R() * 1.2, 2.5, 0.7 + R() * 0.5, 0.88, 0.83, 0.74, 0.5, 0, 0, 1.2, 0); break; }
         case 'rain': this.one(x + ox, y + R() * 6, z + oz, 0, -26, 0, 0.13, 0, 0.7, 0.7, 0.8, 0.95, 0.5, 0, 0, 0, 0.6); break;
+        case 'cloud': this.one(x + ox, y + R() * 5, z + oz, (R() - .5) * 1.5, R() * 0.3, (R() - .5) * 1.5, 7 + R() * 7, 1.5, 2.5 + R() * 2, 0.15, 0.16, 0.2, 0.32, 0, 0, 0.2, 0.6); break;
+        case 'glow': this.one(x, y, z, 0, 0, 0, sp, 0, 0.09, 0.65, 0.75, 1, 0.55, 1, 0, 0, 0); break;
         case 'ember': this.one(x + ox, y, z + oz, (R() - .5), 1 + R() * 2.5, (R() - .5), 0.1 + R() * 0.08, 0, 1.5 + R() * 2, 1, 0.6, 0.2, 1, 1, 0.3, 0.2, 1.5); break;
       }
     }
@@ -245,6 +247,9 @@ class Renderer {
       if (n === this.sel) P.push(n.x, y + 1.25, n.z, 0.3, 0.35, 0.3, Math.PI, T * 2, 0, 1, 0.85, 0.2, 1);
     }
     for (const m of w.meteors) { const s = 1 + m.I * 1.6; B.push(m.px, m.py, m.pz, s, s * 0.85, s, m.t * 5, m.t * 3, m.t * 4, 1, 0.55, 0.2, 1); B.push(m.px, m.py, m.pz, s * 0.75, s * 0.9, s * 0.8, m.t * 3 + 1, m.t * 6, 0.7, 0.25, 0.18, 0.15, 0.2); }
+    for (const bo of w.bolts) { const ph = ((bo.T - bo.ttl) * 28) | 0; if (ph % 3 === 2 && bo.ttl < bo.T - 0.05) continue; const fade = Math.min(1, bo.ttl / bo.T * 2);
+      for (const g of bo.segs) { const dx = g[3] - g[0], dy = g[4] - g[1], dz = g[5] - g[2], l = Math.hypot(dx, dy, dz) || 1, hz = Math.hypot(dx, dz), wd = g[6] * (0.4 + 0.6 * fade);
+        B.push((g[0] + g[3]) / 2, (g[1] + g[4]) / 2, (g[2] + g[5]) / 2, wd, l + wd, wd, Math.atan2(hz, dy), Math.atan2(dx, dz), 0, 0.82, 0.88, 1, 1); } }
     for (const c of w.camps) { if (c.dead) continue; const y = w.hAt(c.x, c.z); B.push(c.x, y + 0.08, c.z, 0.8, 0.12, 0.14, 0, 0.5, 0, 0.3, 0.2, 0.13, 0); B.push(c.x, y + 0.1, c.z, 0.8, 0.12, 0.14, 0, 2.1, 0, 0.3, 0.2, 0.13, 0); P.push(c.x, y + 0.3, c.z, 0.35, 0.5 + 0.1 * Math.sin(T * 15), 0.35, 0, T, 0, 1, 0.6, 0.15, 1); }
     if (this.extra) this.extra(B, P);
     for (const b of D) b.upload();
@@ -257,6 +262,8 @@ class Renderer {
     let sc = mix([0.34, 0.4, 0.6], [1.0, 0.95, 0.84], day), am = mix([0.27, 0.31, 0.46], [0.44, 0.48, 0.55], day), fg = mix([0.09, 0.12, 0.22], [0.62, 0.78, 0.92], day);
     sc = mix(sc, [1.0, 0.6, 0.35], dusk * 0.6); fg = mix(fg, [0.93, 0.62, 0.45], dusk * 0.55);
     if (w.rain > 0) { fg = mix(fg, [0.45, 0.5, 0.56], 0.6 * day + 0.1); sc = mix(sc, [0.5, 0.52, 0.56], 0.5); }
+    if (w.storms.length) { const k = Math.min(1, w.storms.reduce((m, s) => Math.max(m, Math.min(s.t * 3, 1) * Math.min(1, (3.6 - s.t) * 1.2)), 0)) * 0.55; sc = mix(sc, [0.32, 0.34, 0.42], k); am = mix(am, [0.22, 0.24, 0.32], k); fg = mix(fg, [0.2, 0.22, 0.28], k); }
+    if (w.boltFlash > 0) { const f = w.boltFlash; am = [am[0] + 0.55 * f, am[1] + 0.6 * f, am[2] + 0.85 * f]; sc = [sc[0] + 0.3 * f, sc[1] + 0.32 * f, sc[2] + 0.45 * f]; fg = mix(fg, [0.75, 0.8, 0.95], f * 0.4); }
     const sm = Math.min(0.5, w.fires.length / 2500); fg = mix(fg, [0.35, 0.27, 0.22], sm); sc = mix(sc, [0.9, 0.5, 0.3], sm * 0.8);
     this.sunC = sc; this.amb = am; this.fogC = fg;
   }

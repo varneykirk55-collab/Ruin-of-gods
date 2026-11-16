@@ -9,7 +9,8 @@
     { id: 'flood', icon: '🌊', name: 'Flood', hint: 'Drag to carve a channel and redirect water. Use it on the dam to break it.' },
     { id: 'meteor', icon: '☄️', name: 'Meteor', hint: 'Click to call down a meteor.' },
     { id: 'finger', icon: '👆', name: 'Divine Finger', hint: 'Click or hold to press the land flat.' },
-    { id: 'fire', icon: '🔥', name: 'Firestorm', hint: 'Click or drag to set the land alight. Fire follows the wind.' }
+    { id: 'fire', icon: '🔥', name: 'Firestorm', hint: 'Click or drag to set the land alight. Fire follows the wind.' },
+    { id: 'lightning', icon: '⚡', name: 'Lightning', hint: 'Click to blast a storm of lightning down. Bolts seek the tallest things.' }
   ];
   let R, world, audio = new AudioEngine(), tool = 'observe', intensity = 0.6, paused = false, speed = 1, started = false, memSave = null;
   let last = 0, acc = 0, frameN = 0, hudT = 0, follow = false, lastHour = -1;
@@ -44,6 +45,7 @@
     if (tool === 'quake') qStart = { x: h.x, z: h.z };
     else if (tool === 'flood') lastCarve = { x: h.x, z: h.z };
     else if (tool === 'meteor') world.meteor(h.x, h.z, intensity);
+    else if (tool === 'lightning') world.lightning(h.x, h.z, intensity);
     else if (tool === 'fire') fireT = 0;
   }
   function endAction() { if (tool === 'quake' && qStart) { const h = mouse.hit; if (h) world.quake(qStart.x, qStart.z, h.x, h.z, intensity); qStart = null; } lastCarve = null; }
@@ -74,7 +76,7 @@
   canvas.addEventListener('wheel', e => { e.preventDefault(); R.cam.gdist *= Math.exp(e.deltaY * 0.0012); }, { passive: false });
   window.addEventListener('keydown', e => {
     if (!started) return; const k = e.key.toLowerCase(); keys[k] = true;
-    if (k >= '1' && k <= '6') setTool(TOOLS[+k - 1].id);
+    if (k >= '1' && k <= '7') setTool(TOOLS[+k - 1].id);
     else if (k === ' ' || k === 'p') { setSpeed(paused ? 1 : 0); e.preventDefault(); }
     else if (k === '[') setInt(intensity - 0.1); else if (k === ']') setInt(intensity + 0.1);
     else if (k === 'm') toggleMute(); else if (k === 'escape') { R.sel = null; follow = false; qStart = null; $('help').classList.remove('show'); }
@@ -128,6 +130,7 @@
     else if (tool === 'flood') { m[2] = 1.2 + 1.3 * intensity; c[0] = 0.3; c[1] = 0.7; c[2] = 1; if (world.nearDam(h.x, h.z, 2 + intensity)) { m[2] = 2.5 + 3.5 * intensity; c[0] = 1; c[1] = 0.9; c[2] = 0.4; } }
     else if (tool === 'meteor') { m[2] = 4 + 7 * intensity; c[0] = 1; c[1] = 0.25; c[2] = 0.15; }
     else if (tool === 'finger') { m[2] = 1.6 + 2.4 * intensity; c[0] = 1; c[1] = 0.9; c[2] = 0.75; }
+    else if (tool === 'lightning') { m[2] = 5 + 9 * intensity; c[0] = 0.6; c[1] = 0.75; c[2] = 1; }
     else { m[2] = 1.5 + 4 * intensity; c[0] = 1; c[1] = 0.55; c[2] = 0.1; }
   }
 
@@ -137,6 +140,8 @@
     if (F.length) { const n = Math.min(70, 4 + F.length * 0.08) * k; for (let q = 0; q < n; q++) { const i = F[(rnd() * F.length) | 0], x = i % N, z = (i / N) | 0, t = w.tree[i] === 2, y = w.h[i] + (t ? 0.6 + rnd() * 1.4 : 0.2); P.burst('fire', x, y, z, 1, 0.5, t ? 1.3 : 0.8); if (rnd() < 0.3) P.burst('smoke', x, y + 0.8, z, 1, 0.4, 1); if (rnd() < 0.06) P.burst('ember', x, y + 1, z, 1, 0.3, 1); } }
     for (const b of w.buildings) if (b.fire > 0 && rnd() < 0.9 * k) { const x = b.x + (rnd() - .5) * b.w, z = b.z + (rnd() - .5) * b.d; P.burst('fire', x, b.y + b.hgt * (0.4 + rnd() * 0.8), z, 2, 0.4, 1.2 + b.fire); if (rnd() < 0.5) P.burst('smoke', x, b.y + b.hgt + 1, z, 1, 0.5, 1.4); if (rnd() < 0.15) P.burst('ember', x, b.y + b.hgt, z, 1, 0.5, 1); }
     for (const m of w.meteors) { P.burst('fire', m.px, m.py, m.pz, 5, 0.6 + m.I, 1.5); P.burst('smoke', m.px, m.py, m.pz, 1, 0.5, 0.6); P.burst('spark', m.px, m.py, m.pz, 1, 0.5, 0.6); }
+    for (const s of w.storms) if (s.t < 3.2) { const gy = Math.max(0, w.hAt(s.x, s.z)); P.burst('cloud', s.x, gy + 44, s.z, Math.ceil(2 * k), s.R * 1.3, 1); if (s.t < 0.5) P.burst('spark', s.x + (rnd() - .5) * 4, gy + 0.5, s.z + (rnd() - .5) * 4, 1, 1, 0.4); }
+    for (const bo of w.bolts) if (bo.ttl > bo.T - 0.3) { for (let q = 0; q < 6; q++) { const g = bo.segs[(rnd() * bo.segs.length) | 0], t = rnd(); P.burst('glow', g[0] + (g[3] - g[0]) * t, g[1] + (g[4] - g[1]) * t, g[2] + (g[5] - g[2]) * t, 1, (bo.main ? 4 : 2) + rnd() * 2, 1); } if (bo.ttl > bo.T - 0.05) P.burst('glow', bo.x, bo.y + 0.5, bo.z, 1, bo.main ? 18 : 8, 1); }
     for (const e of w.emitters) if (rnd() < 0.5 * k) P.burst('smoke', e.x, w.hAt(e.x, e.z) + 0.5, e.z, 1, e.r, 1.3);
     for (const q of w.quakes) if (rnd() < 0.6 * k) { const p = q.pts[(rnd() * Math.max(1, q.done)) | 0]; P.burst('dust', p[0], w.hAt(p[0], p[1]) + 0.3, p[1], 1, 2.5, 0.8); }
     const c = R.cam;

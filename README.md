@@ -1,6 +1,6 @@
 # Ruin of Gods
 
-A browser god-sim destruction sandbox. You are the god: break a living valley with an earthquake, flood, meteor, divine finger or firestorm. Everything you break stays broken, and the survivors carry on.
+A browser god-sim destruction sandbox. You are the god: break a living valley with an earthquake, flood, meteor, divine finger, firestorm or lightning. Everything you break stays broken, and the survivors carry on.
 
 ![Aftermath](docs/aftermath.png)
 
@@ -10,7 +10,7 @@ Open `index.html` in any WebGL2 browser. It is one self-contained file, with no 
 ## Controls
 | Input | Action |
 |---|---|
-| 1-6 | Observe, Earthquake, Flood, Meteor, Divine Finger, Firestorm |
+| 1-7 | Observe, Earthquake, Flood, Meteor, Divine Finger, Firestorm, Lightning |
 | Left mouse | Use the power (Observe: drag to pan, click a villager to follow) |
 | Right-drag | Rotate and tilt |
 | Shift-drag / middle-drag | Pan while a power is selected |
@@ -19,6 +19,8 @@ Open `index.html` in any WebGL2 browser. It is one self-contained file, with no 
 | [ ] | Intensity |
 | Space, M, H | Pause, mute, help |
 | Touch | One finger uses the power; two fingers pan, pinch and twist |
+
+Lightning darkens the sky, blasts one huge bolt down, then hurls a barrage of forks that seek the tallest buildings and trees; strikes on water electrocute anyone wading.
 
 The dam upstream of the village can be breached with the Flood power. Save and Load keep terrain, water, scorch, fractures, rubble, building damage, villagers and tents (browser local storage).
 

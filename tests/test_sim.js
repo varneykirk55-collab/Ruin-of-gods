@@ -44,6 +44,18 @@ var wOld; { wOld = w; w = new World(seed); w.rainT = 1e9; w.fx.log = m => logs.p
 { // redirect river: carve a channel
   const z = 80, x0 = Math.round(w.rx(z)); const tx = x0 + 14; const before = w.w[z * N + tx]; for (let x = x0; x <= tx; x++) for (let k = 0; k < 6; k++) w.carve(x, z, 0.7, 0.1); run(w, 30); ok(w.w[z * N + tx - 2] > before + 0.1, 'carved channel filled from river: ' + w.w[z * N + tx - 2].toFixed(2)); }
 
+console.log('lightning');
+{ const L = new World(seed); L.rainT = 1e9; L.fx.log = () => { }; run(L, 30); const v = L.vc; const sc0 = L.scorch.reduce((a, b) => a + (b > 150 ? 1 : 0), 0), h0 = L.hAt(v.x + 2, v.z);
+  L.lightning(v.x + 2, v.z, 0.9); ok(L.storms.length === 1, 'lightning storm summoned'); run(L, 0.6); ok(L.bolts.length > 0 && L.bolts.some(b => b.main && b.segs.length > 20), 'main bolt with forks drawn: ' + (L.bolts[0] ? L.bolts[0].segs.length : 0) + ' segments');
+  let mxb = 0; for (let s = 0; s < 40; s++) { run(L, 0.1); mxb = Math.max(mxb, L.bolts.length); } ok(mxb >= 2 && L.storms.length === 0, 'barrage of follow-up strikes then storm ends (max ' + mxb + ' bolts at once)');
+  ok(L.hAt(v.x + 2, v.z) < h0 - 0.3, 'main strike blasted the ground: ' + h0.toFixed(2) + ' -> ' + L.hAt(v.x + 2, v.z).toFixed(2));
+  const sc1 = L.scorch.reduce((a, b) => a + (b > 150 ? 1 : 0), 0); ok(sc1 > sc0 + 30, 'scorched ground: +' + (sc1 - sc0));
+  ok(L.buildings.filter(b => b.parts.some(p => p.st)).length >= 3, 'buildings damaged: ' + L.buildings.filter(b => b.parts.some(p => p.st)).length); ok(L.buildings.some(b => b.fire > 0) || L.fires.length > 0, 'fires started');
+  const st = L.stats(); ok(st.dead + st.inj + st.pan > 3, 'villagers struck or fleeing: ' + JSON.stringify(st));
+  run(L, 2); ok(L.bolts.length === 0 && L.boltFlash === 0, 'bolts fade; no flash left over');
+  let hits = 0; for (let k = 0; k < 200; k++) { const r = L.rodTarget(v.x + 6, v.z - 6); if (L.bmap[L.ci(r[0], r[1])]) hits++; } ok(hits > 100, 'stray bolts are drawn to tall buildings (' + hits + '/200)');
+  const js = JSON.stringify(L.serialize()), L2 = World.load(JSON.parse(js)); let ms = 0; for (let i = 0; i < NN; i++) if (L2.scorch[i] !== L.scorch[i]) ms++; ok(ms === 0 && L2.storms.length === 0, 'lightning scars survive save/load'); }
+
 console.log('survivors');
 run(w, 120);
 { const s = w.stats(); console.log('   stats', JSON.stringify(s)); ok(s.alive > 0, 'survivors exist: ' + s.alive); ok(wOld.stats().dead > 0, 'earlier disasters killed villagers: ' + wOld.stats().dead); ok(s.pan < s.alive * 0.5, 'panic subsides: ' + s.pan); ok(s.tents > 0 || s.hl === 0, 'homeless camp/tents: tents ' + s.tents + ' homeless ' + s.hl); }

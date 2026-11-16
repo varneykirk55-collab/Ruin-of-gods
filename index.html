@@ -26,7 +26,7 @@
   #speed button:first-child { border-radius:8px 0 0 8px; margin-left:0; } #speed button:last-child { border-radius:0 8px 8px 0; }
   #bar { position:fixed; left:50%; bottom:10px; transform:translateX(-50%); padding:8px; display:flex; flex-direction:column; gap:6px; align-items:center; max-width:calc(100vw - 16px); }
   #tools { display:flex; gap:6px; }
-  #tools button { position:relative; display:flex; flex-direction:column; align-items:center; gap:1px; min-width:76px; padding:7px 6px 5px; background:rgba(255,255,255,.04); }
+  #tools button { position:relative; display:flex; flex-direction:column; align-items:center; gap:1px; min-width:72px; padding:7px 6px 5px; background:rgba(255,255,255,.04); }
   #tools .ic { font-size:22px; line-height:1.1; } #tools .nm { font-size:11px; color:var(--dim); white-space:nowrap; }
   #tools .ky { position:absolute; top:3px; right:6px; font-size:10px; color:var(--dim); opacity:.7; }
   #tools button.on { background:rgba(232,104,58,.22); border-color:var(--ember); } #tools button.on .nm { color:var(--ink); }
@@ -87,7 +87,7 @@
 <div id="help"><div class="panel">
   <h2>Controls</h2>
   <table>
-    <tr><td>1 – 6</td><td>Choose Observe, Earthquake, Flood, Meteor, Divine Finger, Firestorm</td></tr>
+    <tr><td>1 – 7</td><td>Choose Observe, Earthquake, Flood, Meteor, Divine Finger, Firestorm, Lightning</td></tr>
     <tr><td>Left mouse</td><td>Use the chosen power. With Observe: drag to move, click a villager to follow</td></tr>
     <tr><td>Right-drag</td><td>Rotate and tilt the camera</td></tr>
     <tr><td>Shift-drag / middle-drag</td><td>Move the camera while a power is selected</td></tr>
@@ -130,6 +130,7 @@ const VULN = {
   blast: { sup: 1, roof: 1, wall: 1, deck: 1 },
   crush: { sup: 1, roof: 1, wall: 1, deck: 1 },
   impact: { roof: 1, wall: 0.8, sup: 0.5, deck: 1 },
+  shock: { roof: 1, sup: 0.8, wall: 0.55, deck: 0.8 },
   stress: { sup: 1, roof: 1, wall: 1, deck: 1 }
 };
 const NAMES = ['Ada', 'Bram', 'Cora', 'Dov', 'Edda', 'Finn', 'Greta', 'Hale', 'Ines', 'Jory', 'Kell', 'Lena', 'Milo', 'Nora', 'Odo', 'Pia', 'Quin', 'Rhea', 'Sten', 'Tova', 'Ulf', 'Vera', 'Wim', 'Yara', 'Zane', 'Asa', 'Berit', 'Calder', 'Dagny', 'Eskil'];
@@ -148,7 +149,7 @@ class World {
     this.bmap = new Int16Array(NN); this.bridge = new Uint8Array(NN);
     this.buildings = []; this.npcs = []; this.debris = []; this.rubble = []; this.fires = [];
     this.threats = []; this.quakes = []; this.meteors = []; this.emitters = []; this.craterCells = [];
-    this.pathQ = []; this.camps = [];
+    this.pathQ = []; this.camps = []; this.storms = []; this.bolts = []; this.boltFlash = 0;
     this.time = 0.3; this.day = 1; this.tickN = 0; this.clock = 0;
     this.windA = 0.6; this.windS = 0.7; this.wind = [0, 0];
     this.rain = 0; this.rainT = 200 + Math.random() * 150;
@@ -767,6 +768,87 @@ class World {
     return n;
   }
 
+
+  // ------------------------------------------------------------ lightning
+  lightning(x, z, I) {
+    const R = 5 + 9 * I, rnd = this.rnd, st = { x, z, I, R, t: 0, q: [] };
+    st.q.push({ t: 0.5, x, z, p: 0.7 + 0.8 * I, main: true });
+    const n = 4 + Math.round(9 * I);
+    for (let k = 0; k < n; k++) { const a = rnd() * 6.283, r = R * Math.sqrt(rnd()); st.q.push({ t: 0.65 + rnd() * (0.8 + 1.4 * I), x: x + Math.cos(a) * r, z: z + Math.sin(a) * r, p: 0.25 + 0.35 * I * rnd(), main: false }); }
+    st.q.sort((a, b) => a.t - b.t);
+    this.storms.push(st); this.addThreat(x, z, R * 1.6, 3.5);
+    for (const m of this.npcs) if (m.st !== DEAD && !m.inside && Math.hypot(m.x - x, m.z - z) < R * 2.2) this.panic(m, x, z, R * 1.6);
+    this.fx.sound('charge', x, z, 1); this.fx.log('The sky turns black above the valley');
+    return st;
+  }
+  rodTarget(x, z) { // lightning seeks tall things: standing buildings, then trees
+    let best = null, bs = 0;
+    for (const b of this.buildings) { if (b.ruin || b.type === 'bridge') continue; const d = Math.hypot(b.x - x, b.z - z); if (d > 6) continue; const top = b.type === 'church' ? 9 : b.hgt + 1.5, sc = top - d * 0.6; if (sc > bs) { bs = sc; best = [b.x, b.z]; } }
+    if (best && this.rnd() < 0.75) return best;
+    const xi = Math.round(x), zi = Math.round(z);
+    for (let r = 0; r <= 2; r++) for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) { const X = xi + dx, Z = zi + dz; if (X < 2 || Z < 2 || X > N - 3 || Z > N - 3) continue; if (this.tree[Z * N + X] === 1) return [X, Z]; }
+    return [x, z];
+  }
+  boltPath(x0, y0, z0, x1, y1, z1, w, n, segs) {
+    const rnd = this.rnd, len = Math.hypot(x1 - x0, y1 - y0, z1 - z0), pts = [[x0, y0, z0]];
+    for (let k = 1; k < n; k++) { const t = k / n, j = len * 0.07 * Math.sin(Math.PI * t) + 0.3; pts.push([x0 + (x1 - x0) * t + (rnd() - 0.5) * 2 * j, y0 + (y1 - y0) * t + (rnd() - 0.5) * j * 0.6, z0 + (z1 - z0) * t + (rnd() - 0.5) * 2 * j]); }
+    pts.push([x1, y1, z1]);
+    for (let k = 0; k < n; k++) { const a = pts[k], b = pts[k + 1]; segs.push([a[0], a[1], a[2], b[0], b[1], b[2], w]); }
+    return pts;
+  }
+  makeBolt(tx, ty, tz, w, br) {
+    const rnd = this.rnd, segs = [], top = Math.max(ty, this.hAt(tx, tz)) + 46 + rnd() * 8;
+    const pts = this.boltPath(tx + (rnd() - 0.5) * 14, top, tz + (rnd() - 0.5) * 14, tx, ty, tz, w, 18, segs);
+    for (let k = 0; k < br; k++) { const p = pts[3 + ((rnd() * (pts.length - 7)) | 0)], a = rnd() * 6.283, r = 4 + rnd() * 9; this.boltPath(p[0], p[1], p[2], p[0] + Math.cos(a) * r, p[1] - 5 - rnd() * 10, p[2] + Math.sin(a) * r, w * 0.4, 7, segs); }
+    this.bolts.push({ segs, ttl: 0.5, T: 0.5, x: tx, y: ty, z: tz, main: br > 3 });
+  }
+  strike(x, z, P, main) {
+    const rnd = this.rnd, R = 1.2 + 3.2 * P, xi = Math.round(x), zi = Math.round(z), RR = Math.ceil(R * 1.3);
+    let ty = this.hAt(x, z); const bi = this.bmap[this.ci(x, z)];
+    if (bi) { const b = this.buildings[bi - 1]; if (!b.ruin) ty = b.y + (b.type === 'church' ? 9 : b.hgt + 1.3); } else if (this.tree[this.ci(x, z)] === 1) ty += 2;
+    this.makeBolt(x, ty, z, main ? 0.9 + 0.6 * P : 0.25 + 0.2 * P, main ? 8 : 2);
+    let wet = false;
+    for (let dz = -RR; dz <= RR; dz++) for (let dx = -RR; dx <= RR; dx++) {
+      const X = xi + dx, Z = zi + dz; if (X < 2 || Z < 2 || X > N - 3 || Z > N - 3) continue; const i = Z * N + X; if (this.flag[i] & 2) continue;
+      const u = Math.hypot(X - x, Z - z) / R; if (u >= 1) continue;
+      if (this.w[i] > 0.1) { wet = true; continue; }
+      this.scorch[i] = Math.max(this.scorch[i], (255 * (1 - u * 0.6)) | 0);
+      if (main && u < 0.55 && this.h0[i] - this.h[i] < 4) { this.h[i] -= (0.3 + 0.9 * P) * (1 - u / 0.55); this.crack[i] = Math.max(this.crack[i], 60); }
+      if (this.tree[i] === 1 && u < 0.45 && rnd() < 0.5) this.tree[i] = 4;
+      if (rnd() < (1 - u) * 0.85) this.igniteCell(i);
+    }
+    for (const b of this.buildings) {
+      if (b.ruin) continue; const d = Math.hypot(b.x - x, b.z - z) - Math.max(b.w, b.d) * 0.4;
+      if (d < R * 0.5) { this.damage(b, 0.5 + 1.2 * P, main ? 'blast' : 'shock', x, z, P * 0.5); this.igniteB(b); }
+      else if (d < R) { this.damage(b, 0.45 * P, 'shock', x, z); if (rnd() < 0.6) this.igniteB(b); }
+    }
+    for (const n of this.npcs) {
+      if (n.st === DEAD) continue; const d = Math.hypot(n.x - x, n.z - z);
+      if (n.inside) { if (d < R * 0.4) { n.hp -= 0.3; n.cause = 'struck by lightning'; } continue; }
+      if (d < R * 0.55) { n.cause = 'struck by lightning'; n.onFire = 1; this.kill(n); }
+      else if (d < R * 1.3) { n.hp -= 0.35 + 0.3 * P; n.cause = 'struck by lightning'; n.st = STUMBLE; n.t = 0.8 + rnd(); n.tx = x; n.tz = z; n.tr = R * 3; n.path = null; this.alarm = 22; }
+      else if (d < R * 6) this.panic(n, x, z, R * 3);
+    }
+    if (wet) { // the water carries the charge
+      for (const n of this.npcs) { if (n.st === DEAD || n.inside) continue; const ci = this.ci(n.x, n.z), d = Math.hypot(n.x - x, n.z - z); if (d < R * 4 + 6 && this.w[ci] > 0.2 && !this.bridgeOK(ci)) { n.hp -= 0.55; n.cause = 'electrocuted'; this.panic(n, x, z, R * 3); } }
+      this.fx.burst('steam', x, this.hAt(x, z) + this.w[this.ci(x, z)], z, main ? 30 : 10, R * 0.6, 1.5);
+    }
+    this.addThreat(x, z, R * 2.2, 3);
+    this.boltFlash = Math.max(this.boltFlash, main ? 1 : 0.55);
+    const gy = this.hAt(x, z);
+    this.fx.flash(main ? 0.55 : 0.16); this.fx.shake(main ? 0.6 + 0.5 * P : 0.18);
+    this.fx.sound('thunder', x, z, main ? 1 : 0.65); this.fx.sound('zap', x, z, 0.8);
+    this.fx.burst('spark', x, ty, z, main ? 70 : 22, 0.4, main ? 1.6 : 1); this.fx.burst('dust', x, gy + 0.3, z, main ? 26 : 8, R * 0.5, 1);
+    if (main) { this.fx.burst('ring', x, gy + 0.4, z, 60, R * 0.6, 0.8 + P * 0.5); this.fx.log('Lightning blasts down from the heavens'); }
+    if (!this.damBroken) this.checkDam();
+    this.terrDirty = true; this.staticDirty = true;
+  }
+  stepStorm(s, dt) {
+    s.t += dt;
+    while (s.q.length && s.q[0].t <= s.t) { const e = s.q.shift(); let tx = e.x, tz = e.z; if (!e.main) { const r = this.rodTarget(tx, tz); tx = r[0]; tz = r[1]; } this.strike(clamp(tx, 3, N - 4), clamp(tz, 3, N - 4), e.p, e.main); }
+    return s.q.length === 0 && s.t > 3;
+  }
+
   // ------------------------------------------------------------ main tick
   tick(dt) {
     this.tickN++; this.clock += dt;
@@ -779,6 +861,9 @@ class World {
     if (this.tickN % 6 === 0) this.stepFire(dt * 6);
     for (let k = this.quakes.length - 1; k >= 0; k--) if (this.stepQuake(this.quakes[k], dt)) this.quakes.splice(k, 1);
     for (let k = this.meteors.length - 1; k >= 0; k--) { const m = this.meteors[k]; m.t += dt; const u = Math.min(1, m.t / m.T), e = u * u; const gy = this.hAt(m.x, m.z); m.px = m.sx + (m.x - m.sx) * e; m.py = m.sy + (gy - m.sy) * e; m.pz = m.sz + (m.z - m.sz) * e; if (u >= 1) { this.impact(m); this.meteors.splice(k, 1); } }
+    for (let k = this.storms.length - 1; k >= 0; k--) if (this.stepStorm(this.storms[k], dt)) this.storms.splice(k, 1);
+    for (let k = this.bolts.length - 1; k >= 0; k--) { this.bolts[k].ttl -= dt; if (this.bolts[k].ttl <= 0) this.bolts.splice(k, 1); }
+    if (this.boltFlash > 0) this.boltFlash = Math.max(0, this.boltFlash - dt * 3);
     for (let k = this.emitters.length - 1; k >= 0; k--) { this.emitters[k].ttl -= dt; if (this.emitters[k].ttl <= 0) this.emitters.splice(k, 1); }
     if (this.tickN % 30 === 0) for (const b of this.buildings) {
       if (b.ruin) continue; let dp = 0;
@@ -917,6 +1002,8 @@ class Particles {
         case 'steam': this.one(x + ox, y, z + oz, (R() - .5), 2 + R() * 3, (R() - .5), 1 + R(), 1.8, 2.5 + R() * 2, 0.9, 0.9, 0.9, 0.4, 0, 0.2, 0.4, 1); break;
         case 'ring': { const s = (10 + R() * 5) * pw; this.one(x + Math.cos(a) * 0.5, y + R() * 0.4, z + Math.sin(a) * 0.5, Math.cos(a) * s, 0.5 + R(), Math.sin(a) * s, 1.2 + R() * 1.2, 2.5, 0.7 + R() * 0.5, 0.88, 0.83, 0.74, 0.5, 0, 0, 1.2, 0); break; }
         case 'rain': this.one(x + ox, y + R() * 6, z + oz, 0, -26, 0, 0.13, 0, 0.7, 0.7, 0.8, 0.95, 0.5, 0, 0, 0, 0.6); break;
+        case 'cloud': this.one(x + ox, y + R() * 5, z + oz, (R() - .5) * 1.5, R() * 0.3, (R() - .5) * 1.5, 7 + R() * 7, 1.5, 2.5 + R() * 2, 0.15, 0.16, 0.2, 0.32, 0, 0, 0.2, 0.6); break;
+        case 'glow': this.one(x, y, z, 0, 0, 0, sp, 0, 0.09, 0.65, 0.75, 1, 0.55, 1, 0, 0, 0); break;
         case 'ember': this.one(x + ox, y, z + oz, (R() - .5), 1 + R() * 2.5, (R() - .5), 0.1 + R() * 0.08, 0, 1.5 + R() * 2, 1, 0.6, 0.2, 1, 1, 0.3, 0.2, 1.5); break;
       }
     }
@@ -1071,6 +1158,9 @@ class Renderer {
       if (n === this.sel) P.push(n.x, y + 1.25, n.z, 0.3, 0.35, 0.3, Math.PI, T * 2, 0, 1, 0.85, 0.2, 1);
     }
     for (const m of w.meteors) { const s = 1 + m.I * 1.6; B.push(m.px, m.py, m.pz, s, s * 0.85, s, m.t * 5, m.t * 3, m.t * 4, 1, 0.55, 0.2, 1); B.push(m.px, m.py, m.pz, s * 0.75, s * 0.9, s * 0.8, m.t * 3 + 1, m.t * 6, 0.7, 0.25, 0.18, 0.15, 0.2); }
+    for (const bo of w.bolts) { const ph = ((bo.T - bo.ttl) * 28) | 0; if (ph % 3 === 2 && bo.ttl < bo.T - 0.05) continue; const fade = Math.min(1, bo.ttl / bo.T * 2);
+      for (const g of bo.segs) { const dx = g[3] - g[0], dy = g[4] - g[1], dz = g[5] - g[2], l = Math.hypot(dx, dy, dz) || 1, hz = Math.hypot(dx, dz), wd = g[6] * (0.4 + 0.6 * fade);
+        B.push((g[0] + g[3]) / 2, (g[1] + g[4]) / 2, (g[2] + g[5]) / 2, wd, l + wd, wd, Math.atan2(hz, dy), Math.atan2(dx, dz), 0, 0.82, 0.88, 1, 1); } }
     for (const c of w.camps) { if (c.dead) continue; const y = w.hAt(c.x, c.z); B.push(c.x, y + 0.08, c.z, 0.8, 0.12, 0.14, 0, 0.5, 0, 0.3, 0.2, 0.13, 0); B.push(c.x, y + 0.1, c.z, 0.8, 0.12, 0.14, 0, 2.1, 0, 0.3, 0.2, 0.13, 0); P.push(c.x, y + 0.3, c.z, 0.35, 0.5 + 0.1 * Math.sin(T * 15), 0.35, 0, T, 0, 1, 0.6, 0.15, 1); }
     if (this.extra) this.extra(B, P);
     for (const b of D) b.upload();
@@ -1083,6 +1173,8 @@ class Renderer {
     let sc = mix([0.34, 0.4, 0.6], [1.0, 0.95, 0.84], day), am = mix([0.27, 0.31, 0.46], [0.44, 0.48, 0.55], day), fg = mix([0.09, 0.12, 0.22], [0.62, 0.78, 0.92], day);
     sc = mix(sc, [1.0, 0.6, 0.35], dusk * 0.6); fg = mix(fg, [0.93, 0.62, 0.45], dusk * 0.55);
     if (w.rain > 0) { fg = mix(fg, [0.45, 0.5, 0.56], 0.6 * day + 0.1); sc = mix(sc, [0.5, 0.52, 0.56], 0.5); }
+    if (w.storms.length) { const k = Math.min(1, w.storms.reduce((m, s) => Math.max(m, Math.min(s.t * 3, 1) * Math.min(1, (3.6 - s.t) * 1.2)), 0)) * 0.55; sc = mix(sc, [0.32, 0.34, 0.42], k); am = mix(am, [0.22, 0.24, 0.32], k); fg = mix(fg, [0.2, 0.22, 0.28], k); }
+    if (w.boltFlash > 0) { const f = w.boltFlash; am = [am[0] + 0.55 * f, am[1] + 0.6 * f, am[2] + 0.85 * f]; sc = [sc[0] + 0.3 * f, sc[1] + 0.32 * f, sc[2] + 0.45 * f]; fg = mix(fg, [0.75, 0.8, 0.95], f * 0.4); }
     const sm = Math.min(0.5, w.fires.length / 2500); fg = mix(fg, [0.35, 0.27, 0.22], sm); sc = mix(sc, [0.9, 0.5, 0.3], sm * 0.8);
     this.sunC = sc; this.amb = am; this.fogC = fg;
   }
@@ -1149,7 +1241,7 @@ class AudioEngine {
   nz(t, dur, type, f0, f1, q, peak, att, bus) { const c = this.ctx, s = c.createBufferSource(); s.buffer = this.noise; s.loop = true; const f = c.createBiquadFilter(); f.type = type; f.Q.value = q; f.frequency.setValueAtTime(f0, t); if (f1 !== f0) f.frequency.exponentialRampToValueAtTime(f1, t + dur); const g = c.createGain(); this.env(g, t, att, peak, dur - att); s.connect(f); f.connect(g); g.connect(bus || this.bus.sfx); s.start(t, Math.random() * 1.5); s.stop(t + dur + 0.05); }
   tone(t, dur, type, f0, f1, peak, att, bus) { const c = this.ctx, o = c.createOscillator(); o.type = type; o.frequency.setValueAtTime(f0, t); if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(f1, t + dur); const g = c.createGain(); this.env(g, t, att, peak, dur - att); o.connect(g); g.connect(bus || this.bus.sfx); o.start(t); o.stop(t + dur + 0.05); return o; }
   play(name, vol) {
-    if (!this.on || this.muted || vol < 0.02) return; const now = performance.now(), gap = { collapse: 70, crack: 90, thud: 60, scream: 160, crackle: 60, splash: 120, ignite: 150 }[name] || 0; if (gap && now - (this.last[name] || 0) < gap) return; this.last[name] = now;
+    if (!this.on || this.muted || vol < 0.02) return; const now = performance.now(), gap = { thunder: 140, zap: 60, collapse: 70, crack: 90, thud: 60, scream: 160, crackle: 60, splash: 120, ignite: 150 }[name] || 0; if (gap && now - (this.last[name] || 0) < gap) return; this.last[name] = now;
     const t = this.ctx.currentTime + 0.01, R = Math.random, v = Math.min(1, vol);
     switch (name) {
       case 'collapse': this.nz(t, 0.9 + R() * 0.5, 'lowpass', 900 + R() * 600, 120, 0.7, 0.5 * v, 0.02); this.tone(t, 0.35, 'sine', 90 + R() * 30, 40, 0.5 * v, 0.01); this.nz(t + 0.05, 0.25, 'bandpass', 2500 + R() * 1500, 1200, 2, 0.15 * v, 0.005); break;
@@ -1158,6 +1250,9 @@ class AudioEngine {
       case 'boom': this.tone(t, 2.2, 'sine', 70, 24, 1.0 * v, 0.01); this.nz(t, 2.6, 'lowpass', 2800, 70, 0.5, 0.95 * v, 0.01); this.nz(t + 0.12, 3.5, 'lowpass', 400, 60, 0.6, 0.5 * v, 0.4); this.nz(t, 0.3, 'highpass', 3000, 3000, 0.5, 0.3 * v, 0.002); break;
       case 'whoosh': this.nz(t, 2.9, 'bandpass', 300, 2600, 1.2, 0.5 * v, 2.5); this.tone(t, 2.8, 'sawtooth', 420, 90, 0.08 * v, 2.2); break;
       case 'dambreak': this.nz(t, 3.5, 'lowpass', 1800, 200, 0.5, 0.8 * v, 0.3); this.tone(t, 1.2, 'sine', 80, 30, 0.7 * v, 0.02); this.nz(t, 0.5, 'bandpass', 2500, 800, 1.5, 0.4 * v, 0.01); break;
+      case 'thunder': this.nz(t, 0.25, 'highpass', 2600, 1500, 0.5, 0.9 * v, 0.002); this.tone(t, 0.7, 'sine', 62, 28, 0.9 * v, 0.005); for (let k = 0; k < 4; k++) this.nz(t + 0.12 + k * 0.45 + R() * 0.3, 1.5 + R() * 1.2, 'lowpass', 520 - k * 70, 70, 0.6, 0.65 * v * (1 - k * 0.18), 0.12); break;
+      case 'zap': this.nz(t, 0.35, 'bandpass', 4200, 1500, 3, 0.4 * v, 0.003); this.tone(t, 0.3, 'sawtooth', 120, 90, 0.12 * v, 0.005); break;
+      case 'charge': this.nz(t, 0.55, 'bandpass', 180, 3200, 2, 0.3 * v, 0.5); this.tone(t, 0.5, 'sine', 40, 90, 0.4 * v, 0.45); break;
       case 'splash': this.nz(t, 0.4, 'bandpass', 1800, 700, 0.8, 0.3 * v, 0.01); break;
       case 'ignite': this.nz(t, 0.8, 'bandpass', 500, 2200, 0.7, 0.35 * v, 0.25); break;
       case 'crackle': this.nz(t, 0.03 + R() * 0.04, 'bandpass', 2500 + R() * 4000, 2000, 3, 0.25 * v, 0.002); break;
@@ -1182,7 +1277,8 @@ class AudioEngine {
     { id: 'flood', icon: '🌊', name: 'Flood', hint: 'Drag to carve a channel and redirect water. Use it on the dam to break it.' },
     { id: 'meteor', icon: '☄️', name: 'Meteor', hint: 'Click to call down a meteor.' },
     { id: 'finger', icon: '👆', name: 'Divine Finger', hint: 'Click or hold to press the land flat.' },
-    { id: 'fire', icon: '🔥', name: 'Firestorm', hint: 'Click or drag to set the land alight. Fire follows the wind.' }
+    { id: 'fire', icon: '🔥', name: 'Firestorm', hint: 'Click or drag to set the land alight. Fire follows the wind.' },
+    { id: 'lightning', icon: '⚡', name: 'Lightning', hint: 'Click to blast a storm of lightning down. Bolts seek the tallest things.' }
   ];
   let R, world, audio = new AudioEngine(), tool = 'observe', intensity = 0.6, paused = false, speed = 1, started = false, memSave = null;
   let last = 0, acc = 0, frameN = 0, hudT = 0, follow = false, lastHour = -1;
@@ -1217,6 +1313,7 @@ class AudioEngine {
     if (tool === 'quake') qStart = { x: h.x, z: h.z };
     else if (tool === 'flood') lastCarve = { x: h.x, z: h.z };
     else if (tool === 'meteor') world.meteor(h.x, h.z, intensity);
+    else if (tool === 'lightning') world.lightning(h.x, h.z, intensity);
     else if (tool === 'fire') fireT = 0;
   }
   function endAction() { if (tool === 'quake' && qStart) { const h = mouse.hit; if (h) world.quake(qStart.x, qStart.z, h.x, h.z, intensity); qStart = null; } lastCarve = null; }
@@ -1247,7 +1344,7 @@ class AudioEngine {
   canvas.addEventListener('wheel', e => { e.preventDefault(); R.cam.gdist *= Math.exp(e.deltaY * 0.0012); }, { passive: false });
   window.addEventListener('keydown', e => {
     if (!started) return; const k = e.key.toLowerCase(); keys[k] = true;
-    if (k >= '1' && k <= '6') setTool(TOOLS[+k - 1].id);
+    if (k >= '1' && k <= '7') setTool(TOOLS[+k - 1].id);
     else if (k === ' ' || k === 'p') { setSpeed(paused ? 1 : 0); e.preventDefault(); }
     else if (k === '[') setInt(intensity - 0.1); else if (k === ']') setInt(intensity + 0.1);
     else if (k === 'm') toggleMute(); else if (k === 'escape') { R.sel = null; follow = false; qStart = null; $('help').classList.remove('show'); }
@@ -1301,6 +1398,7 @@ class AudioEngine {
     else if (tool === 'flood') { m[2] = 1.2 + 1.3 * intensity; c[0] = 0.3; c[1] = 0.7; c[2] = 1; if (world.nearDam(h.x, h.z, 2 + intensity)) { m[2] = 2.5 + 3.5 * intensity; c[0] = 1; c[1] = 0.9; c[2] = 0.4; } }
     else if (tool === 'meteor') { m[2] = 4 + 7 * intensity; c[0] = 1; c[1] = 0.25; c[2] = 0.15; }
     else if (tool === 'finger') { m[2] = 1.6 + 2.4 * intensity; c[0] = 1; c[1] = 0.9; c[2] = 0.75; }
+    else if (tool === 'lightning') { m[2] = 5 + 9 * intensity; c[0] = 0.6; c[1] = 0.75; c[2] = 1; }
     else { m[2] = 1.5 + 4 * intensity; c[0] = 1; c[1] = 0.55; c[2] = 0.1; }
   }
 
@@ -1310,6 +1408,8 @@ class AudioEngine {
     if (F.length) { const n = Math.min(70, 4 + F.length * 0.08) * k; for (let q = 0; q < n; q++) { const i = F[(rnd() * F.length) | 0], x = i % N, z = (i / N) | 0, t = w.tree[i] === 2, y = w.h[i] + (t ? 0.6 + rnd() * 1.4 : 0.2); P.burst('fire', x, y, z, 1, 0.5, t ? 1.3 : 0.8); if (rnd() < 0.3) P.burst('smoke', x, y + 0.8, z, 1, 0.4, 1); if (rnd() < 0.06) P.burst('ember', x, y + 1, z, 1, 0.3, 1); } }
     for (const b of w.buildings) if (b.fire > 0 && rnd() < 0.9 * k) { const x = b.x + (rnd() - .5) * b.w, z = b.z + (rnd() - .5) * b.d; P.burst('fire', x, b.y + b.hgt * (0.4 + rnd() * 0.8), z, 2, 0.4, 1.2 + b.fire); if (rnd() < 0.5) P.burst('smoke', x, b.y + b.hgt + 1, z, 1, 0.5, 1.4); if (rnd() < 0.15) P.burst('ember', x, b.y + b.hgt, z, 1, 0.5, 1); }
     for (const m of w.meteors) { P.burst('fire', m.px, m.py, m.pz, 5, 0.6 + m.I, 1.5); P.burst('smoke', m.px, m.py, m.pz, 1, 0.5, 0.6); P.burst('spark', m.px, m.py, m.pz, 1, 0.5, 0.6); }
+    for (const s of w.storms) if (s.t < 3.2) { const gy = Math.max(0, w.hAt(s.x, s.z)); P.burst('cloud', s.x, gy + 44, s.z, Math.ceil(2 * k), s.R * 1.3, 1); if (s.t < 0.5) P.burst('spark', s.x + (rnd() - .5) * 4, gy + 0.5, s.z + (rnd() - .5) * 4, 1, 1, 0.4); }
+    for (const bo of w.bolts) if (bo.ttl > bo.T - 0.3) { for (let q = 0; q < 6; q++) { const g = bo.segs[(rnd() * bo.segs.length) | 0], t = rnd(); P.burst('glow', g[0] + (g[3] - g[0]) * t, g[1] + (g[4] - g[1]) * t, g[2] + (g[5] - g[2]) * t, 1, (bo.main ? 4 : 2) + rnd() * 2, 1); } if (bo.ttl > bo.T - 0.05) P.burst('glow', bo.x, bo.y + 0.5, bo.z, 1, bo.main ? 18 : 8, 1); }
     for (const e of w.emitters) if (rnd() < 0.5 * k) P.burst('smoke', e.x, w.hAt(e.x, e.z) + 0.5, e.z, 1, e.r, 1.3);
     for (const q of w.quakes) if (rnd() < 0.6 * k) { const p = q.pts[(rnd() * Math.max(1, q.done)) | 0]; P.burst('dust', p[0], w.hAt(p[0], p[1]) + 0.3, p[1], 1, 2.5, 0.8); }
     const c = R.cam;

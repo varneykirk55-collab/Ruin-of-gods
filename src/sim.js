@@ -22,6 +22,7 @@ const VULN = {
   blast: { sup: 1, roof: 1, wall: 1, deck: 1 },
   crush: { sup: 1, roof: 1, wall: 1, deck: 1 },
   impact: { roof: 1, wall: 0.8, sup: 0.5, deck: 1 },
+  shock: { roof: 1, sup: 0.8, wall: 0.55, deck: 0.8 },
   stress: { sup: 1, roof: 1, wall: 1, deck: 1 }
 };
 const NAMES = ['Ada', 'Bram', 'Cora', 'Dov', 'Edda', 'Finn', 'Greta', 'Hale', 'Ines', 'Jory', 'Kell', 'Lena', 'Milo', 'Nora', 'Odo', 'Pia', 'Quin', 'Rhea', 'Sten', 'Tova', 'Ulf', 'Vera', 'Wim', 'Yara', 'Zane', 'Asa', 'Berit', 'Calder', 'Dagny', 'Eskil'];
@@ -40,7 +41,7 @@ class World {
     this.bmap = new Int16Array(NN); this.bridge = new Uint8Array(NN);
     this.buildings = []; this.npcs = []; this.debris = []; this.rubble = []; this.fires = [];
     this.threats = []; this.quakes = []; this.meteors = []; this.emitters = []; this.craterCells = [];
-    this.pathQ = []; this.camps = [];
+    this.pathQ = []; this.camps = []; this.storms = []; this.bolts = []; this.boltFlash = 0;
     this.time = 0.3; this.day = 1; this.tickN = 0; this.clock = 0;
     this.windA = 0.6; this.windS = 0.7; this.wind = [0, 0];
     this.rain = 0; this.rainT = 200 + Math.random() * 150;
@@ -659,6 +660,87 @@ class World {
     return n;
   }
 
+
+  // ------------------------------------------------------------ lightning
+  lightning(x, z, I) {
+    const R = 5 + 9 * I, rnd = this.rnd, st = { x, z, I, R, t: 0, q: [] };
+    st.q.push({ t: 0.5, x, z, p: 0.7 + 0.8 * I, main: true });
+    const n = 4 + Math.round(9 * I);
+    for (let k = 0; k < n; k++) { const a = rnd() * 6.283, r = R * Math.sqrt(rnd()); st.q.push({ t: 0.65 + rnd() * (0.8 + 1.4 * I), x: x + Math.cos(a) * r, z: z + Math.sin(a) * r, p: 0.25 + 0.35 * I * rnd(), main: false }); }
+    st.q.sort((a, b) => a.t - b.t);
+    this.storms.push(st); this.addThreat(x, z, R * 1.6, 3.5);
+    for (const m of this.npcs) if (m.st !== DEAD && !m.inside && Math.hypot(m.x - x, m.z - z) < R * 2.2) this.panic(m, x, z, R * 1.6);
+    this.fx.sound('charge', x, z, 1); this.fx.log('The sky turns black above the valley');
+    return st;
+  }
+  rodTarget(x, z) { // lightning seeks tall things: standing buildings, then trees
+    let best = null, bs = 0;
+    for (const b of this.buildings) { if (b.ruin || b.type === 'bridge') continue; const d = Math.hypot(b.x - x, b.z - z); if (d > 6) continue; const top = b.type === 'church' ? 9 : b.hgt + 1.5, sc = top - d * 0.6; if (sc > bs) { bs = sc; best = [b.x, b.z]; } }
+    if (best && this.rnd() < 0.75) return best;
+    const xi = Math.round(x), zi = Math.round(z);
+    for (let r = 0; r <= 2; r++) for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) { const X = xi + dx, Z = zi + dz; if (X < 2 || Z < 2 || X > N - 3 || Z > N - 3) continue; if (this.tree[Z * N + X] === 1) return [X, Z]; }
+    return [x, z];
+  }
+  boltPath(x0, y0, z0, x1, y1, z1, w, n, segs) {
+    const rnd = this.rnd, len = Math.hypot(x1 - x0, y1 - y0, z1 - z0), pts = [[x0, y0, z0]];
+    for (let k = 1; k < n; k++) { const t = k / n, j = len * 0.07 * Math.sin(Math.PI * t) + 0.3; pts.push([x0 + (x1 - x0) * t + (rnd() - 0.5) * 2 * j, y0 + (y1 - y0) * t + (rnd() - 0.5) * j * 0.6, z0 + (z1 - z0) * t + (rnd() - 0.5) * 2 * j]); }
+    pts.push([x1, y1, z1]);
+    for (let k = 0; k < n; k++) { const a = pts[k], b = pts[k + 1]; segs.push([a[0], a[1], a[2], b[0], b[1], b[2], w]); }
+    return pts;
+  }
+  makeBolt(tx, ty, tz, w, br) {
+    const rnd = this.rnd, segs = [], top = Math.max(ty, this.hAt(tx, tz)) + 46 + rnd() * 8;
+    const pts = this.boltPath(tx + (rnd() - 0.5) * 14, top, tz + (rnd() - 0.5) * 14, tx, ty, tz, w, 18, segs);
+    for (let k = 0; k < br; k++) { const p = pts[3 + ((rnd() * (pts.length - 7)) | 0)], a = rnd() * 6.283, r = 4 + rnd() * 9; this.boltPath(p[0], p[1], p[2], p[0] + Math.cos(a) * r, p[1] - 5 - rnd() * 10, p[2] + Math.sin(a) * r, w * 0.4, 7, segs); }
+    this.bolts.push({ segs, ttl: 0.5, T: 0.5, x: tx, y: ty, z: tz, main: br > 3 });
+  }
+  strike(x, z, P, main) {
+    const rnd = this.rnd, R = 1.2 + 3.2 * P, xi = Math.round(x), zi = Math.round(z), RR = Math.ceil(R * 1.3);
+    let ty = this.hAt(x, z); const bi = this.bmap[this.ci(x, z)];
+    if (bi) { const b = this.buildings[bi - 1]; if (!b.ruin) ty = b.y + (b.type === 'church' ? 9 : b.hgt + 1.3); } else if (this.tree[this.ci(x, z)] === 1) ty += 2;
+    this.makeBolt(x, ty, z, main ? 0.9 + 0.6 * P : 0.25 + 0.2 * P, main ? 8 : 2);
+    let wet = false;
+    for (let dz = -RR; dz <= RR; dz++) for (let dx = -RR; dx <= RR; dx++) {
+      const X = xi + dx, Z = zi + dz; if (X < 2 || Z < 2 || X > N - 3 || Z > N - 3) continue; const i = Z * N + X; if (this.flag[i] & 2) continue;
+      const u = Math.hypot(X - x, Z - z) / R; if (u >= 1) continue;
+      if (this.w[i] > 0.1) { wet = true; continue; }
+      this.scorch[i] = Math.max(this.scorch[i], (255 * (1 - u * 0.6)) | 0);
+      if (main && u < 0.55 && this.h0[i] - this.h[i] < 4) { this.h[i] -= (0.3 + 0.9 * P) * (1 - u / 0.55); this.crack[i] = Math.max(this.crack[i], 60); }
+      if (this.tree[i] === 1 && u < 0.45 && rnd() < 0.5) this.tree[i] = 4;
+      if (rnd() < (1 - u) * 0.85) this.igniteCell(i);
+    }
+    for (const b of this.buildings) {
+      if (b.ruin) continue; const d = Math.hypot(b.x - x, b.z - z) - Math.max(b.w, b.d) * 0.4;
+      if (d < R * 0.5) { this.damage(b, 0.5 + 1.2 * P, main ? 'blast' : 'shock', x, z, P * 0.5); this.igniteB(b); }
+      else if (d < R) { this.damage(b, 0.45 * P, 'shock', x, z); if (rnd() < 0.6) this.igniteB(b); }
+    }
+    for (const n of this.npcs) {
+      if (n.st === DEAD) continue; const d = Math.hypot(n.x - x, n.z - z);
+      if (n.inside) { if (d < R * 0.4) { n.hp -= 0.3; n.cause = 'struck by lightning'; } continue; }
+      if (d < R * 0.55) { n.cause = 'struck by lightning'; n.onFire = 1; this.kill(n); }
+      else if (d < R * 1.3) { n.hp -= 0.35 + 0.3 * P; n.cause = 'struck by lightning'; n.st = STUMBLE; n.t = 0.8 + rnd(); n.tx = x; n.tz = z; n.tr = R * 3; n.path = null; this.alarm = 22; }
+      else if (d < R * 6) this.panic(n, x, z, R * 3);
+    }
+    if (wet) { // the water carries the charge
+      for (const n of this.npcs) { if (n.st === DEAD || n.inside) continue; const ci = this.ci(n.x, n.z), d = Math.hypot(n.x - x, n.z - z); if (d < R * 4 + 6 && this.w[ci] > 0.2 && !this.bridgeOK(ci)) { n.hp -= 0.55; n.cause = 'electrocuted'; this.panic(n, x, z, R * 3); } }
+      this.fx.burst('steam', x, this.hAt(x, z) + this.w[this.ci(x, z)], z, main ? 30 : 10, R * 0.6, 1.5);
+    }
+    this.addThreat(x, z, R * 2.2, 3);
+    this.boltFlash = Math.max(this.boltFlash, main ? 1 : 0.55);
+    const gy = this.hAt(x, z);
+    this.fx.flash(main ? 0.55 : 0.16); this.fx.shake(main ? 0.6 + 0.5 * P : 0.18);
+    this.fx.sound('thunder', x, z, main ? 1 : 0.65); this.fx.sound('zap', x, z, 0.8);
+    this.fx.burst('spark', x, ty, z, main ? 70 : 22, 0.4, main ? 1.6 : 1); this.fx.burst('dust', x, gy + 0.3, z, main ? 26 : 8, R * 0.5, 1);
+    if (main) { this.fx.burst('ring', x, gy + 0.4, z, 60, R * 0.6, 0.8 + P * 0.5); this.fx.log('Lightning blasts down from the heavens'); }
+    if (!this.damBroken) this.checkDam();
+    this.terrDirty = true; this.staticDirty = true;
+  }
+  stepStorm(s, dt) {
+    s.t += dt;
+    while (s.q.length && s.q[0].t <= s.t) { const e = s.q.shift(); let tx = e.x, tz = e.z; if (!e.main) { const r = this.rodTarget(tx, tz); tx = r[0]; tz = r[1]; } this.strike(clamp(tx, 3, N - 4), clamp(tz, 3, N - 4), e.p, e.main); }
+    return s.q.length === 0 && s.t > 3;
+  }
+
   // ------------------------------------------------------------ main tick
   tick(dt) {
     this.tickN++; this.clock += dt;
@@ -671,6 +753,9 @@ class World {
     if (this.tickN % 6 === 0) this.stepFire(dt * 6);
     for (let k = this.quakes.length - 1; k >= 0; k--) if (this.stepQuake(this.quakes[k], dt)) this.quakes.splice(k, 1);
     for (let k = this.meteors.length - 1; k >= 0; k--) { const m = this.meteors[k]; m.t += dt; const u = Math.min(1, m.t / m.T), e = u * u; const gy = this.hAt(m.x, m.z); m.px = m.sx + (m.x - m.sx) * e; m.py = m.sy + (gy - m.sy) * e; m.pz = m.sz + (m.z - m.sz) * e; if (u >= 1) { this.impact(m); this.meteors.splice(k, 1); } }
+    for (let k = this.storms.length - 1; k >= 0; k--) if (this.stepStorm(this.storms[k], dt)) this.storms.splice(k, 1);
+    for (let k = this.bolts.length - 1; k >= 0; k--) { this.bolts[k].ttl -= dt; if (this.bolts[k].ttl <= 0) this.bolts.splice(k, 1); }
+    if (this.boltFlash > 0) this.boltFlash = Math.max(0, this.boltFlash - dt * 3);
     for (let k = this.emitters.length - 1; k >= 0; k--) { this.emitters[k].ttl -= dt; if (this.emitters[k].ttl <= 0) this.emitters.splice(k, 1); }
     if (this.tickN % 30 === 0) for (const b of this.buildings) {
       if (b.ruin) continue; let dp = 0;
