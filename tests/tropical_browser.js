@@ -13,9 +13,9 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=r
   // Pan across the old edge with actual pointer / touch inputs.
   await page.evaluate(()=>{const c=__game.R.cam;Object.assign(c,{tx:153,gtx:153,tz:282,gtz:282,dist:100,gdist:100});});
   await page.locator('[data-t="quake"]').click();
-  await page.locator('#pan-btn').click();
+  if(mobile)await page.locator('#pan-btn').click();
   if(mobile){const cdp=await ctx.newCDPSession(page);await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:305,y:420}]});for(const x of [260,210,160,110,60])await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x,y:420}]});await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});}
-  else {await page.mouse.move(900,400);await page.mouse.down();await page.mouse.move(250,400,{steps:10});await page.mouse.up();}
+  else {await page.keyboard.down('Shift');await page.mouse.move(900,400);await page.mouse.down();await page.mouse.move(250,400,{steps:10});await page.mouse.up();await page.keyboard.up('Shift');}
   assert.ok(await page.evaluate(()=>__game.R.cam.gtx>160));
   await page.locator('[data-t="lava"]').click();
   // Clicking the selected camera mode returns to casting.
