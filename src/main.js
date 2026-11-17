@@ -14,7 +14,6 @@
     fire: '<svg viewBox="0 0 24 24" fill="none"><path d="M12.5 3c.5 3.5-2.5 5-2.5 8 0 1.4.9 2.4 2 2.4 1.6 0 2.5-1.6 2-3.8 2.8 1.6 4.5 4.3 4.5 7 0 3.2-2.9 5.4-6.5 5.4S5.5 19.8 5.5 16.4C5.5 11.4 9 7 12.5 3z" fill="#ff6b35" stroke="#8c2303" stroke-width="1.7" stroke-linejoin="round"/><path d="M12 13.5c1.5 1.1 2.5 2.4 2.5 4a2.5 2.5 0 0 1-5 0c0-1.6 1-2.9 2.5-4z" fill="#ffe066"/></svg>',
     lightning: '<svg viewBox="0 0 24 24" fill="none"><path d="M13.5 2.5L5.5 13h5.5l-1.5 8.5L18.5 11H13l.5-8.5z" fill="#ffd93d" stroke="#b36b00" stroke-width="1.8" stroke-linejoin="round"/></svg>',
     tornado: '<svg viewBox="0 0 24 24" fill="none"><path d="M4 6h16M6 10h12M8 14h8M10 18h4M11.5 21h1.5" stroke="#4f6d7a" stroke-width="2.4" stroke-linecap="round"/><path d="M7 6c1 2 10 2 11 0M8 10c1 1.6 7 1.6 8 0" stroke="#8ab4c4" stroke-width="1.5" stroke-linecap="round"/></svg>',
-    delete: '<svg viewBox="0 0 24 24" fill="none"><path d="M12 3l2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2L12 3z" fill="#ffe066" stroke="#c93b76" stroke-width="1.8" stroke-linejoin="round"/><circle cx="18.5" cy="5.5" r="1.4" fill="#ff6b9d"/><circle cx="5.5" cy="18.5" r="1.4" fill="#2d9cdb"/></svg>'
   };
 
   const SND_ON_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12"/></svg>';
@@ -29,17 +28,16 @@
     { id: 'fire', short: 'Fire', name: 'Firestorm', hint: 'Tap or drag to set the land alight. Fire follows the wind.' },
     { id: 'lightning', short: 'Bolt', name: 'Lightning', hint: 'Tap or click to unleash a storm of lightning.' },
     { id: 'tornado', short: 'Tornado', name: 'Tornado', hint: 'Tap to touch down a tornado; move or drag to steer it.' },
-    { id: 'delete', short: 'Delete', name: 'Deletion', hint: 'Tap or drag to unmake highlighted objects. Toggle Carve land (or Alt-drag) to erase terrain.' }
   ];
 
   let R, world, audio = new AudioEngine(), tool = 'observe', intensity = 0.6, paused = false, speed = 1, started = false, memSave = null;
   let last = 0, acc = 0, frameN = 0, hudT = 0, follow = false, lastHour = -1;
-  let panMode = false, landDeleteMode = false, statsUserSet = false, rotateDismissed = false;
+  let panMode = false, statsUserSet = false, rotateDismissed = false;
   let canvasRect = { left: 0, top: 0, width: 1, height: 1 };
-  const mouse = { nx: 0, ny: 0, px: 0, py: 0, down: false, mode: '', hit: null, moved: 0, inside: false, landDelete: false };
+  const mouse = { nx: 0, ny: 0, px: 0, py: 0, down: false, mode: '', hit: null, moved: 0, inside: false };
   const keys = {}; const ptrs = new Map();
   let gest = null, gestLock = false, pending = null;
-  let qStart = null, lastCarve = null, fireT = 0, fing = { ph: 0, t: 0, x: 0, z: 0, cd: 0 }, delHover = null, delStroke = null, delCarve = null;
+  let qStart = null, lastCarve = null, fireT = 0, fing = { ph: 0, t: 0, x: 0, z: 0, cd: 0 };
   const fps = { n: 0, acc: 0, ms: 16, fps: 60, worst: 16 };
   const mix = { wind: 0, river: 0, fire: 0, quake: 0, rain: 0, flood: 0, village: 0, day: 1, calm: true, near: 1 };
   const prevHud = { pop: -1, inj: -1, dead: -1, hl: -1, bs: -1, bt: -1, fires: -1, mood: '', clock: '', windDeg: 999, warn: null, selId: -1, selSt: '', selJob: '', selHp: -1 };
@@ -89,12 +87,8 @@
     mouse.down = false;
     mouse.mode = '';
     mouse.inside = false;
-    mouse.landDelete = false;
     qStart = null;
     lastCarve = null;
-    delStroke = null;
-    delCarve = null;
-    delHover = null;
     if (world) { world.finger = null; world.steer = null; }
     canvas.style.cursor = (tool === 'observe' || panMode) ? 'grab' : 'crosshair';
   }
@@ -117,14 +111,7 @@
     panMode = !!on && tool !== 'observe';
     $('pan-btn').classList.toggle('on', panMode);
     canvas.style.cursor = (tool === 'observe' || panMode) ? 'grab' : 'crosshair';
-    if (panMode) { qStart = null; delHover = null; }
-  }
-
-  function setLandDelete(on) {
-    landDeleteMode = !!on && tool === 'delete';
-    $('land-btn').classList.toggle('on', landDeleteMode);
-    $('land-btn-txt').textContent = landDeleteMode ? 'Land' : 'Obj';
-    $('land-desk').classList.toggle('on', landDeleteMode);
+    if (panMode) qStart = null;
   }
 
   function bindWorld(w) {
@@ -135,9 +122,9 @@
   }
 
   function setTool(id) {
-    tool = id; qStart = null; delHover = null;
+    if (!TOOLS.some(entry => entry.id === id)) return;
+    tool = id; qStart = null;
     setPanMode(false);
-    if (id !== 'delete') setLandDelete(false);
     for (const b of document.querySelectorAll('#tools button')) {
       const active = b.dataset.t === id;
       b.classList.toggle('on', active);
@@ -157,8 +144,6 @@
     $('inten').style.visibility = showInt ? 'visible' : 'hidden';
     $('dock-extra').classList.toggle('show', showInt);
     $('pan-btn').classList.toggle('show', showInt);
-    $('land-btn').classList.toggle('show', id === 'delete');
-    $('land-desk').style.display = id === 'delete' ? 'inline-flex' : 'none';
     if (!showInt) $('bar').classList.remove('inten-open');
     audio.play('ui', 1);
   }
@@ -212,9 +197,8 @@
   }
   function beginAction() {
     const h = mouse.hit = R.pick(mouse.nx, mouse.ny, world);
-    // Object rays remain valid even when the terrain ray misses at a map edge.
-    if (tool === 'delete') { delStroke = new Set(); tryDelete(true); return; }
     if (!h) return;
+    R.hand.cast(h);
     if (tool === 'quake') qStart = { x: h.x, z: h.z };
     else if (tool === 'flood') { world.emitWater(h.x, h.z, intensity, 0.1); lastCarve = { x: h.x, z: h.z }; }
     else if (tool === 'meteor') world.meteor(h.x, h.z, intensity);
@@ -222,50 +206,8 @@
     else if (tool === 'tornado') world.spawnTornado(h.x, h.z, intensity);
     else if (tool === 'fire') fireT = 0;
   }
-  function endAction() { if (tool === 'quake' && qStart) { const h = mouse.hit; if (h) world.quake(qStart.x, qStart.z, h.x, h.z, intensity); qStart = null; } lastCarve = null; delStroke = null; delCarve = null; mouse.landDelete = false; }
+  function endAction() { if (tool === 'quake' && qStart) { const h = mouse.hit; if (h) world.quake(qStart.x, qStart.z, h.x, h.z, intensity); qStart = null; } lastCarve = null; }
 
-  function deletionTarget() {
-    if (!mouse.hit && !mouse.inside) return null;
-    const d = R.ray(mouse.nx, mouse.ny), h = mouse.hit = R.pick(mouse.nx, mouse.ny, world);
-    return world.queryDelete(R.eye[0], R.eye[1], R.eye[2], d[0], d[1], d[2], h ? h.x : null, h ? h.z : null, 0);
-  }
-  function delKey(o) {
-    if (!o) return '';
-    if (o.kind === 'b') return 'b' + o.b.id;
-    if (o.kind === 'n') return 'n' + o.n.id;
-    if (o.kind === 'tree') return 't' + o.i;
-    if (o.kind === 'well') return 'w';
-    if (o.kind === 'camp') return 'c' + o.c.x + '_' + o.c.z;
-    return o.kind + (o.x * 10 | 0) + '_' + (o.z * 10 | 0);
-  }
-  function tryDelete(force) {
-    delHover = deletionTarget();
-    if (!force && !(mouse.down && mouse.mode === 'act')) return;
-    const h = mouse.hit;
-    if (h && mouse.landDelete) {
-      if (delCarve) world.eraseStroke(delCarve.x, delCarve.z, h.x, h.z, intensity);
-      else world.eraseLand(h.x, h.z, intensity);
-      delCarve = { x: h.x, z: h.z };
-    }
-    if (mouse.landDelete) return;
-    const o = delHover;
-    if (!o) return;
-    const k = delKey(o); if (delStroke && delStroke.has(k)) return;
-    if (world.applyDelete(o)) { if (delStroke) delStroke.add(k); if (o.kind === 'n' && R.sel === o.n) { R.sel = null; follow = false; } }
-  }
-  function frameTarget(B, o) {
-    const pulse = 1 + 0.07 * Math.sin((R.time || 0) * 9);
-    const x0 = o.x - o.sx * 0.5 * pulse, x1 = o.x + o.sx * 0.5 * pulse, y0 = o.y - o.sy * 0.5, y1 = o.y + o.sy * 0.5 * pulse, z0 = o.z - o.sz * 0.5 * pulse, z1 = o.z + o.sz * 0.5 * pulse;
-    const th = Math.max(0.18, Math.min(o.sx, o.sz, o.sy) * 0.12);
-    const post = (x, z) => B.push(x, (y0 + y1) * 0.5, z, th, Math.max(0.4, y1 - y0), th, 0, 0, 0, 1, 0.96, 0.4, 1);
-    post(x0, z0); post(x1, z0); post(x0, z1); post(x1, z1);
-    const beam = (x, y, z, sx, sy, sz) => B.push(x, y, z, sx, sy, sz, 0, 0, 0, 1, 0.98, 0.55, 1);
-    beam((x0 + x1) * 0.5, y0, z0, x1 - x0, th, th); beam((x0 + x1) * 0.5, y0, z1, x1 - x0, th, th);
-    beam(x0, y0, (z0 + z1) * 0.5, th, th, z1 - z0); beam(x1, y0, (z0 + z1) * 0.5, th, th, z1 - z0);
-    beam((x0 + x1) * 0.5, y1, z0, x1 - x0, th, th); beam((x0 + x1) * 0.5, y1, z1, x1 - x0, th, th);
-    beam(x0, y1, (z0 + z1) * 0.5, th, th, z1 - z0); beam(x1, y1, (z0 + z1) * 0.5, th, th, z1 - z0);
-    beam(o.x, y0 + 0.06, o.z, (x1 - x0) * 1.05, 0.1, (z1 - z0) * 1.05);
-  }
   function trySelect(radius) {
     let best = radius || 30, bn = null;
     const r = canvasRect;
@@ -291,14 +233,13 @@
     beginAction();
     if (curX !== undefined && curY !== undefined) {
       setMouseCoords(curX, curY);
-      if (tool === 'delete') tryDelete(true);
     }
   }
 
   function startTwoFingerGesture() {
     clearPending();
     if (mouse.mode === 'act') {
-      qStart = null; lastCarve = null; delStroke = null; delCarve = null; mouse.landDelete = false;
+      qStart = null; lastCarve = null;
     }
     mouse.down = false;
     mouse.mode = 'gest';
@@ -325,7 +266,6 @@
       if (gestLock) return;
       setMouse(e);
       mouse.moved = 0;
-      mouse.landDelete = !!(e.altKey || landDeleteMode);
       if (tool === 'observe' || panMode) {
         mouse.down = true;
         mouse.mode = 'pan';
@@ -356,7 +296,6 @@
     if (ptrs.size > 1) return;
     setMouse(e);
     mouse.down = true; mouse.moved = 0;
-    mouse.landDelete = !!(e.altKey || (tool === 'delete' && landDeleteMode));
     if (e.button === 2) mouse.mode = 'rot';
     else if (e.button === 1 || e.shiftKey || tool === 'observe' || panMode) mouse.mode = 'pan';
     else { mouse.mode = 'act'; beginAction(); }
@@ -411,7 +350,6 @@
     mouse.moved += Math.abs(dx) + Math.abs(dy);
     if (mouse.mode === 'rot') { R.cam.gyaw -= dx * 0.006; R.cam.gpitch = clamp(R.cam.gpitch + dy * 0.005, 0.3, 1.45); }
     else if (mouse.mode === 'pan') pan(dx, dy);
-    else if (mouse.mode === 'act' && tool === 'delete') tryDelete(true);
   });
 
   const up = e => {
@@ -419,7 +357,7 @@
     const isTouch = e.pointerType === 'touch';
     if (mouse.mode === 'gest') {
       if (ptrs.size < 2) { gest = null; mouse.mode = ''; }
-      if (ptrs.size === 0) { gestLock = false; if (isTouch) { mouse.inside = false; delHover = null; } }
+      if (ptrs.size === 0) { gestLock = false; if (isTouch) { mouse.inside = false; } }
       return;
     }
     if (isTouch && ptrs.size === 0) gestLock = false;
@@ -435,23 +373,23 @@
         endAction();
       }
       mouse.down = false; mouse.mode = '';
-      if (isTouch) { mouse.inside = false; delHover = null; }
+      if (isTouch) { mouse.inside = false; }
       return;
     }
 
     if (!mouse.down) {
-      if (isTouch && ptrs.size === 0) { mouse.inside = false; delHover = null; }
+      if (isTouch && ptrs.size === 0) { mouse.inside = false; }
       return;
     }
     mouse.down = false;
     if (mouse.mode === 'act') {
-      if (e.type === 'pointercancel') { qStart = null; lastCarve = null; delStroke = null; delCarve = null; mouse.landDelete = false; }
+      if (e.type === 'pointercancel') { qStart = null; lastCarve = null; }
       else endAction();
     } else if (mouse.mode === 'pan' && tool === 'observe' && !panMode && mouse.moved < (isTouch ? 12 : 6)) {
       trySelect(isTouch ? 44 : 30);
     }
     mouse.mode = '';
-    if (isTouch && ptrs.size === 0) { mouse.inside = false; delHover = null; }
+    if (isTouch && ptrs.size === 0) { mouse.inside = false; }
     canvas.style.cursor = (tool === 'observe' || panMode) ? 'grab' : 'crosshair';
   };
   canvas.addEventListener('pointerup', up);
@@ -476,7 +414,7 @@
     if (k === 'h' || k === '?') { setHelpOpen(!isHelpOpen()); return; }
     if (isMenuOpen() || isHelpOpen()) return;
     keys[k] = true;
-    if (k >= '1' && k <= '9') setTool(TOOLS[+k - 1].id);
+    if (/^[1-8]$/.test(k)) setTool(TOOLS[+k - 1].id);
     else if (k === ' ' || k === 'p') { setSpeed(paused ? 1 : 0); e.preventDefault(); }
     else if (k === '[') setInt(intensity - 0.1);
     else if (k === ']') setInt(intensity + 0.1);
@@ -544,29 +482,10 @@
       const d = Math.hypot(h.x - qStart.x, h.z - qStart.z), n = Math.max(2, Math.ceil(d / 1.2));
       for (let k = 0; k <= n; k++) { const x = qStart.x + (h.x - qStart.x) * k / n, z = qStart.z + (h.z - qStart.z) * k / n; B.push(x, world.hAt(x, z) + 0.25, z, 0.5, 0.18, 0.5, 0, k, 0, 1, 0.35, 0.15, 1); }
     }
-    if (tool === 'finger' && !panMode && (h && mouse.inside || fing.ph)) {
-      const fx = fing.ph ? fing.x : h.x, fz = fing.ph ? fing.z : h.z, fr = (1.6 + 2.4 * intensity) * 0.6, hov = 3.5 + fr * 2;
-      const p = fing.ph === 1 ? fing.t * fing.t : fing.ph === 2 ? 1 - fing.t : 0, ty = world.hAt(fx, fz) + hov * (1 - p) - 0.2 * p, c = [0.94, 0.77, 0.63], yw = R.cam.yaw;
-      B.push(fx, ty + 0.35 * fr, fz, 1.1 * fr, 0.7 * fr, 1.1 * fr, 0, yw, 0, c[0], c[1], c[2], 0.08);
-      B.push(fx, ty + 1.4 * fr, fz, 1.45 * fr, 1.9 * fr, 1.45 * fr, 0, yw, 0, c[0], c[1], c[2], 0.08);
-      B.push(fx, ty + 3.5 * fr, fz, 1.6 * fr, 2.5 * fr, 1.6 * fr, 0, yw, 0, c[0] * 0.97, c[1] * 0.96, c[2] * 0.95, 0.08);
-      B.push(fx, ty + 6.4 * fr, fz, 1.78 * fr, 3.4 * fr, 1.78 * fr, 0, yw, 0, c[0] * 0.95, c[1] * 0.93, c[2] * 0.92, 0.08);
-      B.push(fx + Math.sin(yw) * 0.74 * fr, ty + 1.25 * fr, fz + Math.cos(yw) * 0.74 * fr, 1.05 * fr, 1.5 * fr, 0.1 * fr, 0, yw, 0, 0.99, 0.92, 0.88, 0.15);
-      B.push(fx, ty + 2.36 * fr, fz, 1.5 * fr, 0.05 * fr, 1.5 * fr, 0, yw, 0, c[0] * 0.8, c[1] * 0.75, c[2] * 0.72, 0);
-      B.push(fx, ty + 4.76 * fr, fz, 1.65 * fr, 0.05 * fr, 1.65 * fr, 0, yw, 0, c[0] * 0.8, c[1] * 0.75, c[2] * 0.72, 0);
-      R.shadow[0] = fx; R.shadow[1] = fz; R.shadow[2] = fr * 2.6; R.shadow[3] = 0.25 + 0.35 * p;
-    } else R.shadow[3] = 0;
-    const landActive = mouse.landDelete || keys.alt || landDeleteMode;
-    if (tool === 'delete' && !panMode && h && landActive && (mouse.inside || mouse.down)) {
-      const br = world.eraseRadius(intensity), y = world.hAt(h.x, h.z);
-      B.push(h.x, y + 2.6, h.z, 0.16, 5.2, 0.16, 0, 0, 0, 1, 0.95, 0.4, 1);
-      for (let k = 0; k < 4; k++) { const a = (R.time || 0) * 1.6 + k * 1.5708; B.push(h.x + Math.cos(a) * br, y + 0.55, h.z + Math.sin(a) * br, 0.22, 1.1, 0.22, 0, a, 0, 1, 0.98, 0.55, 1); }
-    }
-    if (tool === 'delete' && !panMode && delHover && !landActive) frameTarget(B, delHover);
   }
 
   function marker() {
-    const h = mouse.hit, m = R.mark, c = R.markC; R.brush = 0;
+    const h = mouse.hit, m = R.mark, c = R.markC;
     if (!h || tool === 'observe' || panMode || (!mouse.inside && !mouse.down)) { c[3] = 0; return; }
     m[0] = h.x; m[1] = h.z; c[3] = 0.75;
     if (tool === 'quake') { m[2] = 1.2; c[0] = 1; c[1] = 0.5; c[2] = 0.2; }
@@ -575,7 +494,6 @@
     else if (tool === 'finger') { m[2] = 1.6 + 2.4 * intensity; c[0] = 1; c[1] = 0.9; c[2] = 0.75; }
     else if (tool === 'lightning') { m[2] = 5 + 9 * intensity; c[0] = 0.6; c[1] = 0.75; c[2] = 1; }
     else if (tool === 'tornado') { m[2] = 3.2 + 5.5 * intensity; c[0] = 0.72; c[1] = 0.78; c[2] = 0.84; }
-    else if (tool === 'delete') { R.brush = 1; m[2] = (mouse.landDelete || keys.alt || landDeleteMode) ? world.eraseRadius(intensity) : 0.45; c[0] = 1; c[1] = 0.86; c[2] = 0.22; c[3] = 1; }
     else { m[2] = 1.5 + 4 * intensity; c[0] = 1; c[1] = 0.55; c[2] = 0.1; }
   }
 
@@ -666,12 +584,23 @@
       while (acc >= STEP && n < 6) { toolTick(STEP); world.tick(STEP); acc -= STEP; n++; }
       if (n >= 6) acc = 0;
     } else if (started) { world.finger = null; }
-    if (started) world.decayFades(dt);
+
     R.updateCam(dt, world);
-    const needPick = (mouse.inside || mouse.down) && tool !== 'observe' && !panMode && mouse.mode !== 'pan' && mouse.mode !== 'gest';
+    const cameraGesture = mouse.mode === 'pan' || mouse.mode === 'rot' || mouse.mode === 'gest';
+    const hideHand = isModalOpen() || panMode || cameraGesture;
+    const needPick = (mouse.inside || mouse.down) && !hideHand;
     mouse.hit = needPick ? R.pick(mouse.nx, mouse.ny, world) : null;
-    if (started && tool === 'delete' && !panMode && (mouse.inside || mouse.down)) delHover = deletionTarget();
-    else if (tool !== 'delete' || panMode) delHover = null;
+    const pressing = tool === 'finger' && fing.ph !== 0;
+    const contact = pressing && needPick ? { x: fing.x, z: fing.z, y: world.hAt(fing.x, fing.z) } : mouse.hit;
+    const depth = pressing ? (fing.ph === 1 ? fing.t * fing.t : 1 - fing.t) : 0;
+    R.hand.update(dt, R, world, hideHand, contact, tool, mouse.mode === 'act', depth);
+    R.shadow[3] = 0;
+    if (R.hand.visible && contact) {
+      R.shadow[0] = contact.x;
+      R.shadow[1] = contact.z;
+      R.shadow[2] = R.hand.size * 1.4;
+      R.shadow[3] = 0.14 + 0.2 * depth;
+    }
     marker();
     if (!paused && started) emitFx(dt);
     R.draw(world, paused ? 0 : dt);
@@ -698,8 +627,6 @@
     for (const b of document.querySelectorAll('.inten-presets button')) b.onclick = () => setInt(+b.dataset.p / 100);
     $('inten-btn').onclick = e => { e.stopPropagation(); $('bar').classList.toggle('inten-open'); };
     $('pan-btn').onclick = () => { audio.start(); setPanMode(!panMode); };
-    $('land-btn').onclick = () => { audio.start(); setLandDelete(!landDeleteMode); };
-    $('land-desk').onclick = () => { audio.start(); setLandDelete(!landDeleteMode); };
 
     for (const b of document.querySelectorAll('#speed button')) b.onclick = () => setSpeed(+b.dataset.s);
     $('save').onclick = () => { save(); if (isMenuOpen()) setMenuOpen(false); };
@@ -751,11 +678,8 @@
       get started() { return started; },
       setSpeed,
       get tool() { return tool; },
-      get delHover() { return delHover; },
       get panMode() { return panMode; },
       setPanMode,
-      get landDeleteMode() { return landDeleteMode; },
-      setLandDelete,
       isModalOpen
     };
     requestAnimationFrame(frame);

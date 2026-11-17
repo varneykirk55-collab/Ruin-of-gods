@@ -23,9 +23,27 @@ const ok = (c, m) => { if (c) { pass++; console.log('  ok   ' + m); } else { fai
   const cam = async o => { await p.evaluate(o => { const c = __game.R.cam; for (const k in o) { c[k] = o[k]; c['g' + k] = o[k]; } }, o); await p.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))); };
   const shot = name => p.screenshot({ path: path.join(out, name) });
   const vc = await ev(() => __game.world.vc);
-  ok(await ev(() => document.querySelectorAll('#tools button').length === 9), 'nine tools: observe through divine deletion, lightning kept');
+  ok(await ev(() => document.querySelectorAll('#tools button').length === 8), 'eight tools from Observe through Tornado');
   await cam({ tx: vc.x, tz: vc.z, dist: 58, pitch: 0.78, yaw: 0.45 });
   await p.waitForTimeout(500);
+
+  await p.mouse.move(640,360);
+  await p.waitForFunction(() => __game.R.hand.visible && __game.R.hand.pose === 'idle');
+  await shot('hand_idle.png');
+  await p.keyboard.press('3');
+  await p.waitForFunction(() => __game.R.hand.pose === 'point');
+  await p.mouse.down();
+  await p.waitForFunction(() => __game.R.hand.pose === 'open');
+  await shot('hand_cast.png');
+  await p.mouse.up();
+  await p.keyboard.press('8');
+  // Start a fresh world after exercising the held animation.
+  await p.mouse.down();
+  await p.waitForFunction(() => __game.R.hand.pose === 'grasp');
+  await p.mouse.up();
+  await p.mouse.move(0,0);
+  await ev(() => { __game.newWorld(1234); __game.world.rainT=1e9; });
+  ok(await ev(() => __game.R.gl.getError() === 0), 'hand poses render without WebGL errors');
 
   console.log('earthquake');
   await p.keyboard.press('2');
@@ -98,36 +116,16 @@ const ok = (c, m) => { if (c) { pass++; console.log('  ok   ' + m); } else { fai
   ok(tornFx.hurt > 0 || tornFx.debris + tornFx.rubble > 4, 'tornado damaged buildings or threw debris ' + JSON.stringify(tornFx));
   ok(tornFx.tossed > 0 || tornFx.debris > 2, 'tornado pulled villagers or loose objects ' + JSON.stringify(tornFx));
 
-  console.log('divine deletion');
-  await ev(() => __game.setSpeed(0));
-  const target = await ev(() => { const b = __game.world.buildings.find(b => !b.gone && !b.ruin && b.type === 'house'); return b ? { x: b.x, z: b.z, id: b.id, h: __game.world.h[__game.world.ci(b.x, b.z)], water: __game.world.w[__game.world.ci(b.x, b.z)] } : null; });
   await p.keyboard.press('9');
-  await cam({ tx: target.x, tz: target.z, dist: 24, pitch: 0.62, yaw: 0.4 }); await p.waitForTimeout(300);
-  a = await scr(target.x, target.z, 1.5); await p.mouse.move(a[0], a[1]); await p.waitForFunction(id=>__game.delHover&&__game.delHover.kind==='b'&&__game.delHover.b.id===id,target.id,{timeout:10000});
-  const hover = await ev(() => { const h = __game.delHover; return h ? h.kind + (h.b ? ':' + h.b.id : '') : ''; });
-  ok(hover.startsWith('b:' + target.id), 'hover highlights the house (' + hover + ')');
-  await shot('ability_deletion_hover.png');
-  const trees0 = await ev(() => __game.world.tree.reduce((a, b) => a + (b ? 1 : 0), 0));
-  await p.mouse.click(a[0], a[1]); await p.waitForTimeout(200); await shot('ability_deletion.png');
-  const gone = await ev(id => { const b = __game.world.buildings[id]; const i = __game.world.ci(b.x, b.z); return { gone: !!b.gone, map: __game.world.bmap[i], debris: __game.world.debris.length, h: __game.world.h[i], w: __game.world.w[i] }; }, target.id);
-  ok(gone.gone && gone.map === 0, 'click deleted the house and cleared its collider');
-  ok(gone.h === target.h, 'object deletion leaves terrain unchanged');
-  const grove = await ev(() => { const w = __game.world; for (let i = 0; i < w.tree.length; i++) if (w.tree[i] === 1) { const x = i % 160, z = (i / 160) | 0; if(x<12||x>145||z<20||z>145)continue; let n = 0, last=0; for (let k = 0; k < 6; k++) if (w.tree[i + k] === 1) {n++;last=k;} if (n >= 3) return [x, z, last]; } return null; });
-  if (grove) {
-    await cam({ tx: grove[0], tz: grove[1], dist: 24, pitch: 1.4, yaw: 0.2 }); await p.waitForTimeout(250);
-    const g0 = await scr(grove[0], grove[1], 1.4), g1 = await scr(grove[0] + grove[2], grove[1], 1.4);
-    await p.mouse.move(g0[0], g0[1]); await p.waitForFunction(()=>__game.delHover&&__game.delHover.kind==='tree',null,{timeout:10000}); await p.mouse.down(); await p.mouse.move(g1[0], g1[1], { steps: 8 }); await p.mouse.up();
-    const trees1 = await ev(() => __game.world.tree.reduce((a, b) => a + (b ? 1 : 0), 0));
-    ok(trees1 < trees0, 'drag-delete removed trees (' + trees0 + ' -> ' + trees1 + ')');
-  } else ok(false, 'no tree grove to drag-delete');
-
+  ok(await ev(() => __game.tool === 'tornado'), 'retired key 9 leaves Tornado selected');
+  await ev(() => __game.setSpeed(0));
   console.log('persistence');
   const sig = await ev(() => { const w = __game.world; const gone = w.buildings.filter(b => b.gone).map(b => b.id).join(','); const trees = w.tree.reduce((a, b) => a + (b ? 1 : 0), 0); return gone + '|' + trees + '|' + (w.well.gone ? 1 : 0); });
   await p.click('#save'); await p.reload();
   await p.waitForFunction(() => window.__game && !document.getElementById('begin').disabled, null, { timeout: 30000 });
   await p.click('#cont'); await p.waitForTimeout(600);
   const sig2 = await ev(() => { const w = __game.world; const gone = w.buildings.filter(b => b.gone).map(b => b.id).join(','); const trees = w.tree.reduce((a, b) => a + (b ? 1 : 0), 0); return gone + '|' + trees + '|' + (w.well.gone ? 1 : 0); });
-  ok(sig === sig2, 'deleted objects stay gone after reload (' + sig2 + ')');
+  ok(sig === sig2, 'world damage survives reload (' + sig2 + ')');
 
   console.log('performance');
   await ev(() => {__game.newWorld(1234);__game.world.rainT=1e9;__game.setSpeed(1);});

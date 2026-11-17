@@ -1,6 +1,6 @@
 # Ruin of Gods
 
-A browser god-sim destruction sandbox. You are the god: break a living valley with an earthquake, flood, meteor, divine finger, firestorm, lightning, or tornado — or unmake something outright with divine deletion. Everything you break stays broken, and the survivors carry on.
+A browser god-sim destruction sandbox. You are the god: break a living valley with an earthquake, flood, meteor, divine finger, firestorm, lightning, or tornado. Everything you break stays broken, and the survivors carry on.
 
 ![Aftermath](docs/aftermath.png)
 
@@ -12,7 +12,7 @@ The four music tracks play in sequence and repeat while you play. The sound cont
 ## Controls
 | Input | Action |
 |---|---|
-| 1-9 | Observe, Earthquake, Flood, Meteor, Divine Finger, Firestorm, Lightning, Tornado, Divine Deletion |
+| 1-8 | Observe, Earthquake, Flood, Meteor, Divine Finger, Firestorm, Lightning, Tornado |
 | Left mouse | Use the power (Observe: drag to pan, click a villager to follow) |
 | Right-drag | Rotate and tilt |
 | Shift-drag / middle-drag | Pan while a power is selected |
@@ -24,7 +24,7 @@ The four music tracks play in sequence and repeat while you play. The sound cont
 
 Lightning darkens the sky, blasts one huge bolt down, then hurls a barrage of forks that seek the tallest buildings and trees; strikes on water electrocute anyone wading.
 
-Tornado (8) drops a spinning funnel you steer with the mouse. It pulls villagers, trees, and debris in, lifts them, and throws them back out, and it tears buildings down harder the closer they are to the core. Divine Deletion (9) highlights the object under the pointer. Click or drag to unmake only those objects, without impact damage or terrain excavation. Hold Alt when starting a deletion drag to erase land separately; the dam and map edge are protected. `[` `]` changes intensity and the land brush. Deleted land and objects stay gone in a Save.
+Tornado (8) drops a spinning funnel you steer with the mouse. It pulls villagers, trees, and debris in, lifts them, and throws them back out, and it tears buildings down harder the closer they are to the core. Your god hand points at the selected location and animates as you use each power.
 
 Flood (3) emits additional water while clicked or held. Drag to move the source. Water spreads downhill, pools in valleys and craters, suppresses fire, and damages flooded buildings. Flow never excavates terrain. Earthquake, Meteor and Divine Finger retain their landscape effects; the terrain channel helper remains available internally. Save and Load keep terrain, water, scorch, fractures, rubble, building damage, villagers and tents (browser local storage).
 

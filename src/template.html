@@ -418,7 +418,7 @@
     align-items: center;
     gap: 5px;
   }
-  #inten-btn, #land-btn {
+  #inten-btn {
     min-height: 52px;
     padding: 5px 9px;
     border-radius: 14px;
@@ -428,9 +428,7 @@
     min-width: 48px;
   }
   #inten-btn.on { background: #fff0c2; border-color: var(--gold-deep); }
-  #land-btn { display: none; background: #fff6db; border-color: rgba(217, 130, 0, 0.35); color: #7a4500; }
-  #land-btn.on { background: var(--coral); border-color: #bd3b0c; color: #fff; }
-  #land-btn svg, #inten-btn svg { width: 18px; height: 18px; }
+  #inten-btn svg { width: 18px; height: 18px; }
 
   #row2 {
     display: flex;
@@ -440,14 +438,6 @@
     min-height: 24px;
   }
   #hint { flex: 1; color: var(--dim); font-size: 12px; font-weight: 600; min-width: 0; }
-  #land-desk {
-    display: none;
-    min-height: 26px;
-    padding: 3px 9px;
-    font-size: 11.5px;
-    border-radius: 999px;
-  }
-  #land-desk.on { background: var(--coral); border-color: #bd3b0c; color: #fff; }
   #inten {
     display: flex;
     align-items: center;
@@ -625,9 +615,8 @@
     #tools .ic { width: 21px; height: 21px; }
     #tools .ic svg { width: 21px; height: 21px; }
     #tools .nm { font-size: 10px; }
-    #pan-btn, #inten-btn, #land-btn { height: 48px; min-height: 48px; border-radius: 12px; }
+    #pan-btn, #inten-btn { height: 48px; min-height: 48px; border-radius: 12px; }
     #dock-extra.show { display: inline-flex; }
-    #land-btn.show { display: inline-flex; }
 
     /* Compact floating intensity popover instead of persistent second row */
     #row2 { display: none; }
@@ -647,7 +636,6 @@
       min-width: 210px;
     }
     #bar.inten-open #hint,
-    #bar.inten-open #land-desk { display: none !important; }
     #bar.inten-open .inten-presets { display: flex; justify-content: space-between; }
     #bar.inten-open #rng { flex: 1; width: 120px; }
 
@@ -790,10 +778,6 @@
     </button>
     <div id="tools" role="toolbar" aria-label="Divine powers"></div>
     <div id="dock-extra">
-      <button type="button" id="land-btn" title="Toggle land carving mode for Divine Deletion">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-9 4 6 3-4 6 7H3z"/></svg>
-        <span id="land-btn-txt">Obj</span>
-      </button>
       <button type="button" id="inten-btn" title="Power intensity">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 14a8 8 0 1 1 16 0"/><path d="M12 14l4-4"/><circle cx="12" cy="14" r="1.5" fill="currentColor"/></svg>
         <span id="rv-mini">60%</span>
@@ -802,7 +786,6 @@
   </div>
   <div id="row2">
     <div id="hint"></div>
-    <button type="button" id="land-desk" title="Carve terrain instead of deleting single objects (Alt-drag)">Carve land</button>
     <div id="inten">
       <span>Intensity</span>
       <input id="rng" type="range" min="10" max="100" value="60">
@@ -826,22 +809,21 @@
     </div>
     <h3>Touch Controls</h3>
     <table>
-      <tr><td>1-finger drag</td><td><b>Observe / Move:</b> pan camera · <b>Powers:</b> draw quake, steer tornado, pour flood, ignite, press or erase</td></tr>
+      <tr><td>1-finger drag</td><td><b>Observe / Move:</b> pan camera · <b>Powers:</b> draw quake, steer tornado, pour flood, ignite or press</td></tr>
       <tr><td>1-finger tap</td><td><b>Observe:</b> inspect &amp; follow a villager · <b>Powers:</b> drop meteor, call lightning, or zap object</td></tr>
       <tr><td>2-finger gesture</td><td>Pinch to zoom, drag to pan, twist to rotate (never triggers powers)</td></tr>
       <tr><td>Move button</td><td>Lock 1-finger camera panning without losing your selected power</td></tr>
-      <tr><td>Obj / Land</td><td>Switch Divine Deletion between unmaking objects and carving terrain</td></tr>
     </table>
     <h3>Mouse &amp; Keyboard</h3>
     <table>
-      <tr><td>1 – 9</td><td>Observe, Earthquake, Flood, Meteor, Divine Finger, Firestorm, Lightning, Tornado, Divine Deletion</td></tr>
+      <tr><td>1 – 8</td><td>Observe, Earthquake, Flood, Meteor, Divine Finger, Firestorm, Lightning, Tornado</td></tr>
       <tr><td>Left mouse</td><td>Use power (with Observe: drag to move, click villager to follow)</td></tr>
       <tr><td>Right-drag</td><td>Rotate and tilt camera · <b>Shift/Middle-drag:</b> pan anytime</td></tr>
       <tr><td>Wheel</td><td>Zoom from a single villager to the whole valley</td></tr>
       <tr><td>W A S D / Arrows</td><td>Move · <b>Q E</b> rotate · <b>R F</b> tilt · <b>+ −</b> zoom · <b>[ ]</b> intensity</td></tr>
       <tr><td>Space · M · Esc</td><td>Pause · Mute · Stop following / close modal</td></tr>
     </table>
-    <p style="color:var(--dim);margin:12px 0 0;font-size:12.5px">Earthquake: drag a fault line, release. Flood: tap or drag to pour water downhill without digging. Tornado: tap to touch down, drag or steer to guide the funnel. Divine Deletion: target highlighted objects, or toggle <b>Carve land</b> (Alt-drag on desktop) to erase terrain. Everything broken stays broken — Save preserves the scarred valley.</p>
+    <p style="color:var(--dim);margin:12px 0 0;font-size:12.5px">Earthquake: drag a fault line, release. Flood: tap or drag to pour water downhill without digging. Tornado: tap to touch down, drag or steer to guide the funnel. Everything broken stays broken — Save preserves the scarred valley.</p>
   </div>
 </div>
 

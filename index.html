@@ -418,7 +418,7 @@
     align-items: center;
     gap: 5px;
   }
-  #inten-btn, #land-btn {
+  #inten-btn {
     min-height: 52px;
     padding: 5px 9px;
     border-radius: 14px;
@@ -428,9 +428,7 @@
     min-width: 48px;
   }
   #inten-btn.on { background: #fff0c2; border-color: var(--gold-deep); }
-  #land-btn { display: none; background: #fff6db; border-color: rgba(217, 130, 0, 0.35); color: #7a4500; }
-  #land-btn.on { background: var(--coral); border-color: #bd3b0c; color: #fff; }
-  #land-btn svg, #inten-btn svg { width: 18px; height: 18px; }
+  #inten-btn svg { width: 18px; height: 18px; }
 
   #row2 {
     display: flex;
@@ -440,14 +438,6 @@
     min-height: 24px;
   }
   #hint { flex: 1; color: var(--dim); font-size: 12px; font-weight: 600; min-width: 0; }
-  #land-desk {
-    display: none;
-    min-height: 26px;
-    padding: 3px 9px;
-    font-size: 11.5px;
-    border-radius: 999px;
-  }
-  #land-desk.on { background: var(--coral); border-color: #bd3b0c; color: #fff; }
   #inten {
     display: flex;
     align-items: center;
@@ -625,9 +615,8 @@
     #tools .ic { width: 21px; height: 21px; }
     #tools .ic svg { width: 21px; height: 21px; }
     #tools .nm { font-size: 10px; }
-    #pan-btn, #inten-btn, #land-btn { height: 48px; min-height: 48px; border-radius: 12px; }
+    #pan-btn, #inten-btn { height: 48px; min-height: 48px; border-radius: 12px; }
     #dock-extra.show { display: inline-flex; }
-    #land-btn.show { display: inline-flex; }
 
     /* Compact floating intensity popover instead of persistent second row */
     #row2 { display: none; }
@@ -647,7 +636,6 @@
       min-width: 210px;
     }
     #bar.inten-open #hint,
-    #bar.inten-open #land-desk { display: none !important; }
     #bar.inten-open .inten-presets { display: flex; justify-content: space-between; }
     #bar.inten-open #rng { flex: 1; width: 120px; }
 
@@ -790,10 +778,6 @@
     </button>
     <div id="tools" role="toolbar" aria-label="Divine powers"></div>
     <div id="dock-extra">
-      <button type="button" id="land-btn" title="Toggle land carving mode for Divine Deletion">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-9 4 6 3-4 6 7H3z"/></svg>
-        <span id="land-btn-txt">Obj</span>
-      </button>
       <button type="button" id="inten-btn" title="Power intensity">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 14a8 8 0 1 1 16 0"/><path d="M12 14l4-4"/><circle cx="12" cy="14" r="1.5" fill="currentColor"/></svg>
         <span id="rv-mini">60%</span>
@@ -802,7 +786,6 @@
   </div>
   <div id="row2">
     <div id="hint"></div>
-    <button type="button" id="land-desk" title="Carve terrain instead of deleting single objects (Alt-drag)">Carve land</button>
     <div id="inten">
       <span>Intensity</span>
       <input id="rng" type="range" min="10" max="100" value="60">
@@ -826,22 +809,21 @@
     </div>
     <h3>Touch Controls</h3>
     <table>
-      <tr><td>1-finger drag</td><td><b>Observe / Move:</b> pan camera · <b>Powers:</b> draw quake, steer tornado, pour flood, ignite, press or erase</td></tr>
+      <tr><td>1-finger drag</td><td><b>Observe / Move:</b> pan camera · <b>Powers:</b> draw quake, steer tornado, pour flood, ignite or press</td></tr>
       <tr><td>1-finger tap</td><td><b>Observe:</b> inspect &amp; follow a villager · <b>Powers:</b> drop meteor, call lightning, or zap object</td></tr>
       <tr><td>2-finger gesture</td><td>Pinch to zoom, drag to pan, twist to rotate (never triggers powers)</td></tr>
       <tr><td>Move button</td><td>Lock 1-finger camera panning without losing your selected power</td></tr>
-      <tr><td>Obj / Land</td><td>Switch Divine Deletion between unmaking objects and carving terrain</td></tr>
     </table>
     <h3>Mouse &amp; Keyboard</h3>
     <table>
-      <tr><td>1 – 9</td><td>Observe, Earthquake, Flood, Meteor, Divine Finger, Firestorm, Lightning, Tornado, Divine Deletion</td></tr>
+      <tr><td>1 – 8</td><td>Observe, Earthquake, Flood, Meteor, Divine Finger, Firestorm, Lightning, Tornado</td></tr>
       <tr><td>Left mouse</td><td>Use power (with Observe: drag to move, click villager to follow)</td></tr>
       <tr><td>Right-drag</td><td>Rotate and tilt camera · <b>Shift/Middle-drag:</b> pan anytime</td></tr>
       <tr><td>Wheel</td><td>Zoom from a single villager to the whole valley</td></tr>
       <tr><td>W A S D / Arrows</td><td>Move · <b>Q E</b> rotate · <b>R F</b> tilt · <b>+ −</b> zoom · <b>[ ]</b> intensity</td></tr>
       <tr><td>Space · M · Esc</td><td>Pause · Mute · Stop following / close modal</td></tr>
     </table>
-    <p style="color:var(--dim);margin:12px 0 0;font-size:12.5px">Earthquake: drag a fault line, release. Flood: tap or drag to pour water downhill without digging. Tornado: tap to touch down, drag or steer to guide the funnel. Divine Deletion: target highlighted objects, or toggle <b>Carve land</b> (Alt-drag on desktop) to erase terrain. Everything broken stays broken — Save preserves the scarred valley.</p>
+    <p style="color:var(--dim);margin:12px 0 0;font-size:12.5px">Earthquake: drag a fault line, release. Flood: tap or drag to pour water downhill without digging. Tornado: tap to touch down, drag or steer to guide the funnel. Everything broken stays broken — Save preserves the scarred valley.</p>
   </div>
 </div>
 
@@ -858,7 +840,6 @@
 </div>
 
 <script>
-'use strict';
 'use strict';
 // ===================== GOD SIM — simulation core (no DOM) =====================
 const N = 160, NN = N * N;
@@ -905,7 +886,7 @@ class World {
     this.threats = []; this.quakes = []; this.meteors = []; this.emitters = []; this.craterCells = [];
     this.hazards = new Float32Array(NN);
     this.pathQ = []; this.camps = []; this.storms = []; this.bolts = []; this.boltFlash = 0;
-    this.tornados = []; this.fades = []; this.steer = null;
+    this.tornados = []; this.steer = null;
     this.time = 0.3; this.day = 1; this.tickN = 0; this.clock = 0;
     this.windA = 0.6; this.windS = 0.7; this.wind = [0, 0];
     this.rain = 0; this.rainT = 200 + Math.random() * 150;
@@ -1813,230 +1794,6 @@ class World {
     return false;
   }
 
-  // ------------------------------------------------------------ divine deletion (no blast, no debris, no collateral)
-  decayFades(dt) { const F = this.fades; for (let k = F.length - 1; k >= 0; k--) { F[k].t += dt; if (F[k].t >= F[k].T) { F[k] = F[F.length - 1]; F.pop(); } } }
-  pushFade(g, x, y, z, sx, sy, sz, rx, ry, rz, c) { if (this.fades.length > 140) this.fades.splice(0, 30); this.fades.push({ g: g || 0, x, y, z, sx, sy, sz, rx: rx || 0, ry: ry || 0, rz: rz || 0, c: c || [1, 0.92, 0.45], t: 0, T: 0.7 }); }
-  rayBox(ex, ey, ez, dx, dy, dz, x0, y0, z0, x1, y1, z1) {
-    let t0 = 0, t1 = 160;
-    const slab = (o, d, a, b) => {
-      if (Math.abs(d) < 1e-7) return o >= a && o <= b;
-      let u = (a - o) / d, v = (b - o) / d; if (u > v) { const s = u; u = v; v = s; }
-      if (u > t0) t0 = u; if (v < t1) t1 = v; return t0 <= t1;
-    };
-    if (!slab(ex, dx, x0, x1) || !slab(ey, dy, y0, y1) || !slab(ez, dz, z0, z1)) return null;
-    return t0 >= 0 ? t0 : (t1 >= 0 ? 0 : null);
-  }
-  queryDelete(ex, ey, ez, dx, dy, dz, hx, hz, slack) {
-    let best = null, bt = 1e9;
-    // Clip ray targets at the visible terrain hit; never select through a hillside.
-    const groundT = hx == null ? Infinity : Math.hypot(hx - ex, this.hAt(hx, hz) - ey, hz - ez) + 0.25;
-    const take = (t, rec) => { if (t != null && t >= 0 && t < bt && t <= groundT) { bt = t; best = rec; } };
-    for (const b of this.buildings) {
-      if (!b || b.gone || b.ruin) continue;
-      const hw = b.w * 0.5 + 0.35, hd = b.d * 0.5 + 0.35, top = b.y + Math.max(b.hgt, 0.8) + (b.type === 'church' ? 4 : 1.1);
-      const t = this.rayBox(ex, ey, ez, dx, dy, dz, b.x - hw, b.y - 0.2, b.z - hd, b.x + hw, top, b.z + hd);
-      take(t, { kind: 'b', b, x: b.x, y: (b.y + top) * 0.5, z: b.z, sx: hw * 2, sy: top - b.y, sz: hd * 2 });
-    }
-    for (const n of this.npcs) {
-      if (n.erased || n.inside || (n.st === DEAD && n.deadT >= 999)) continue;
-      const s = n.child ? 0.7 : 1, y = n.y || 0;
-      const t = this.rayBox(ex, ey, ez, dx, dy, dz, n.x - 0.45, y, n.z - 0.45, n.x + 0.45, y + 1.35 * s, n.z + 0.45);
-      take(t, { kind: 'n', n, x: n.x, y: y + 0.65 * s, z: n.z, sx: 0.95, sy: 1.4 * s, sz: 0.95 });
-    }
-    for (let t = 0.5; t < 140; t += 0.75) {
-      const x = ex + dx * t, y = ey + dy * t, z = ez + dz * t;
-      if (x < 1 || z < 1 || x >= N - 1 || z >= N - 1) { if (y < -1) break; continue; }
-      const i = this.ci(x, z), tr = this.tree[i];
-      if (y < this.h[i] - 0.08) break;
-      if (!tr) continue;
-      const cx = i % N, cz = (i / N) | 0;
-      if (Math.hypot(x - cx, z - cz) > 1.2) continue;
-      const top = this.h[i] + (tr === 1 || tr === 2 ? 2.9 : 1.25);
-      if (y > top + 0.25) continue;
-      take(t, { kind: 'tree', i, x: cx, y: this.h[i] + (top - this.h[i]) * 0.5, z: cz, sx: 1.7, sy: top - this.h[i] + 0.2, sz: 1.7 });
-      break;
-    }
-    for (let k = 0; k < this.debris.length; k++) {
-      const d = this.debris[k];
-      const t = this.rayBox(ex, ey, ez, dx, dy, dz, d.x - d.sx * 0.6, d.y - d.sy * 0.6, d.z - d.sz * 0.6, d.x + d.sx * 0.6, d.y + d.sy * 0.6, d.z + d.sz * 0.6);
-      take(t, { kind: 'debris', k, x: d.x, y: d.y, z: d.z, sx: d.sx + 0.25, sy: d.sy + 0.25, sz: d.sz + 0.25 });
-    }
-    for (let k = 0; k < this.rubble.length; k++) {
-      const r = this.rubble[k], sx = Math.max(0.3, r[3]), sy = Math.max(0.3, r[4]), sz = Math.max(0.3, r[5]);
-      const t = this.rayBox(ex, ey, ez, dx, dy, dz, r[0]-sx/2, r[1]-sy/2, r[2]-sz/2, r[0]+sx/2, r[1]+sy/2, r[2]+sz/2);
-      take(t, {kind:'rubble', k, x:r[0], y:r[1], z:r[2], sx, sy, sz});
-    }
-    if (this.well && !this.well.gone) {
-      const wy = this.hAt(this.well.x, this.well.z);
-      const t = this.rayBox(ex, ey, ez, dx, dy, dz, this.well.x - 0.9, wy, this.well.z - 0.9, this.well.x + 0.9, wy + 2.15, this.well.z + 0.9);
-      take(t, { kind: 'well', x: this.well.x, y: wy + 1, z: this.well.z, sx: 1.9, sy: 2.2, sz: 1.9 });
-    }
-    for (const c of this.camps) {
-      if (!c || c.dead) continue;
-      const y = this.hAt(c.x, c.z);
-      const t = this.rayBox(ex, ey, ez, dx, dy, dz, c.x - 0.7, y, c.z - 0.7, c.x + 0.7, y + 0.9, c.z + 0.7);
-      take(t, { kind: 'camp', c, x: c.x, y: y + 0.35, z: c.z, sx: 1.5, sy: 0.9, sz: 1.5 });
-    }
-    if (best || hx == null || !(slack > 0)) return best;
-    let score = slack;
-    const near = (d, rec) => { if (d < score) { score = d; best = rec; } };
-    for (const b of this.buildings) { if (!b || b.gone || b.ruin) continue; near(Math.hypot(b.x - hx, b.z - hz) - Math.max(b.w, b.d) * 0.48, { kind: 'b', b, x: b.x, y: b.y + b.hgt * 0.55, z: b.z, sx: b.w + 0.5, sy: b.hgt + 1, sz: b.d + 0.5 }); }
-    for (const n of this.npcs) { if (n.erased || n.inside || (n.st === DEAD && n.deadT >= 999)) continue; near(Math.hypot(n.x - hx, n.z - hz) - 0.35, { kind: 'n', n, x: n.x, y: (n.y || 0) + 0.6, z: n.z, sx: 0.95, sy: 1.4, sz: 0.95 }); }
-    const xz = (hx + 0.5) | 0, zz = (hz + 0.5) | 0;
-    for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) { const X = xz + dx, Z = zz + dz; if (X < 1 || Z < 1 || X >= N - 1 || Z >= N - 1) continue; const i = Z * N + X; if (!this.tree[i]) continue; near(Math.hypot(X - hx, Z - hz) - 0.45, { kind: 'tree', i, x: X, y: this.h[i] + 1.1, z: Z, sx: 1.7, sy: 2.4, sz: 1.7 }); }
-    if (this.well && !this.well.gone) near(Math.hypot(this.well.x - hx, this.well.z - hz) - 0.7, { kind: 'well', x: this.well.x, y: this.hAt(this.well.x, this.well.z) + 1, z: this.well.z, sx: 1.9, sy: 2.2, sz: 1.9 });
-    const Rb = this.rubble; let ri = -1, rd = slack;
-    for (let k = 0; k < Rb.length; k++) { const r = Rb[k], d = Math.hypot(r[0] - hx, r[2] - hz); if (d < rd) { rd = d; ri = k; } }
-    if (ri >= 0) near(rd, { kind: 'rubble', k: ri, x: Rb[ri][0], y: Rb[ri][1], z: Rb[ri][2], sx: Rb[ri][3] + 0.35, sy: Math.max(0.3, Rb[ri][4]) + 0.3, sz: Rb[ri][5] + 0.35 });
-    for (let k = 0; k < this.debris.length; k++) { const d = this.debris[k]; near(Math.hypot(d.x - hx, d.z - hz) - 0.3, { kind: 'debris', k, x: d.x, y: d.y, z: d.z, sx: d.sx + 0.2, sy: d.sy + 0.2, sz: d.sz + 0.2 }); }
-    for (const c of this.camps) { if (!c || c.dead) continue; near(Math.hypot(c.x - hx, c.z - hz) - 0.4, { kind: 'camp', c, x: c.x, y: this.hAt(c.x, c.z) + 0.3, z: c.z, sx: 1.4, sy: 0.8, sz: 1.4 }); }
-    return best;
-  }
-  eraseBuilding(b) {
-    if (!b || b.gone) return false;
-    if (b.type === 'bridge') {
-      const left = b.x - b.w / 2, right = b.x + b.w / 2;
-      for (const n of this.npcs) {
-        if (n.erased || n.st === DEAD) continue;
-        if (!this.bridge[this.ci(n.x, n.z)]) continue;
-        n.x = Math.abs(n.x - left) < Math.abs(n.x - right) ? left - 1.2 : right + 1.2;
-        n.z = b.z; n.y = this.hAt(n.x, n.z); n.path = null; n.inside = false;
-      }
-    }
-    for (const p of b.parts) { if (!p.st) this.pushFade(p.g, b.x + p.ox, b.y + p.oy, b.z + p.oz, p.sx, p.sy, p.sz, 0, p.ry, 0, p.c); p.st = 1; p.hp = 0; }
-    for (const i of b.cells) if (this.bmap[i] === b.id + 1) this.bmap[i] = 0;
-    b.gone = true; b.ruin = true; b.fire = 0; b.fuel = 0; b.active = false; b.shake = 0;
-    for (const n of this.npcs) {
-      if (n.erased || n.st === DEAD || n.home !== b.id) continue;
-      if (n.inside) { n.inside = false; n.x = b.doorX; n.z = b.doorZ; n.y = this.walkH(this.ci(n.x, n.z)); }
-      if (b.home !== false) { n.homeless = true; n.goal = ''; n.path = null; n.working = false; }
-    }
-    this.fx.burst('vanish', b.x, b.y + b.hgt * 0.5, b.z, 40, Math.max(b.w, b.d) * 0.45, 1.6);
-    this.fx.sound('unmake', b.x, b.z, 0.75);
-    this.fx.log(this.bname(b) + ' is unmade');
-    this.staticDirty = true;
-    return true;
-  }
-  eraseTree(i) {
-    if (!this.tree[i]) return false;
-    const x = i % N, z = (i / N) | 0, y = this.h[i], tr = this.tree[i];
-    this.pushFade(tr === 1 || tr === 2 ? 1 : 0, x, y + 1.15, z, 1.15, tr === 4 ? 0.4 : 2.1, 1.15, 0, 0.4, 0, tr === 3 ? [0.1, 0.08, 0.07] : [0.22, 0.42, 0.18]);
-    if (this.burn[i] > 0) { this.burn[i] = 0; const F = this.fires; for (let k = F.length - 1; k >= 0; k--) if (F[k] === i) { F[k] = F[F.length - 1]; F.pop(); } this.terrDirty = true; }
-    this.tree[i] = 0; if (this.fuel[i] > 0.15) this.fuel[i] = 0.1;
-    this.staticDirty = true;
-    this.fx.burst('vanish', x, y + 1.1, z, 14, 0.7, 1);
-    this.fx.sound('unmake', x, z, 0.45);
-    return true;
-  }
-  eraseNPC(n) {
-    if (!n || n.erased) return false;
-    this.pushFade(0, n.x, (n.y || 0) + 0.45, n.z, 0.32, 0.7, 0.24, 0, n.face || 0, 0, n.c);
-    n.erased = true; n.st = DEAD; n.hp = 0; n.inside = false; n.path = null; n.air = 0; n.held = 0; n.deadT = 999; n.onFire = 0; n.moving = false;
-    this.fx.burst('vanish', n.x, (n.y || 0) + 0.6, n.z, 12, 0.35, 1);
-    this.fx.sound('unmake', n.x, n.z, 0.6);
-    this.fx.log(n.name + ' is unmade');
-    return true;
-  }
-  eraseRubble(k) {
-    const R = this.rubble; if (k < 0 || k >= R.length) return false;
-    const r = R[k];
-    this.pushFade(r[9] || 0, r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7], r[8], [r[10], r[11], r[12]]);
-    this.fx.burst('vanish', r[0], r[1], r[2], 8, 0.3, 1); this.fx.sound('unmake', r[0], r[2], 0.3);
-    R[k] = R[R.length - 1]; R.pop(); this.staticDirty = true; return true;
-  }
-  eraseDebris(k) {
-    const D = this.debris; if (k < 0 || k >= D.length) return false;
-    const d = D[k];
-    this.pushFade(d.g || 0, d.x, d.y, d.z, d.sx, d.sy, d.sz, d.rx, d.ry, d.rz, d.c);
-    this.fx.burst('vanish', d.x, d.y, d.z, 8, 0.25, 1); this.fx.sound('unmake', d.x, d.z, 0.3);
-    D[k] = D[D.length - 1]; D.pop(); return true;
-  }
-  eraseWell() {
-    if (!this.well || this.well.gone) return false;
-    const y = this.hAt(this.well.x, this.well.z);
-    this.pushFade(0, this.well.x, y + 0.45, this.well.z, 1.15, 0.7, 1.15, 0, 0, 0, [0.55, 0.53, 0.5]);
-    this.well.gone = true; this.staticDirty = true;
-    this.fx.burst('vanish', this.well.x, y + 1, this.well.z, 16, 0.55, 1);
-    this.fx.sound('unmake', this.well.x, this.well.z, 0.65);
-    this.fx.log('The well is unmade');
-    return true;
-  }
-  eraseCamp(c) {
-    if (!c || c.dead) return false;
-    c.dead = true; const y = this.hAt(c.x, c.z);
-    this.pushFade(0, c.x, y + 0.15, c.z, 0.8, 0.15, 0.2, 0, 0.4, 0, [0.3, 0.2, 0.13]);
-    this.fx.burst('vanish', c.x, y + 0.3, c.z, 8, 0.3, 1); this.fx.sound('unmake', c.x, c.z, 0.4);
-    return true;
-  }
-  applyDelete(rec) {
-    if (!rec) return false;
-    if (rec.kind === 'b') return this.eraseBuilding(rec.b);
-    if (rec.kind === 'n') return this.eraseNPC(rec.n);
-    if (rec.kind === 'tree') return this.eraseTree(rec.i);
-    if (rec.kind === 'rubble') return this.eraseRubble(rec.k);
-    if (rec.kind === 'debris') return this.eraseDebris(rec.k);
-    if (rec.kind === 'well') return this.eraseWell();
-    if (rec.kind === 'camp') return this.eraseCamp(rec.c);
-    return false;
-  }
-  eraseRadius(I) { return 1.35 + 2.85 * clamp(I == null ? 0.6 : I, 0.1, 1); }
-  canEraseLand(i) {
-    const x = i % N, z = (i / N) | 0;
-    if (x < 3 || z < 3 || x >= N - 3 || z >= N - 3) return false;
-    if (this.kind[i] === K.DAM) return false;
-    if (this.flag[i] & 2) return false;
-    return true;
-  }
-  eraseLand(x, z, I) {
-    const R = this.eraseRadius(I), xi = Math.round(x), zi = Math.round(z), RR = Math.ceil(R), FLOOR = -7, R2 = R * R;
-    const dug = [];
-    for (let dz = -RR; dz <= RR; dz++) for (let dx = -RR; dx <= RR; dx++) {
-      if (dx * dx + dz * dz > R2) continue;
-      const X = xi + dx, Z = zi + dz;
-      if (X < 0 || Z < 0 || X >= N || Z >= N) continue;
-      const i = Z * N + X;
-      if (this.canEraseLand(i)) dug.push(i);
-    }
-    if (!dug.length) return false;
-    const y0 = this.hAt(x, z), dugSet = new Set(dug), seen = new Set();
-    for (const i of dug) {
-      if (this.tree[i]) this.eraseTree(i);
-      const bi = this.bmap[i];
-      if (bi && !seen.has(bi)) { seen.add(bi); const b = this.buildings[bi - 1]; if (b) this.eraseBuilding(b); }
-      if (this.bridge[i] && this.bridgeB && !this.bridgeB.gone) this.eraseBuilding(this.bridgeB);
-    }
-    for (const n of this.npcs) {
-      if (n.erased || n.inside || (n.st === DEAD && n.deadT >= 999)) continue;
-      const i = this.ci(n.x, n.z);
-      if (dugSet.has(i) || (Math.hypot(n.x - x, n.z - z) <= R && this.canEraseLand(i))) this.eraseNPC(n);
-    }
-    if (this.well && !this.well.gone && Math.hypot(this.well.x - x, this.well.z - z) <= R + 0.6 && this.canEraseLand(this.ci(this.well.x, this.well.z))) this.eraseWell();
-    for (const c of this.camps) if (c && !c.dead && Math.hypot(c.x - x, c.z - z) <= R + 0.4 && this.canEraseLand(this.ci(c.x, c.z))) this.eraseCamp(c);
-    for (let k = this.rubble.length - 1; k >= 0; k--) { const r = this.rubble[k]; if (Math.hypot(r[0] - x, r[2] - z) <= R + 0.35) this.eraseRubble(k); }
-    for (let k = this.debris.length - 1; k >= 0; k--) { const d = this.debris[k]; if (Math.hypot(d.x - x, d.z - z) <= R + 0.4) this.eraseDebris(k); }
-    let n = 0, cleared = false;
-    for (const i of dug) {
-      if (this.burn[i] > 0) { this.burn[i] = 0; cleared = true; }
-      this.fuel[i] = 0; this.scorch[i] = Math.max(this.scorch[i], 200);
-      if (this.h[i] > FLOOR + 0.04) { this.h[i] = FLOOR; n++; }
-    }
-    if (cleared) { const F = this.fires; for (let k = F.length - 1; k >= 0; k--) if (this.burn[F[k]] <= 0) { F[k] = F[F.length - 1]; F.pop(); } }
-    if (!n) return false;
-    for (let k = 0; k < 5; k++) { const a = k * 1.2566; this.pushFade(0, x + Math.cos(a) * R * 0.45, y0 + 0.15, z + Math.sin(a) * R * 0.45, Math.max(0.5, R * 0.42), 0.16, Math.max(0.4, R * 0.32), 0, a, 0, [0.95, 0.9, 0.4]); }
-    this.fx.burst('vanish', x, y0 + 0.5, z, 36, Math.max(0.9, R * 0.7), 1.7);
-    this.fx.sound('unmake', x, z, 0.85);
-    if (this.clock - (this._landLog || -10) > 1.4) { this._landLog = this.clock; this.fx.log('The land is unmade'); }
-    this.terrDirty = true; this.staticDirty = true;
-    return true;
-  }
-  eraseStroke(x0, z0, x1, z1, I) {
-    const step = Math.max(0.45, this.eraseRadius(I) * 0.42);
-    const d = Math.hypot(x1 - x0, z1 - z0), n = Math.max(1, Math.ceil(d / step));
-    let any = false;
-    for (let k = 0; k <= n; k++) any = this.eraseLand(x0 + (x1 - x0) * k / n, z0 + (z1 - z0) * k / n, I) || any;
-    return any;
-  }
-
   // ------------------------------------------------------------ main tick
   tick(dt) {
     this.tickN++; this.clock += dt;
@@ -2112,7 +1869,172 @@ class World {
 
 if (typeof module !== 'undefined') module.exports = { World, N, NN, K, ROUTINE, PANIC, STUMBLE, SHAKEN, DEAD, DAYLEN };
 
-'use strict';
+
+// Ring sections share vertices around each digit. The shader bends the centreline
+// and rotates its cross section together, so there are no joints to pull apart.
+const HAND_VS = `#version 300 es
+in vec3 aSection; in vec3 aRoot; in vec3 aShape;
+uniform mat4 uVP;
+uniform vec3 uOrigin;
+uniform float uSize,uYaw,uCurl[5];
+out vec3 vLocal;
+void main() {
+  vec3 p = aSection;
+  if (aShape.z >= 0.0) {
+    float curl = max(0.012, uCurl[int(aShape.z)]);
+    float angle = aSection.z * curl;
+    float radius = aShape.x / curl;
+    float forward = sin(angle) * (radius + aSection.y);
+    float height = (cos(angle)-1.0)*radius + cos(angle)*aSection.y;
+    float s = sin(aShape.y), c = cos(aShape.y);
+    p = aRoot + vec3(aSection.x*c + forward*s, height, aSection.x*s - forward*c);
+  }
+  // Lift the wrist and roll the thumb side toward the viewer.
+  p.y += 0.28*p.z - 0.18*p.x;
+  vLocal = p;
+  vec3 rotated = vec3(cos(uYaw)*p.x + sin(uYaw)*p.z, p.y, -sin(uYaw)*p.x + cos(uYaw)*p.z);
+  gl_Position = uVP * vec4(uOrigin + uSize*rotated, 1.0);
+}`;
+const HAND_FS = `#version 300 es
+precision highp float;
+in vec3 vLocal; uniform vec3 uTint; out vec4 color;
+void main() {
+  vec3 n = normalize(cross(dFdx(vLocal),dFdy(vLocal)));
+  float light = 0.5 + 0.5*dot(n, normalize(vec3(-0.55,0.85,-0.3)));
+  vec3 shade = mix(vec3(0.035,0.27,0.46), uTint, smoothstep(0.1,0.94,light));
+  color = vec4(shade, 0.73);
+}`;
+
+function makeHandMesh() {
+  const vertices = [], indices = [], sides = 14;
+  function section(rings, root, shape) {
+    const first = vertices.length / 9;
+    for (const [x, y, z, width, thickness] of rings) {
+      for (let j = 0; j < sides; j++) {
+        const angle = j*2*Math.PI/sides;
+        vertices.push(x + width*Math.cos(angle), y + thickness*Math.sin(angle), z, ...root, ...shape);
+      }
+    }
+    for (let i = 1; i < rings.length; i++) {
+      for (let j = 0; j < sides; j++) {
+        const a = first+(i-1)*sides+j, b = first+(i-1)*sides+(j+1)%sides;
+        indices.push(a,b,b+sides,a,b+sides,a+sides);
+      }
+    }
+  }
+  // The wrist widens into the heel, palm and knuckles.
+  section([[0,0,2.75,0.01,0.01],[0,0,2.68,0.48,0.28],[0,0,2.45,0.54,0.32],
+    [0,0,1.55,0.46,0.29],[-0.04,0,1.12,0.66,0.34],[-0.06,0,0.62,0.82,0.36],
+    [0,0,0.1,0.83,0.32],[0,0,-0.23,0.74,0.24],[0,0,-0.31,0.52,0.14],
+    [0,0,-0.32,0.01,0.01]], [0,0,0], [0,0,-1]);
+  const digits = [
+    [-0.53,-0.17,1.48,0.196,-0.14],[-0.15,-0.22,1.62,0.197,-0.035],
+    [0.23,-0.17,1.49,0.184,0.085],[0.56,0,1.18,0.157,0.21],
+    [-0.52,0.91,1.35,0.24,-0.85]
+  ];
+  digits.forEach(([x,z,length,radius,splay], digit) => {
+    const rings = [[0,1],[0.18,1.02],[0.39,0.9],[0.52,0.92],[0.67,0.77],
+      [0.79,0.78],[0.91,0.69],[0.97,0.51],[1,0.06]]
+      .map(([distance,width]) => [0,0,distance,radius*width,radius*width*0.87]);
+    section(rings, [x,digit === 4 ? -0.12 : 0,z], [length,splay,digit]);
+  });
+  return { vertices: new Float32Array(vertices), indices: new Uint16Array(indices) };
+}
+
+const HAND_POSES = {
+  idle: [0.68,0.82,1.03,1.18,0.68],
+  point: [0.15,1.63,1.94,2.03,0.85],
+  open: [0.06,0.12,0.19,0.27,0.14],
+  grasp: [1.8,2.15,2.28,2.35,1.6]
+};
+const HAND_TINT = {
+  observe:[0.42,0.94,1], quake:[1,0.72,0.36], flood:[0.35,0.84,1], meteor:[1,0.53,0.36],
+  finger:[0.64,1,0.83], fire:[1,0.66,0.28], lightning:[0.78,0.76,1], tornado:[0.54,1,0.93]
+};
+
+class GodHand {
+  constructor(gl, makeProgram) {
+    this.gl = gl;
+    this.program = makeProgram(HAND_VS,HAND_FS);
+    this.vao = gl.createVertexArray();
+    gl.bindVertexArray(this.vao);
+    const mesh = makeHandMesh();
+    gl.bindBuffer(gl.ARRAY_BUFFER,gl.createBuffer());
+    gl.bufferData(gl.ARRAY_BUFFER,mesh.vertices,gl.STATIC_DRAW);
+    for (const [index,name] of ['aSection','aRoot','aShape'].entries()) {
+      const loc = gl.getAttribLocation(this.program,name);
+      gl.enableVertexAttribArray(loc);
+      gl.vertexAttribPointer(loc,3,gl.FLOAT,false,36,index*12);
+    }
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,gl.createBuffer());
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,mesh.indices,gl.STATIC_DRAW);
+    gl.bindVertexArray(null);
+    this.count = mesh.indices.length;
+    this.curl = new Float32Array(HAND_POSES.idle);
+    this.tint = new Float32Array(HAND_TINT.observe);
+    this.origin = new Float32Array(3);
+    this.pulse = 0;
+    this.visible = false;
+  }
+
+  cast(hit) {
+    this.lastHit = hit;
+    this.pulse = 0.24;
+  }
+
+  update(dt, renderer, world, hidden, hit, tool, held, press) {
+    this.pulse = Math.max(0,this.pulse-dt);
+    if (hidden) this.pulse = 0;
+    // A released touch still gets a brief cast at its original target.
+    const target = hit || (this.pulse > 0 && this.lastHit);
+    if (hidden || !target) { this.visible = false; return; }
+    const blend = 1-Math.exp(-22*dt);
+    const casting = held || this.pulse > 0;
+    this.pose = tool === 'observe' ? 'idle' : 'point';
+    if (casting && tool !== 'finger') this.pose = tool === 'quake' || tool === 'tornado' ? 'grasp' : 'open';
+    for (let i=0;i<5;i++) this.curl[i] += (HAND_POSES[this.pose][i]-this.curl[i])*blend;
+    for (let i=0;i<3;i++) this.tint[i] += (HAND_TINT[tool][i]-this.tint[i])*blend;
+    this.yaw = renderer.cam.yaw + 0.78;
+    const [ex,ey,ez] = renderer.eye;
+    this.size = clamp(Math.hypot(ex-target.x,ey-target.y,ez-target.z)*0.025,0.28,5);
+    // Anchor the extended index finger beside the ground marker. On impact
+    // it touches the same fixed strike point used by Divine Finger.
+    const reach = 1.62, side = 0.73, s = Math.sin(this.yaw), c = Math.cos(this.yaw);
+    const cell = world.ci(target.x,target.z);
+    const building = world.buildings[world.bmap[cell]-1];
+    const roof = building && !building.ruin && !building.gone ? building.y+building.hgt : target.y;
+    const surface = Math.max(target.y+world.w[cell], roof)*(1-press) + target.y*press;
+    const lift = (1.32-0.72*press + 0.055*Math.sin(renderer.time*2.4))*this.size;
+    const smoothing = this.visible && !press ? blend : 1;
+    this.origin[0] += (target.x+(s*reach+c*side)*this.size-this.origin[0])*smoothing;
+    this.origin[1] += (surface+lift-this.origin[1])*smoothing;
+    this.origin[2] += (target.z+(c*reach-s*side)*this.size-this.origin[2])*smoothing;
+    this.visible = true;
+  }
+
+  draw(renderer) {
+    if (!this.visible) return;
+    const gl = this.gl, u = this.program.u;
+    gl.useProgram(this.program);
+    gl.uniformMatrix4fv(u.uVP,false,renderer.VP);
+    gl.uniform3fv(u.uOrigin,this.origin);
+    gl.uniform1f(u.uSize,this.size);
+    gl.uniform1f(u.uYaw,this.yaw);
+    gl.uniform1fv(u.uCurl,this.curl);
+    gl.uniform3fv(u.uTint,this.tint);
+    gl.bindVertexArray(this.vao);
+    // Only blend the nearest surface, including at overlapping finger roots.
+    gl.depthMask(true);
+    gl.colorMask(false,false,false,false);
+    gl.drawElements(gl.TRIANGLES,this.count,gl.UNSIGNED_SHORT,0);
+    gl.colorMask(true,true,true,true);
+    gl.depthFunc(gl.EQUAL);
+    gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
+    gl.drawElements(gl.TRIANGLES,this.count,gl.UNSIGNED_SHORT,0);
+    gl.depthFunc(gl.LESS);
+  }
+}
+
 // ===================== GOD SIM — WebGL2 renderer + particles =====================
 const M4 = {
   persp(fov, asp, n, f) { const t = 1 / Math.tan(fov / 2), o = new Float32Array(16); o[0] = t / asp; o[5] = t; o[10] = (f + n) / (n - f); o[11] = -1; o[14] = 2 * f * n / (n - f); return o; },
@@ -2134,24 +2056,15 @@ in vec3 aPos; in vec3 aCol; in float aGlow; uniform mat4 uVP; out vec3 vCol; out
 void main(){ vW=aPos; vCol=aCol; vGlow=aGlow; gl_Position=uVP*vec4(aPos,1.0); }`;
 const TERR_FS = `#version 300 es
 precision highp float; in vec3 vCol; in vec3 vW; in float vGlow; out vec4 o;
-uniform vec4 uMark,uMarkC,uShadow; uniform float uTime,uBrush;` + COMMON + `
+uniform vec4 uMark,uMarkC,uShadow; uniform float uTime;` + COMMON + `
 void main(){ vec3 n=normalize(cross(dFdx(vW),dFdy(vW))); if(n.y<0.0) n=-n;
   vec3 c=shade(vCol,n,vW);
   float fl=0.75+0.25*sin(uTime*13.0+vW.x*3.1+vW.z*2.3);
   c+=vec3(1.0,0.42,0.06)*vGlow*fl*0.9;
   float sd=distance(vW.xz,uShadow.xy); c*=1.0-uShadow.w*smoothstep(uShadow.z,uShadow.z*0.45,sd);
   float md=distance(vW.xz,uMark.xy);
-  if(uBrush>0.5){
-    float pulse=0.78+0.22*sin(uTime*6.0);
-    float edge=1.0-smoothstep(0.0,0.62,abs(md-uMark.z));
-    float disc=1.0-smoothstep(max(uMark.z-0.45,0.0), uMark.z, md);
-    vec3 glow=vec3(1.0,0.9,0.32)*(1.25+0.7*pulse);
-    c=mix(c, glow, clamp(disc*0.5+edge, 0.0, 0.9)*uMarkC.a);
-    c+=glow*edge*0.85*pulse;
-  }else{
     float ring=smoothstep(0.22,0.0,abs(md-uMark.z));
     c=mix(c,uMarkC.rgb,clamp(ring+(md<uMark.z?0.13:0.0),0.0,1.0)*uMarkC.a);
-  }
   o=vec4(fog(c,vW),1.0); }`;
 const WAT_VS = `#version 300 es
 in vec3 aPos; in vec2 aDF; uniform mat4 uVP; out vec3 vW; out vec2 vDF;
@@ -2245,6 +2158,7 @@ class Renderer {
     this.canvas = canvas;
     const mk = (vs, fs) => { const c = (t, s) => { const sh = gl.createShader(t); gl.shaderSource(sh, s); gl.compileShader(sh); if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(sh)); return sh; }; const p = gl.createProgram(); gl.attachShader(p, c(gl.VERTEX_SHADER, vs)); gl.attachShader(p, c(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(p); if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p)); p.u = {}; const n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS); for (let i = 0; i < n; i++) { const nm = gl.getActiveUniform(p, i).name.replace('[0]', ''); p.u[nm] = gl.getUniformLocation(p, nm); } return p; };
     this.pT = mk(TERR_VS, TERR_FS); this.pW = mk(WAT_VS, WAT_FS); this.pI = mk(INS_VS, INS_FS); this.pP = mk(PAR_VS, PAR_FS);
+    this.hand = new GodHand(gl, mk);
     // terrain
     this.tv = new Float32Array(NN * 7); this.wv = new Float32Array(NN * 5);
     const idx = new Uint32Array((N - 1) * (N - 1) * 6); let k = 0;
@@ -2262,7 +2176,7 @@ class Renderer {
     this.parts = new Particles(7000);
     this.cam = { tx: 80, tz: 100, yaw: 0.6, pitch: 0.75, dist: 70, gtx: 80, gtz: 100, gyaw: 0.6, gpitch: 0.75, gdist: 70, shake: 0 };
     this.eye = [0, 0, 0]; this.fov = 0.7; this.lights = new Float32Array(24); this.mark = [0, 0, 0, 0]; this.markC = [1, 1, 1, 0]; this.shadow = [0, 0, 1, 0];
-    this.time = 0; this.sel = null; this.extra = null; this.brush = 0;
+    this.time = 0; this.sel = null; this.extra = null;
   }
   resize() { const c = this.canvas, dpr = Math.min(window.devicePixelRatio || 1, 1.5), w = Math.max(2, (c.clientWidth * dpr) | 0), h = Math.max(2, (c.clientHeight * dpr) | 0); if (c.width !== w || c.height !== h) { c.width = w; c.height = h; } }
 
@@ -2387,7 +2301,6 @@ class Renderer {
       B.push(t.x, gy + 0.35, t.z, t.R * 0.55 * fade, 0.12, t.R * 0.55 * fade, 0, t.spin, 0, 0.55, 0.5, 0.42, 0.08);
       for (let i = 0; i < 8; i++) { const a = t.spin * 1.7 + i * 0.8, u = (i % 5) / 5, rad = t.R * (0.2 + u * 0.72) * fade; B.push(t.x + Math.cos(a) * rad, gy + 0.5 + u * H * 0.72, t.z + Math.sin(a) * rad, 0.18 + u * 0.12, 0.1, 0.32, a, t.spin, 0.5, 0.4, 0.3, 0.2, 0); }
     }
-    for (const f of w.fades || []) { const u = Math.max(0, 1 - f.t / f.T), s = Math.max(0.02, u * u), hot = 1 - u; D[f.g || 0].push(f.x, f.y + hot * 1.15, f.z, f.sx * s, f.sy * s, f.sz * s, f.rx, f.ry, f.rz, f.c[0] * u + hot, f.c[1] * u + 0.95 * hot, f.c[2] * u + 0.42 * hot, 0.7); }
     if (this.extra) this.extra(B, P);
     for (const b of D) b.upload();
   }
@@ -2422,7 +2335,7 @@ class Renderer {
     gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.disable(gl.BLEND); gl.disable(gl.CULL_FACE);
     const fogD = 0.0000028 + (w.rain > 0 ? 0.000004 : 0);
     const common = p => { gl.useProgram(p); gl.uniformMatrix4fv(p.u.uVP, false, this.VP); if (p.u.uSun) gl.uniform3fv(p.u.uSun, this.sun); if (p.u.uSunC) gl.uniform3fv(p.u.uSunC, this.sunC); if (p.u.uAmb) gl.uniform3fv(p.u.uAmb, this.amb); if (p.u.uFog) gl.uniform3fv(p.u.uFog, this.fogC); if (p.u.uCam) gl.uniform3fv(p.u.uCam, this.eye); if (p.u.uFogD) gl.uniform1f(p.u.uFogD, fogD); if (p.u.uLights) gl.uniform4fv(p.u.uLights, this.lights); if (p.u.uTime) gl.uniform1f(p.u.uTime, this.time); };
-    common(this.pT); gl.uniform4fv(this.pT.u.uMark, this.mark); gl.uniform4fv(this.pT.u.uMarkC, this.markC); gl.uniform4fv(this.pT.u.uShadow, this.shadow); if (this.pT.u.uBrush) gl.uniform1f(this.pT.u.uBrush, this.brush || 0);
+    common(this.pT); gl.uniform4fv(this.pT.u.uMark, this.mark); gl.uniform4fv(this.pT.u.uMarkC, this.markC); gl.uniform4fv(this.pT.u.uShadow, this.shadow);
     gl.bindVertexArray(this.tm.vao); gl.drawElements(gl.TRIANGLES, this.ic, gl.UNSIGNED_INT, 0);
     common(this.pI); for (const b of this.st) b.draw(); for (const b of this.dy) b.draw();
     gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
@@ -2432,11 +2345,11 @@ class Renderer {
     gl.bindVertexArray(this.pvao); gl.bindBuffer(gl.ARRAY_BUFFER, this.pb);
     if (ps.cn) { gl.bufferSubData(gl.ARRAY_BUFFER, 0, ps.bufN, 0, ps.cn * 8); gl.drawArrays(gl.POINTS, 0, ps.cn); }
     if (ps.ca) { gl.blendFunc(gl.SRC_ALPHA, gl.ONE); gl.bufferSubData(gl.ARRAY_BUFFER, 0, ps.bufA, 0, ps.ca * 8); gl.drawArrays(gl.POINTS, 0, ps.ca); }
+    this.hand.draw(this);
     gl.depthMask(true); gl.bindVertexArray(null);
   }
 }
 
-'use strict';
 // ===================== GOD SIM — procedural audio (WebAudio, placeholder synthesis) =====================
 class AudioEngine {
   constructor() { this.ctx = null; this.on = false; this.muted = false; this.last = {}; this.loops = {}; }
@@ -2513,7 +2426,6 @@ class AudioEngine {
   }
 }
 
-'use strict';
 // ===================== GOD SIM — input, HUD, game loop =====================
 (function () {
   const $ = id => document.getElementById(id);
@@ -2529,7 +2441,6 @@ class AudioEngine {
     fire: '<svg viewBox="0 0 24 24" fill="none"><path d="M12.5 3c.5 3.5-2.5 5-2.5 8 0 1.4.9 2.4 2 2.4 1.6 0 2.5-1.6 2-3.8 2.8 1.6 4.5 4.3 4.5 7 0 3.2-2.9 5.4-6.5 5.4S5.5 19.8 5.5 16.4C5.5 11.4 9 7 12.5 3z" fill="#ff6b35" stroke="#8c2303" stroke-width="1.7" stroke-linejoin="round"/><path d="M12 13.5c1.5 1.1 2.5 2.4 2.5 4a2.5 2.5 0 0 1-5 0c0-1.6 1-2.9 2.5-4z" fill="#ffe066"/></svg>',
     lightning: '<svg viewBox="0 0 24 24" fill="none"><path d="M13.5 2.5L5.5 13h5.5l-1.5 8.5L18.5 11H13l.5-8.5z" fill="#ffd93d" stroke="#b36b00" stroke-width="1.8" stroke-linejoin="round"/></svg>',
     tornado: '<svg viewBox="0 0 24 24" fill="none"><path d="M4 6h16M6 10h12M8 14h8M10 18h4M11.5 21h1.5" stroke="#4f6d7a" stroke-width="2.4" stroke-linecap="round"/><path d="M7 6c1 2 10 2 11 0M8 10c1 1.6 7 1.6 8 0" stroke="#8ab4c4" stroke-width="1.5" stroke-linecap="round"/></svg>',
-    delete: '<svg viewBox="0 0 24 24" fill="none"><path d="M12 3l2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2L12 3z" fill="#ffe066" stroke="#c93b76" stroke-width="1.8" stroke-linejoin="round"/><circle cx="18.5" cy="5.5" r="1.4" fill="#ff6b9d"/><circle cx="5.5" cy="18.5" r="1.4" fill="#2d9cdb"/></svg>'
   };
 
   const SND_ON_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12"/></svg>';
@@ -2544,17 +2455,16 @@ class AudioEngine {
     { id: 'fire', short: 'Fire', name: 'Firestorm', hint: 'Tap or drag to set the land alight. Fire follows the wind.' },
     { id: 'lightning', short: 'Bolt', name: 'Lightning', hint: 'Tap or click to unleash a storm of lightning.' },
     { id: 'tornado', short: 'Tornado', name: 'Tornado', hint: 'Tap to touch down a tornado; move or drag to steer it.' },
-    { id: 'delete', short: 'Delete', name: 'Deletion', hint: 'Tap or drag to unmake highlighted objects. Toggle Carve land (or Alt-drag) to erase terrain.' }
   ];
 
   let R, world, audio = new AudioEngine(), tool = 'observe', intensity = 0.6, paused = false, speed = 1, started = false, memSave = null;
   let last = 0, acc = 0, frameN = 0, hudT = 0, follow = false, lastHour = -1;
-  let panMode = false, landDeleteMode = false, statsUserSet = false, rotateDismissed = false;
+  let panMode = false, statsUserSet = false, rotateDismissed = false;
   let canvasRect = { left: 0, top: 0, width: 1, height: 1 };
-  const mouse = { nx: 0, ny: 0, px: 0, py: 0, down: false, mode: '', hit: null, moved: 0, inside: false, landDelete: false };
+  const mouse = { nx: 0, ny: 0, px: 0, py: 0, down: false, mode: '', hit: null, moved: 0, inside: false };
   const keys = {}; const ptrs = new Map();
   let gest = null, gestLock = false, pending = null;
-  let qStart = null, lastCarve = null, fireT = 0, fing = { ph: 0, t: 0, x: 0, z: 0, cd: 0 }, delHover = null, delStroke = null, delCarve = null;
+  let qStart = null, lastCarve = null, fireT = 0, fing = { ph: 0, t: 0, x: 0, z: 0, cd: 0 };
   const fps = { n: 0, acc: 0, ms: 16, fps: 60, worst: 16 };
   const mix = { wind: 0, river: 0, fire: 0, quake: 0, rain: 0, flood: 0, village: 0, day: 1, calm: true, near: 1 };
   const prevHud = { pop: -1, inj: -1, dead: -1, hl: -1, bs: -1, bt: -1, fires: -1, mood: '', clock: '', windDeg: 999, warn: null, selId: -1, selSt: '', selJob: '', selHp: -1 };
@@ -2604,12 +2514,8 @@ class AudioEngine {
     mouse.down = false;
     mouse.mode = '';
     mouse.inside = false;
-    mouse.landDelete = false;
     qStart = null;
     lastCarve = null;
-    delStroke = null;
-    delCarve = null;
-    delHover = null;
     if (world) { world.finger = null; world.steer = null; }
     canvas.style.cursor = (tool === 'observe' || panMode) ? 'grab' : 'crosshair';
   }
@@ -2632,14 +2538,7 @@ class AudioEngine {
     panMode = !!on && tool !== 'observe';
     $('pan-btn').classList.toggle('on', panMode);
     canvas.style.cursor = (tool === 'observe' || panMode) ? 'grab' : 'crosshair';
-    if (panMode) { qStart = null; delHover = null; }
-  }
-
-  function setLandDelete(on) {
-    landDeleteMode = !!on && tool === 'delete';
-    $('land-btn').classList.toggle('on', landDeleteMode);
-    $('land-btn-txt').textContent = landDeleteMode ? 'Land' : 'Obj';
-    $('land-desk').classList.toggle('on', landDeleteMode);
+    if (panMode) qStart = null;
   }
 
   function bindWorld(w) {
@@ -2650,9 +2549,9 @@ class AudioEngine {
   }
 
   function setTool(id) {
-    tool = id; qStart = null; delHover = null;
+    if (!TOOLS.some(entry => entry.id === id)) return;
+    tool = id; qStart = null;
     setPanMode(false);
-    if (id !== 'delete') setLandDelete(false);
     for (const b of document.querySelectorAll('#tools button')) {
       const active = b.dataset.t === id;
       b.classList.toggle('on', active);
@@ -2672,8 +2571,6 @@ class AudioEngine {
     $('inten').style.visibility = showInt ? 'visible' : 'hidden';
     $('dock-extra').classList.toggle('show', showInt);
     $('pan-btn').classList.toggle('show', showInt);
-    $('land-btn').classList.toggle('show', id === 'delete');
-    $('land-desk').style.display = id === 'delete' ? 'inline-flex' : 'none';
     if (!showInt) $('bar').classList.remove('inten-open');
     audio.play('ui', 1);
   }
@@ -2727,9 +2624,8 @@ class AudioEngine {
   }
   function beginAction() {
     const h = mouse.hit = R.pick(mouse.nx, mouse.ny, world);
-    // Object rays remain valid even when the terrain ray misses at a map edge.
-    if (tool === 'delete') { delStroke = new Set(); tryDelete(true); return; }
     if (!h) return;
+    R.hand.cast(h);
     if (tool === 'quake') qStart = { x: h.x, z: h.z };
     else if (tool === 'flood') { world.emitWater(h.x, h.z, intensity, 0.1); lastCarve = { x: h.x, z: h.z }; }
     else if (tool === 'meteor') world.meteor(h.x, h.z, intensity);
@@ -2737,50 +2633,8 @@ class AudioEngine {
     else if (tool === 'tornado') world.spawnTornado(h.x, h.z, intensity);
     else if (tool === 'fire') fireT = 0;
   }
-  function endAction() { if (tool === 'quake' && qStart) { const h = mouse.hit; if (h) world.quake(qStart.x, qStart.z, h.x, h.z, intensity); qStart = null; } lastCarve = null; delStroke = null; delCarve = null; mouse.landDelete = false; }
+  function endAction() { if (tool === 'quake' && qStart) { const h = mouse.hit; if (h) world.quake(qStart.x, qStart.z, h.x, h.z, intensity); qStart = null; } lastCarve = null; }
 
-  function deletionTarget() {
-    if (!mouse.hit && !mouse.inside) return null;
-    const d = R.ray(mouse.nx, mouse.ny), h = mouse.hit = R.pick(mouse.nx, mouse.ny, world);
-    return world.queryDelete(R.eye[0], R.eye[1], R.eye[2], d[0], d[1], d[2], h ? h.x : null, h ? h.z : null, 0);
-  }
-  function delKey(o) {
-    if (!o) return '';
-    if (o.kind === 'b') return 'b' + o.b.id;
-    if (o.kind === 'n') return 'n' + o.n.id;
-    if (o.kind === 'tree') return 't' + o.i;
-    if (o.kind === 'well') return 'w';
-    if (o.kind === 'camp') return 'c' + o.c.x + '_' + o.c.z;
-    return o.kind + (o.x * 10 | 0) + '_' + (o.z * 10 | 0);
-  }
-  function tryDelete(force) {
-    delHover = deletionTarget();
-    if (!force && !(mouse.down && mouse.mode === 'act')) return;
-    const h = mouse.hit;
-    if (h && mouse.landDelete) {
-      if (delCarve) world.eraseStroke(delCarve.x, delCarve.z, h.x, h.z, intensity);
-      else world.eraseLand(h.x, h.z, intensity);
-      delCarve = { x: h.x, z: h.z };
-    }
-    if (mouse.landDelete) return;
-    const o = delHover;
-    if (!o) return;
-    const k = delKey(o); if (delStroke && delStroke.has(k)) return;
-    if (world.applyDelete(o)) { if (delStroke) delStroke.add(k); if (o.kind === 'n' && R.sel === o.n) { R.sel = null; follow = false; } }
-  }
-  function frameTarget(B, o) {
-    const pulse = 1 + 0.07 * Math.sin((R.time || 0) * 9);
-    const x0 = o.x - o.sx * 0.5 * pulse, x1 = o.x + o.sx * 0.5 * pulse, y0 = o.y - o.sy * 0.5, y1 = o.y + o.sy * 0.5 * pulse, z0 = o.z - o.sz * 0.5 * pulse, z1 = o.z + o.sz * 0.5 * pulse;
-    const th = Math.max(0.18, Math.min(o.sx, o.sz, o.sy) * 0.12);
-    const post = (x, z) => B.push(x, (y0 + y1) * 0.5, z, th, Math.max(0.4, y1 - y0), th, 0, 0, 0, 1, 0.96, 0.4, 1);
-    post(x0, z0); post(x1, z0); post(x0, z1); post(x1, z1);
-    const beam = (x, y, z, sx, sy, sz) => B.push(x, y, z, sx, sy, sz, 0, 0, 0, 1, 0.98, 0.55, 1);
-    beam((x0 + x1) * 0.5, y0, z0, x1 - x0, th, th); beam((x0 + x1) * 0.5, y0, z1, x1 - x0, th, th);
-    beam(x0, y0, (z0 + z1) * 0.5, th, th, z1 - z0); beam(x1, y0, (z0 + z1) * 0.5, th, th, z1 - z0);
-    beam((x0 + x1) * 0.5, y1, z0, x1 - x0, th, th); beam((x0 + x1) * 0.5, y1, z1, x1 - x0, th, th);
-    beam(x0, y1, (z0 + z1) * 0.5, th, th, z1 - z0); beam(x1, y1, (z0 + z1) * 0.5, th, th, z1 - z0);
-    beam(o.x, y0 + 0.06, o.z, (x1 - x0) * 1.05, 0.1, (z1 - z0) * 1.05);
-  }
   function trySelect(radius) {
     let best = radius || 30, bn = null;
     const r = canvasRect;
@@ -2806,14 +2660,13 @@ class AudioEngine {
     beginAction();
     if (curX !== undefined && curY !== undefined) {
       setMouseCoords(curX, curY);
-      if (tool === 'delete') tryDelete(true);
     }
   }
 
   function startTwoFingerGesture() {
     clearPending();
     if (mouse.mode === 'act') {
-      qStart = null; lastCarve = null; delStroke = null; delCarve = null; mouse.landDelete = false;
+      qStart = null; lastCarve = null;
     }
     mouse.down = false;
     mouse.mode = 'gest';
@@ -2840,7 +2693,6 @@ class AudioEngine {
       if (gestLock) return;
       setMouse(e);
       mouse.moved = 0;
-      mouse.landDelete = !!(e.altKey || landDeleteMode);
       if (tool === 'observe' || panMode) {
         mouse.down = true;
         mouse.mode = 'pan';
@@ -2871,7 +2723,6 @@ class AudioEngine {
     if (ptrs.size > 1) return;
     setMouse(e);
     mouse.down = true; mouse.moved = 0;
-    mouse.landDelete = !!(e.altKey || (tool === 'delete' && landDeleteMode));
     if (e.button === 2) mouse.mode = 'rot';
     else if (e.button === 1 || e.shiftKey || tool === 'observe' || panMode) mouse.mode = 'pan';
     else { mouse.mode = 'act'; beginAction(); }
@@ -2926,7 +2777,6 @@ class AudioEngine {
     mouse.moved += Math.abs(dx) + Math.abs(dy);
     if (mouse.mode === 'rot') { R.cam.gyaw -= dx * 0.006; R.cam.gpitch = clamp(R.cam.gpitch + dy * 0.005, 0.3, 1.45); }
     else if (mouse.mode === 'pan') pan(dx, dy);
-    else if (mouse.mode === 'act' && tool === 'delete') tryDelete(true);
   });
 
   const up = e => {
@@ -2934,7 +2784,7 @@ class AudioEngine {
     const isTouch = e.pointerType === 'touch';
     if (mouse.mode === 'gest') {
       if (ptrs.size < 2) { gest = null; mouse.mode = ''; }
-      if (ptrs.size === 0) { gestLock = false; if (isTouch) { mouse.inside = false; delHover = null; } }
+      if (ptrs.size === 0) { gestLock = false; if (isTouch) { mouse.inside = false; } }
       return;
     }
     if (isTouch && ptrs.size === 0) gestLock = false;
@@ -2950,23 +2800,23 @@ class AudioEngine {
         endAction();
       }
       mouse.down = false; mouse.mode = '';
-      if (isTouch) { mouse.inside = false; delHover = null; }
+      if (isTouch) { mouse.inside = false; }
       return;
     }
 
     if (!mouse.down) {
-      if (isTouch && ptrs.size === 0) { mouse.inside = false; delHover = null; }
+      if (isTouch && ptrs.size === 0) { mouse.inside = false; }
       return;
     }
     mouse.down = false;
     if (mouse.mode === 'act') {
-      if (e.type === 'pointercancel') { qStart = null; lastCarve = null; delStroke = null; delCarve = null; mouse.landDelete = false; }
+      if (e.type === 'pointercancel') { qStart = null; lastCarve = null; }
       else endAction();
     } else if (mouse.mode === 'pan' && tool === 'observe' && !panMode && mouse.moved < (isTouch ? 12 : 6)) {
       trySelect(isTouch ? 44 : 30);
     }
     mouse.mode = '';
-    if (isTouch && ptrs.size === 0) { mouse.inside = false; delHover = null; }
+    if (isTouch && ptrs.size === 0) { mouse.inside = false; }
     canvas.style.cursor = (tool === 'observe' || panMode) ? 'grab' : 'crosshair';
   };
   canvas.addEventListener('pointerup', up);
@@ -2991,7 +2841,7 @@ class AudioEngine {
     if (k === 'h' || k === '?') { setHelpOpen(!isHelpOpen()); return; }
     if (isMenuOpen() || isHelpOpen()) return;
     keys[k] = true;
-    if (k >= '1' && k <= '9') setTool(TOOLS[+k - 1].id);
+    if (/^[1-8]$/.test(k)) setTool(TOOLS[+k - 1].id);
     else if (k === ' ' || k === 'p') { setSpeed(paused ? 1 : 0); e.preventDefault(); }
     else if (k === '[') setInt(intensity - 0.1);
     else if (k === ']') setInt(intensity + 0.1);
@@ -3059,29 +2909,10 @@ class AudioEngine {
       const d = Math.hypot(h.x - qStart.x, h.z - qStart.z), n = Math.max(2, Math.ceil(d / 1.2));
       for (let k = 0; k <= n; k++) { const x = qStart.x + (h.x - qStart.x) * k / n, z = qStart.z + (h.z - qStart.z) * k / n; B.push(x, world.hAt(x, z) + 0.25, z, 0.5, 0.18, 0.5, 0, k, 0, 1, 0.35, 0.15, 1); }
     }
-    if (tool === 'finger' && !panMode && (h && mouse.inside || fing.ph)) {
-      const fx = fing.ph ? fing.x : h.x, fz = fing.ph ? fing.z : h.z, fr = (1.6 + 2.4 * intensity) * 0.6, hov = 3.5 + fr * 2;
-      const p = fing.ph === 1 ? fing.t * fing.t : fing.ph === 2 ? 1 - fing.t : 0, ty = world.hAt(fx, fz) + hov * (1 - p) - 0.2 * p, c = [0.94, 0.77, 0.63], yw = R.cam.yaw;
-      B.push(fx, ty + 0.35 * fr, fz, 1.1 * fr, 0.7 * fr, 1.1 * fr, 0, yw, 0, c[0], c[1], c[2], 0.08);
-      B.push(fx, ty + 1.4 * fr, fz, 1.45 * fr, 1.9 * fr, 1.45 * fr, 0, yw, 0, c[0], c[1], c[2], 0.08);
-      B.push(fx, ty + 3.5 * fr, fz, 1.6 * fr, 2.5 * fr, 1.6 * fr, 0, yw, 0, c[0] * 0.97, c[1] * 0.96, c[2] * 0.95, 0.08);
-      B.push(fx, ty + 6.4 * fr, fz, 1.78 * fr, 3.4 * fr, 1.78 * fr, 0, yw, 0, c[0] * 0.95, c[1] * 0.93, c[2] * 0.92, 0.08);
-      B.push(fx + Math.sin(yw) * 0.74 * fr, ty + 1.25 * fr, fz + Math.cos(yw) * 0.74 * fr, 1.05 * fr, 1.5 * fr, 0.1 * fr, 0, yw, 0, 0.99, 0.92, 0.88, 0.15);
-      B.push(fx, ty + 2.36 * fr, fz, 1.5 * fr, 0.05 * fr, 1.5 * fr, 0, yw, 0, c[0] * 0.8, c[1] * 0.75, c[2] * 0.72, 0);
-      B.push(fx, ty + 4.76 * fr, fz, 1.65 * fr, 0.05 * fr, 1.65 * fr, 0, yw, 0, c[0] * 0.8, c[1] * 0.75, c[2] * 0.72, 0);
-      R.shadow[0] = fx; R.shadow[1] = fz; R.shadow[2] = fr * 2.6; R.shadow[3] = 0.25 + 0.35 * p;
-    } else R.shadow[3] = 0;
-    const landActive = mouse.landDelete || keys.alt || landDeleteMode;
-    if (tool === 'delete' && !panMode && h && landActive && (mouse.inside || mouse.down)) {
-      const br = world.eraseRadius(intensity), y = world.hAt(h.x, h.z);
-      B.push(h.x, y + 2.6, h.z, 0.16, 5.2, 0.16, 0, 0, 0, 1, 0.95, 0.4, 1);
-      for (let k = 0; k < 4; k++) { const a = (R.time || 0) * 1.6 + k * 1.5708; B.push(h.x + Math.cos(a) * br, y + 0.55, h.z + Math.sin(a) * br, 0.22, 1.1, 0.22, 0, a, 0, 1, 0.98, 0.55, 1); }
-    }
-    if (tool === 'delete' && !panMode && delHover && !landActive) frameTarget(B, delHover);
   }
 
   function marker() {
-    const h = mouse.hit, m = R.mark, c = R.markC; R.brush = 0;
+    const h = mouse.hit, m = R.mark, c = R.markC;
     if (!h || tool === 'observe' || panMode || (!mouse.inside && !mouse.down)) { c[3] = 0; return; }
     m[0] = h.x; m[1] = h.z; c[3] = 0.75;
     if (tool === 'quake') { m[2] = 1.2; c[0] = 1; c[1] = 0.5; c[2] = 0.2; }
@@ -3090,7 +2921,6 @@ class AudioEngine {
     else if (tool === 'finger') { m[2] = 1.6 + 2.4 * intensity; c[0] = 1; c[1] = 0.9; c[2] = 0.75; }
     else if (tool === 'lightning') { m[2] = 5 + 9 * intensity; c[0] = 0.6; c[1] = 0.75; c[2] = 1; }
     else if (tool === 'tornado') { m[2] = 3.2 + 5.5 * intensity; c[0] = 0.72; c[1] = 0.78; c[2] = 0.84; }
-    else if (tool === 'delete') { R.brush = 1; m[2] = (mouse.landDelete || keys.alt || landDeleteMode) ? world.eraseRadius(intensity) : 0.45; c[0] = 1; c[1] = 0.86; c[2] = 0.22; c[3] = 1; }
     else { m[2] = 1.5 + 4 * intensity; c[0] = 1; c[1] = 0.55; c[2] = 0.1; }
   }
 
@@ -3181,12 +3011,23 @@ class AudioEngine {
       while (acc >= STEP && n < 6) { toolTick(STEP); world.tick(STEP); acc -= STEP; n++; }
       if (n >= 6) acc = 0;
     } else if (started) { world.finger = null; }
-    if (started) world.decayFades(dt);
+
     R.updateCam(dt, world);
-    const needPick = (mouse.inside || mouse.down) && tool !== 'observe' && !panMode && mouse.mode !== 'pan' && mouse.mode !== 'gest';
+    const cameraGesture = mouse.mode === 'pan' || mouse.mode === 'rot' || mouse.mode === 'gest';
+    const hideHand = isModalOpen() || panMode || cameraGesture;
+    const needPick = (mouse.inside || mouse.down) && !hideHand;
     mouse.hit = needPick ? R.pick(mouse.nx, mouse.ny, world) : null;
-    if (started && tool === 'delete' && !panMode && (mouse.inside || mouse.down)) delHover = deletionTarget();
-    else if (tool !== 'delete' || panMode) delHover = null;
+    const pressing = tool === 'finger' && fing.ph !== 0;
+    const contact = pressing && needPick ? { x: fing.x, z: fing.z, y: world.hAt(fing.x, fing.z) } : mouse.hit;
+    const depth = pressing ? (fing.ph === 1 ? fing.t * fing.t : 1 - fing.t) : 0;
+    R.hand.update(dt, R, world, hideHand, contact, tool, mouse.mode === 'act', depth);
+    R.shadow[3] = 0;
+    if (R.hand.visible && contact) {
+      R.shadow[0] = contact.x;
+      R.shadow[1] = contact.z;
+      R.shadow[2] = R.hand.size * 1.4;
+      R.shadow[3] = 0.14 + 0.2 * depth;
+    }
     marker();
     if (!paused && started) emitFx(dt);
     R.draw(world, paused ? 0 : dt);
@@ -3213,8 +3054,6 @@ class AudioEngine {
     for (const b of document.querySelectorAll('.inten-presets button')) b.onclick = () => setInt(+b.dataset.p / 100);
     $('inten-btn').onclick = e => { e.stopPropagation(); $('bar').classList.toggle('inten-open'); };
     $('pan-btn').onclick = () => { audio.start(); setPanMode(!panMode); };
-    $('land-btn').onclick = () => { audio.start(); setLandDelete(!landDeleteMode); };
-    $('land-desk').onclick = () => { audio.start(); setLandDelete(!landDeleteMode); };
 
     for (const b of document.querySelectorAll('#speed button')) b.onclick = () => setSpeed(+b.dataset.s);
     $('save').onclick = () => { save(); if (isMenuOpen()) setMenuOpen(false); };
@@ -3266,11 +3105,8 @@ class AudioEngine {
       get started() { return started; },
       setSpeed,
       get tool() { return tool; },
-      get delHover() { return delHover; },
       get panMode() { return panMode; },
       setPanMode,
-      get landDeleteMode() { return landDeleteMode; },
-      setLandDelete,
       isModalOpen
     };
     requestAnimationFrame(frame);

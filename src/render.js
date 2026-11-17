@@ -20,24 +20,15 @@ in vec3 aPos; in vec3 aCol; in float aGlow; uniform mat4 uVP; out vec3 vCol; out
 void main(){ vW=aPos; vCol=aCol; vGlow=aGlow; gl_Position=uVP*vec4(aPos,1.0); }`;
 const TERR_FS = `#version 300 es
 precision highp float; in vec3 vCol; in vec3 vW; in float vGlow; out vec4 o;
-uniform vec4 uMark,uMarkC,uShadow; uniform float uTime,uBrush;` + COMMON + `
+uniform vec4 uMark,uMarkC,uShadow; uniform float uTime;` + COMMON + `
 void main(){ vec3 n=normalize(cross(dFdx(vW),dFdy(vW))); if(n.y<0.0) n=-n;
   vec3 c=shade(vCol,n,vW);
   float fl=0.75+0.25*sin(uTime*13.0+vW.x*3.1+vW.z*2.3);
   c+=vec3(1.0,0.42,0.06)*vGlow*fl*0.9;
   float sd=distance(vW.xz,uShadow.xy); c*=1.0-uShadow.w*smoothstep(uShadow.z,uShadow.z*0.45,sd);
   float md=distance(vW.xz,uMark.xy);
-  if(uBrush>0.5){
-    float pulse=0.78+0.22*sin(uTime*6.0);
-    float edge=1.0-smoothstep(0.0,0.62,abs(md-uMark.z));
-    float disc=1.0-smoothstep(max(uMark.z-0.45,0.0), uMark.z, md);
-    vec3 glow=vec3(1.0,0.9,0.32)*(1.25+0.7*pulse);
-    c=mix(c, glow, clamp(disc*0.5+edge, 0.0, 0.9)*uMarkC.a);
-    c+=glow*edge*0.85*pulse;
-  }else{
     float ring=smoothstep(0.22,0.0,abs(md-uMark.z));
     c=mix(c,uMarkC.rgb,clamp(ring+(md<uMark.z?0.13:0.0),0.0,1.0)*uMarkC.a);
-  }
   o=vec4(fog(c,vW),1.0); }`;
 const WAT_VS = `#version 300 es
 in vec3 aPos; in vec2 aDF; uniform mat4 uVP; out vec3 vW; out vec2 vDF;
@@ -131,6 +122,7 @@ class Renderer {
     this.canvas = canvas;
     const mk = (vs, fs) => { const c = (t, s) => { const sh = gl.createShader(t); gl.shaderSource(sh, s); gl.compileShader(sh); if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(sh)); return sh; }; const p = gl.createProgram(); gl.attachShader(p, c(gl.VERTEX_SHADER, vs)); gl.attachShader(p, c(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(p); if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p)); p.u = {}; const n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS); for (let i = 0; i < n; i++) { const nm = gl.getActiveUniform(p, i).name.replace('[0]', ''); p.u[nm] = gl.getUniformLocation(p, nm); } return p; };
     this.pT = mk(TERR_VS, TERR_FS); this.pW = mk(WAT_VS, WAT_FS); this.pI = mk(INS_VS, INS_FS); this.pP = mk(PAR_VS, PAR_FS);
+    this.hand = new GodHand(gl, mk);
     // terrain
     this.tv = new Float32Array(NN * 7); this.wv = new Float32Array(NN * 5);
     const idx = new Uint32Array((N - 1) * (N - 1) * 6); let k = 0;
@@ -148,7 +140,7 @@ class Renderer {
     this.parts = new Particles(7000);
     this.cam = { tx: 80, tz: 100, yaw: 0.6, pitch: 0.75, dist: 70, gtx: 80, gtz: 100, gyaw: 0.6, gpitch: 0.75, gdist: 70, shake: 0 };
     this.eye = [0, 0, 0]; this.fov = 0.7; this.lights = new Float32Array(24); this.mark = [0, 0, 0, 0]; this.markC = [1, 1, 1, 0]; this.shadow = [0, 0, 1, 0];
-    this.time = 0; this.sel = null; this.extra = null; this.brush = 0;
+    this.time = 0; this.sel = null; this.extra = null;
   }
   resize() { const c = this.canvas, dpr = Math.min(window.devicePixelRatio || 1, 1.5), w = Math.max(2, (c.clientWidth * dpr) | 0), h = Math.max(2, (c.clientHeight * dpr) | 0); if (c.width !== w || c.height !== h) { c.width = w; c.height = h; } }
 
@@ -273,7 +265,6 @@ class Renderer {
       B.push(t.x, gy + 0.35, t.z, t.R * 0.55 * fade, 0.12, t.R * 0.55 * fade, 0, t.spin, 0, 0.55, 0.5, 0.42, 0.08);
       for (let i = 0; i < 8; i++) { const a = t.spin * 1.7 + i * 0.8, u = (i % 5) / 5, rad = t.R * (0.2 + u * 0.72) * fade; B.push(t.x + Math.cos(a) * rad, gy + 0.5 + u * H * 0.72, t.z + Math.sin(a) * rad, 0.18 + u * 0.12, 0.1, 0.32, a, t.spin, 0.5, 0.4, 0.3, 0.2, 0); }
     }
-    for (const f of w.fades || []) { const u = Math.max(0, 1 - f.t / f.T), s = Math.max(0.02, u * u), hot = 1 - u; D[f.g || 0].push(f.x, f.y + hot * 1.15, f.z, f.sx * s, f.sy * s, f.sz * s, f.rx, f.ry, f.rz, f.c[0] * u + hot, f.c[1] * u + 0.95 * hot, f.c[2] * u + 0.42 * hot, 0.7); }
     if (this.extra) this.extra(B, P);
     for (const b of D) b.upload();
   }
@@ -308,7 +299,7 @@ class Renderer {
     gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.disable(gl.BLEND); gl.disable(gl.CULL_FACE);
     const fogD = 0.0000028 + (w.rain > 0 ? 0.000004 : 0);
     const common = p => { gl.useProgram(p); gl.uniformMatrix4fv(p.u.uVP, false, this.VP); if (p.u.uSun) gl.uniform3fv(p.u.uSun, this.sun); if (p.u.uSunC) gl.uniform3fv(p.u.uSunC, this.sunC); if (p.u.uAmb) gl.uniform3fv(p.u.uAmb, this.amb); if (p.u.uFog) gl.uniform3fv(p.u.uFog, this.fogC); if (p.u.uCam) gl.uniform3fv(p.u.uCam, this.eye); if (p.u.uFogD) gl.uniform1f(p.u.uFogD, fogD); if (p.u.uLights) gl.uniform4fv(p.u.uLights, this.lights); if (p.u.uTime) gl.uniform1f(p.u.uTime, this.time); };
-    common(this.pT); gl.uniform4fv(this.pT.u.uMark, this.mark); gl.uniform4fv(this.pT.u.uMarkC, this.markC); gl.uniform4fv(this.pT.u.uShadow, this.shadow); if (this.pT.u.uBrush) gl.uniform1f(this.pT.u.uBrush, this.brush || 0);
+    common(this.pT); gl.uniform4fv(this.pT.u.uMark, this.mark); gl.uniform4fv(this.pT.u.uMarkC, this.markC); gl.uniform4fv(this.pT.u.uShadow, this.shadow);
     gl.bindVertexArray(this.tm.vao); gl.drawElements(gl.TRIANGLES, this.ic, gl.UNSIGNED_INT, 0);
     common(this.pI); for (const b of this.st) b.draw(); for (const b of this.dy) b.draw();
     gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
@@ -318,6 +309,7 @@ class Renderer {
     gl.bindVertexArray(this.pvao); gl.bindBuffer(gl.ARRAY_BUFFER, this.pb);
     if (ps.cn) { gl.bufferSubData(gl.ARRAY_BUFFER, 0, ps.bufN, 0, ps.cn * 8); gl.drawArrays(gl.POINTS, 0, ps.cn); }
     if (ps.ca) { gl.blendFunc(gl.SRC_ALPHA, gl.ONE); gl.bufferSubData(gl.ARRAY_BUFFER, 0, ps.bufA, 0, ps.ca * 8); gl.drawArrays(gl.POINTS, 0, ps.ca); }
+    this.hand.draw(this);
     gl.depthMask(true); gl.bindVertexArray(null);
   }
 }

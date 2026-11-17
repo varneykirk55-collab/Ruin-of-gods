@@ -143,9 +143,9 @@ async function dispatchTwoFingerPinch(page, cx, cy, d0, d1, staggerMs = 25) {
       return { id: b.dataset.t, w: r.width, h: r.height };
     });
   });
-  ok(toolMetrics.length === 9 && toolMetrics.every(t => t.w >= 44 && t.h >= 44), 'all 9 ability buttons meet >=44px touch target size');
+  ok(toolMetrics.length === 8 && toolMetrics.every(t => t.w >= 44 && t.h >= 44), 'all 8 ability buttons meet >=44px touch target size');
 
-  const expectedIds = ['observe', 'quake', 'flood', 'meteor', 'finger', 'fire', 'lightning', 'tornado', 'delete'];
+  const expectedIds = ['observe', 'quake', 'flood', 'meteor', 'finger', 'fire', 'lightning', 'tornado'];
   let allSelected = true;
   for (const id of expectedIds) {
     await mp.evaluate(id => {
@@ -211,7 +211,7 @@ async function dispatchTwoFingerPinch(page, cx, cy, d0, d1, staggerMs = 25) {
   const d2 = await mp.evaluate(() => __game.R.cam.gdist);
   ok(d2 > d1 * 1.4 && (await mp.evaluate(() => __game.world.quakes.length)) === 0, 'staggered 2-finger pinch zooms out without starting earthquake');
 
-  // ==================== 6. TOUCH POWERS (TAP + DRAG + DELETE LAND) ====================
+  // ==================== 6. TOUCH POWERS (TAP + DRAG) ====================
   console.log('=== Touch Power Execution ===');
   const scr = (x, z) => mp.evaluate(([x, z]) => {
     const g = __game, w = g.world, q = g.R.project(x, w.hAt(x, z), z);
@@ -251,28 +251,6 @@ async function dispatchTwoFingerPinch(page, cx, cy, d0, d1, staggerMs = 25) {
   await dispatchTouchDrag(mp, pt[0], pt[1], aim[0], aim[1], 10, 90, 900);
   const t1 = await mp.evaluate(() => ({ x: __game.world.tornados[0].x, z: __game.world.tornados[0].z }));
   ok(Math.hypot(t1.x - t0.x, t1.z - t0.z) > 0.6, 'touch drag steers tornado (' + Math.hypot(t1.x - t0.x, t1.z - t0.z).toFixed(2) + ')');
-
-  // Divine Deletion + Carve Land mobile toggle
-  await mp.evaluate(() => __game.setTool('delete'));
-  const house = await mp.evaluate(() => {
-    const b = __game.world.buildings.find(b => !b.gone && !b.ruin && b.type === 'house');
-    return b ? { id: b.id, x: b.x, z: b.z } : null;
-  });
-  await cam({ tx: house.x, tz: house.z, dist: 24 });
-  const hp = await scr(house.x, house.z);
-  await mp.touchscreen.tap(hp[0], hp[1]);
-  ok(await mp.evaluate(id => !!__game.world.buildings[id].gone, house.id), 'touch tap deletes highlighted building');
-
-  const landBtn = await box(mp, '#land-btn');
-  ok(!!landBtn, 'mobile Carve land toggle appears when Divine Deletion is selected');
-  await mp.touchscreen.tap(landBtn.left + landBtn.width / 2, landBtn.top + landBtn.height / 2);
-  ok(await mp.evaluate(() => __game.landDeleteMode === true), 'Carve land toggle activates terrain deletion on mobile');
-  const hBefore = await mp.evaluate(() => __game.world.hAt(__game.world.vc.x + 15, __game.world.vc.z + 15));
-  await cam({ tx: vc.x + 15, tz: vc.z + 15, dist: 32 });
-  const lp = await scr(vc.x + 15, vc.z + 15);
-  await dispatchTouchDrag(mp, lp[0] - 10, lp[1], lp[0] + 10, lp[1], 4, 90);
-  const hAfter = await mp.evaluate(() => __game.world.hAt(__game.world.vc.x + 15, __game.world.vc.z + 15));
-  ok(hAfter < hBefore - 2, 'Carve land touch drag erases terrain without Alt key (' + hBefore.toFixed(1) + ' -> ' + hAfter.toFixed(1) + ')');
 
   // ==================== 7 & 9. MENUS, SAVE/LOAD, SPEED, MUTE ====================
   console.log('=== Menus, Save/Load, Speed & Disaster Readability ===');
