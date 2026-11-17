@@ -3026,13 +3026,7 @@ class AudioEngine {
       const active = b.dataset.t === id;
       b.classList.toggle('on', active);
       b.setAttribute('aria-pressed', active ? 'true' : 'false');
-      if (active) {
-        const tb = $('tools');
-        if (tb.scrollWidth > tb.clientWidth) {
-          const targetLeft = b.offsetLeft - (tb.clientWidth - b.offsetWidth) / 2;
-          try { tb.scrollTo({ left: Math.max(0, targetLeft), behavior: 'smooth' }); } catch (_) { tb.scrollLeft = Math.max(0, targetLeft); }
-        }
-      }
+
     }
     const t = TOOLS.find(t => t.id === id);
     $('hint').textContent = t.hint;
@@ -3042,6 +3036,12 @@ class AudioEngine {
     $('dock-extra').classList.toggle('show', showInt);
     $('pan-btn').classList.toggle('show', showInt);
     if (!showInt) $('bar').classList.remove('inten-open');
+    const tray=$('tools'), selected=tray.querySelector('button.on');
+    if(selected && tray.scrollWidth>tray.clientWidth) {
+      const buttonRect=selected.getBoundingClientRect(), trayRect=tray.getBoundingClientRect();
+      const target=tray.scrollLeft+buttonRect.left-trayRect.left-(tray.clientWidth-buttonRect.width)/2;
+      tray.scrollTo({left:Math.max(0,target),behavior:'smooth'});
+    }
     audio.play('ui', 1);
   }
 

@@ -9,6 +9,7 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=r
   await page.evaluate(()=>{__game.newWorld(1234);__game.audio.setMuted(true);const c=__game.R.cam;Object.assign(c,{tx:87,gtx:87,tz:210,gtz:210,dist:70,gdist:70,pitch:.95,gpitch:.95,yaw:.4,gyaw:.4});});
   if(mobile)await page.locator('[data-t="lava"]').tap();else await page.keyboard.press('9');
   assert.equal(await page.evaluate(()=>__game.tool),'lava');
+  if(mobile)await page.waitForFunction(()=>{const b=document.querySelector('[data-t="lava"]').getBoundingClientRect(),t=document.getElementById('tools').getBoundingClientRect();return b.left>=t.left-1&&b.right<=t.right+1;});
   const box=await page.locator('[data-t="lava"]').boundingBox();assert.ok(box.width>=44&&box.height>=44);
   const x=mobile?195:640,y=mobile?422:360;
   if(mobile){const cdp=await ctx.newCDPSession(page);await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});await page.waitForTimeout(850);await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});}
