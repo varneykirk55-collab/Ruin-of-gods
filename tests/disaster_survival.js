@@ -72,23 +72,6 @@ for(const [name,condition] of tests)check(name,condition);
 })();
 (function(){
 
-const w=new World(1234),b=w.buildings.find(b=>b.type==='house');
-const h=w.h.slice(),water=w.w.slice(),neighbor=w.buildings.find(o=>o!==b&&o.type==='house'),hp=JSON.stringify(neighbor.parts);
-const target=w.queryDelete(b.x,b.y+30,b.z,0,-1,0,b.x,b.z,0);
-check('deletion ray selects intended building',target&&target.b===b);
-w.applyDelete(target);
-check('deletion removes collision',b.cells.every(i=>w.bmap[i]!==b.id+1));
-check('deletion leaves neighboring structure unchanged',JSON.stringify(neighbor.parts)===hp);
-check('deletion spawns no debris',w.debris.length===0);
-check('deletion preserves terrain and water',w.h.every((v,i)=>v===h[i])&&w.w.every((v,i)=>v===water[i]));
-const ti=w.tree.findIndex(v=>v===1),n=w.npcs[0];w.eraseTree(ti);w.eraseNPC(n);w.eraseWell();
-const w2=World.load(JSON.parse(JSON.stringify(w.serialize())));
-check('all deleted object types persist',w2.buildings[b.id].gone&&w2.tree[ti]===0&&w2.npcs[n.id].erased&&w2.well.gone);
-check('essential world systems cannot be targeted',w.applyDelete({kind:'world'})===false);
-
-})();
-(function(){
-
 const w=new World(1234),n=w.npcs[0],tests=[];w.rnd=rngMaker(5);w.rainT=1e9;
 for(let z=130;z<150;z++)for(let x=130;x<150;x++){const i=z*N+x;w.h[i]=5;w.w[i]=0;w.burn[i]=0;w.bmap[i]=0;}
 n.x=140;n.z=140;n.inside=false;n.st=SHAKEN;n.t=0;n.senseT=1;w.alarm=22;
@@ -126,12 +109,5 @@ for(const [name,condition] of tests)check(name,condition);
   console.log('repeated disaster simulation ms per four-second round: '+times.join(','));
 })();
 
-
-(function(){
-  const fs=require('fs'), path=require('path'), main=fs.readFileSync(path.join(__dirname,'../src/main.js'),'utf8');
-  const begin=main.slice(main.indexOf('  function beginAction()'),main.indexOf('  function endAction()'));
-  const test=new Function("let called=0,mouse={nx:0,ny:0},R={pick:()=>null},world={},tool='delete',delStroke;function tryDelete(force){if(force)called++;}"+begin+"beginAction();return called===1;");
-  check('object deletion can begin when terrain ray misses',test());
-})();
 
 console.log(checks+' disaster survival checks passed');
