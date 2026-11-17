@@ -420,7 +420,7 @@
       return;
     }
     if (k === 'h' || k === '?') { setHelpOpen(!isHelpOpen()); return; }
-    if (isMenuOpen() || isHelpOpen()) return;
+    if (isMenuOpen() || isHelpOpen() || e.target === $('master-volume')) return;
     keys[k] = true;
     if (/^[1-8]$/.test(k)) setTool(TOOLS[+k - 1].id);
     else if (k === ' ' || k === 'p') { setSpeed(paused ? 1 : 0); e.preventDefault(); }
