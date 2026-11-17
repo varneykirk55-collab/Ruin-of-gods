@@ -506,20 +506,20 @@ class World {
   // ------------------------------------------------------------ water
   stepWater() { this.flowStep(); this.flowStep(); this.flowStep(); if (!this.settling) this.waterExtras(); }
   flowStep() {
-    const h = this.h, w = this.w, dw = this.dw, fl = this.flow, flx = this.flx, flz = this.flz;
+    const h = this.h, w = this.w, dw = this.dw, fl = this.flow, flx = this.flx, flz = this.flz, ice=this.ice;
     const rows = this.settling ? N : ROWS;
     for (let z = 0; z < rows; z++) {
       let i = z * N;
       for (let x = 0; x < N; x++, i++) {
-        const wi = Math.max(0,w[i]-(this.ice?this.ice[i]:0)); let a = 0, bq = 0;
-        if (x < N - 1) { const j = i + 1, wj = Math.max(0,w[j]-(this.ice?this.ice[j]:0)); if (wi > 0 || wj > 0) { const dl = h[i] + w[i] - h[j] - w[j]; let f; if (dl > 0) { f = dl * 0.12 * Math.min(1.6, 0.08 + wi * 2.3); const m = wi * 0.24; if (f > m) f = m; } else { f = dl * 0.12 * Math.min(1.6, 0.08 + wj * 2.3); const m = -wj * 0.24; if (f < m) f = m; } dw[i] -= f; dw[j] += f; a = f; } }
-        if (z < rows - 1) { const j = i + N, wj = Math.max(0,w[j]-(this.ice?this.ice[j]:0)); if (wi > 0 || wj > 0) { const dl = h[i] + w[i] - h[j] - w[j]; let f; if (dl > 0) { f = dl * 0.12 * Math.min(1.6, 0.08 + wi * 2.3); const m = wi * 0.24; if (f > m) f = m; } else { f = dl * 0.12 * Math.min(1.6, 0.08 + wj * 2.3); const m = -wj * 0.24; if (f < m) f = m; } dw[i] -= f; dw[j] += f; bq = f; } }
+        const wi = (i<320*N?w[i]:Math.max(0,w[i]-ice[i])); let a = 0, bq = 0;
+        if (x < N - 1) { const j = i + 1, wj = (j<320*N?w[j]:Math.max(0,w[j]-ice[j])); if (wi > 0 || wj > 0) { const dl = h[i] + w[i] - h[j] - w[j]; let f; if (dl > 0) { f = dl * 0.12 * Math.min(1.6, 0.08 + wi * 2.3); const m = wi * 0.24; if (f > m) f = m; } else { f = dl * 0.12 * Math.min(1.6, 0.08 + wj * 2.3); const m = -wj * 0.24; if (f < m) f = m; } dw[i] -= f; dw[j] += f; a = f; } }
+        if (z < rows - 1) { const j = i + N, wj = (j<320*N?w[j]:Math.max(0,w[j]-ice[j])); if (wi > 0 || wj > 0) { const dl = h[i] + w[i] - h[j] - w[j]; let f; if (dl > 0) { f = dl * 0.12 * Math.min(1.6, 0.08 + wi * 2.3); const m = wi * 0.24; if (f > m) f = m; } else { f = dl * 0.12 * Math.min(1.6, 0.08 + wj * 2.3); const m = -wj * 0.24; if (f < m) f = m; } dw[i] -= f; dw[j] += f; bq = f; } }
         flx[i] = flx[i] * 0.9 + a * 0.1; flz[i] = flz[i] * 0.9 + bq * 0.1;
         fl[i] = Math.abs(flx[i]) + Math.abs(flz[i]);
       }
     }
     const flag = this.flag;
-    for (let i = 0; i < rows * N; i++) { let v = w[i] + dw[i]; dw[i] = 0; if ((flag[i] & 2) && (this.settling || !this.inEstuary(i))) v = Math.max(0, -h[i]); else if (v < 0) v = 0; w[i] = v; if(this.ice)this.ice[i]=Math.min(this.ice[i],v); }
+    for (let i = 0; i < rows * N; i++) { let v = w[i] + dw[i]; dw[i] = 0; if ((flag[i] & 2) && (this.settling || !this.inEstuary(i))) v = Math.max(0, -h[i]); else if (v < 0) v = 0; w[i] = v; if(i>=320*N&&ice)ice[i]=Math.min(ice[i],v); }
     for (const i of this.spring) w[i] += 0.013;
   }
   waterExtras() {

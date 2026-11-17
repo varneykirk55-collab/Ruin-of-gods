@@ -20,6 +20,7 @@ check('meteor removes snow and ice and creates crater',()=>{const j=w.ci(78,414)
 check('divine finger affects snowy terrain',()=>{const j=w.ci(90,395),h=w.h[j];w.fingerPress(90,395,.8);assert.ok(w.h[j]<h);assert.equal(w.snow[j],0);});
 check('Flood adds correct Arctic water volume',()=>{const before=w.w.reduce((a,b)=>a+b,0),volume=w.emitWater(86,400,1,.1);assert.ok(volume>0);assert.ok(Math.abs(w.w.reduce((a,b)=>a+b,0)-before-volume)<.0001);});
 check('tornado and lightning work in Arctic',()=>{assert.equal(w.spawnTornado(79,376,.7).z,376);w.lightning(104,431,.6);assert.ok(w.storms.some(s=>s.z===431));});
+check('Arctic disaster warnings make residents flee',()=>{const n=w.npcs.at(-1);n.st=ROUTINE;n.inside=false;n.senseT=0;w.addThreat(n.x,n.z,12,5);w.stepNPC(n,.1);assert.ok(n.st!==ROUTINE||n.path);});
 const clean=new World(7);clean.spring=[];clean.flag.fill(0);
 // Closed basin isolates transport from tides, springs, rain and snowfall.
 clean.h.fill(30);clean.w.fill(0);clean.ice.fill(0);clean.snow.fill(0);clean.cold.fill(0);
