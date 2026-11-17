@@ -6,7 +6,7 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=r
  try{for(const mobile of [true,false]){
   const ctx=await browser.newContext({viewport:mobile?{width:390,height:844}:{width:1280,height:800},hasTouch:mobile,isMobile:mobile}),page=await ctx.newPage(),errors=[];
   page.on('pageerror',e=>errors.push(e.message));await page.goto('file://'+path.resolve('index.html'));await page.locator('#begin').click();
-  await page.evaluate(()=>{__game.newWorld(1234);__game.audio.setMuted(true);__game.world.time=.45;const c=__game.R.cam;Object.assign(c,{tx:213,gtx:213,tz:309,gtz:309,dist:mobile?154:122,gdist:mobile?154:122,pitch:1,gpitch:1,yaw:0,gyaw:0});});
+  await page.evaluate(mobile=>{__game.newWorld(1234);__game.audio.setMuted(true);__game.world.time=.45;const c=__game.R.cam;Object.assign(c,{tx:213,gtx:213,tz:309,gtz:309,dist:mobile?154:122,gdist:mobile?154:122,pitch:1,gpitch:1,yaw:0,gyaw:0});},mobile);
   await page.waitForTimeout(1000);
   assert.ok(await page.evaluate(()=>{const h=__game.R.pick(0,0,__game.world);return h&&h.x>160&&Math.abs(h.z-309)<3;}));
   await page.screenshot({path:'artifacts/tropical-'+(mobile?'portrait':'desktop')+'.png'});
