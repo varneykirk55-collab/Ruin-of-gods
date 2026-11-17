@@ -7,7 +7,9 @@ class AudioEngine {
       this.musicTracks = ['assets/music/track-1.mp3', 'assets/music/track-2.mp3', 'assets/music/track-3.mp3', 'assets/music/track-4.mp3'];
       this.musicIndex = 0;
       this.music = new Audio(this.musicTracks[0]);
-      if (this.output) {
+      // Browsers give file URLs opaque origins and silence routed media.
+      // Keep native playback for a downloaded, standalone copy of the game.
+      if (this.output && location.protocol !== 'file:') {
         // Mobile Safari uses hardware volume for media elements. Mix the track
         // through Web Audio so the in-game slider controls it on phones too.
         const musicGain = this.ctx.createGain();

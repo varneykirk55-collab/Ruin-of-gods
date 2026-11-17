@@ -7,7 +7,18 @@ module.exports = async function mobileSoundCamera(browser) {
     const page = await context.newPage();
     const errors = [];
     page.on('pageerror', err => errors.push(err.message));
-    await page.goto('file://' + path.resolve(__dirname, '../index.html'));
+    // Serve the local build under a single origin, as on Netlify. Audio routed
+    // from an opaque file URL would be silent regardless of the volume setting.
+    const origin = 'https://valley.test';
+    await page.route(origin + '/**', route => {
+      const pathname = new URL(route.request().url()).pathname;
+      if (pathname === '/') return route.fulfill({ path: path.join(__dirname,'../index.html'), contentType:'text/html' });
+      if (/^\/assets\/music\/track-[1-4]\.mp3$/.test(pathname)) {
+        return route.fulfill({ path: path.join(__dirname,'..',pathname), contentType:'audio/mpeg' });
+      }
+      return route.fulfill({ status:404 });
+    });
+    await page.goto(origin);
     await page.locator('#begin').tap();
     await page.locator('#menub').tap();
     await page.locator('#master-volume').press('Home');
