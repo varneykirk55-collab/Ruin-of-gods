@@ -389,9 +389,11 @@ class Renderer {
       }
       if (first<=last) this.buildTerrain(w,first,last);
     }
-    if(w.coldDirty){this.buildTerrain(w,320,ROWS-1);w.coldDirty=false;}
+    const coldVisible=this.tiles.some(tile=>tile.z1>=320&&tile.visible);
+    if(w.coldDirty&&coldVisible){this.buildTerrain(w,320,ROWS-1);w.coldDirty=false;}
+    if(w.coldTreesDirty&&coldVisible)w.staticDirty=true;
     this.lastLava=w.lava;
-    if (w.staticDirty) { this.buildStatic(w); w.staticDirty = false; }
+    if (w.staticDirty) { this.buildStatic(w); w.staticDirty = false; w.coldTreesDirty=false; }
     this.buildWater(w); this.buildDynamic(w); this.env(w); this.setLights(w);
     gl.viewport(0, 0, this.canvas.width, this.canvas.height); gl.clearColor(this.fogC[0], this.fogC[1], this.fogC[2], 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.disable(gl.BLEND); gl.disable(gl.CULL_FACE);

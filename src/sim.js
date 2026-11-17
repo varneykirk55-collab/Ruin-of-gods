@@ -377,7 +377,7 @@ class World {
         this.ice[i]=Math.min(this.w[i],Math.max(0,this.ice[i]+(rapid?-.08:.035*climate)));
       } else this.ice[i]=Math.min(this.ice[i],this.w[i]);
       if(this.w[i]<.04&&!this.burn[i])this.snow[i]=Math.min(this.cold[i],last+1+Math.round(5*this.blizzardAt(x,z)));
-      if(this.tree[i]&&(last>>5)!==(this.snow[i]>>5))this.staticDirty=true;
+      if(this.tree[i]&&(last>>5)!==(this.snow[i]>>5))this.coldTreesDirty=true;
       changed ||= this.snow[i]!==last;
     }
     if(changed)this.coldDirty=true;
