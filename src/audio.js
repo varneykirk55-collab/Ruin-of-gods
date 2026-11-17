@@ -1,7 +1,7 @@
 'use strict';
 // ===================== GOD SIM — procedural audio (WebAudio, placeholder synthesis) =====================
 class AudioEngine {
-  constructor() { this.ctx = null; this.on = false; this.muted = false; this.volume = 1; this.background = false; this.last = {}; this.loops = {}; }
+  constructor() { this.ctx = null; this.on = false; this.muted = false; this.levels = { music: 1, effects: 1 }; this.background = false; this.last = {}; this.loops = {}; }
   startMusic() {
     if (!this.music) {
       this.musicTracks = ['assets/music/track-1.mp3', 'assets/music/track-2.mp3', 'assets/music/track-3.mp3', 'assets/music/track-4.mp3'];
@@ -12,13 +12,12 @@ class AudioEngine {
       if (this.output && location.protocol !== 'file:') {
         // Mobile Safari uses hardware volume for media elements. Mix the track
         // through Web Audio so the in-game slider controls it on phones too.
-        const musicGain = this.ctx.createGain();
-        musicGain.gain.value = 0.25;
+        this.musicGain = this.ctx.createGain();
         this.musicSource = this.ctx.createMediaElementSource(this.music);
-        this.musicSource.connect(musicGain);
-        musicGain.connect(this.output);
-      } else this.music.volume = 0.25 * this.volume;
-      this.music.muted = this.muted;
+        this.musicSource.connect(this.musicGain);
+        this.musicGain.connect(this.output);
+      }
+      this.syncVolume();
       this.music.addEventListener('ended', () => {
         this.musicIndex = (this.musicIndex + 1) % this.musicTracks.length;
         this.music.src = this.musicTracks[this.musicIndex];
@@ -34,7 +33,8 @@ class AudioEngine {
     const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
     const c = this.ctx = new AC(); this.master = c.createGain(); this.master.gain.value = 0.8;
     const comp = c.createDynamicsCompressor(); this.master.connect(comp); this.output = c.createGain();
-    comp.connect(this.output); this.output.connect(c.destination); this.syncVolume();
+    this.effectsGain = c.createGain();
+    comp.connect(this.effectsGain); this.effectsGain.connect(this.output); this.output.connect(c.destination); this.syncVolume();
     this.bus = { amb: c.createGain(), sfx: c.createGain(), voice: c.createGain() }; this.bus.amb.gain.value = 0.9; this.bus.sfx.gain.value = 1; this.bus.voice.gain.value = 0.7;
     for (const k in this.bus) this.bus[k].connect(this.master);
     const len = c.sampleRate * 2, buf = c.createBuffer(1, len, c.sampleRate), d = buf.getChannelData(0); for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1; this.noise = buf;
@@ -44,14 +44,17 @@ class AudioEngine {
     this.on = true; this.amb = { t: 0 };
   }
   syncVolume() {
-    if (this.output) this.output.gain.value = this.muted || this.background ? 0 : this.volume;
+    if (this.output) this.output.gain.value = this.muted || this.background ? 0 : 1;
+    if (this.effectsGain) this.effectsGain.gain.value = this.levels.effects;
+    if (this.musicGain) this.musicGain.gain.value = 0.25 * this.levels.music;
     if (this.music) {
       this.music.muted = this.muted || this.background;
-      if (!this.musicSource) this.music.volume = 0.25 * this.volume;
+      if (!this.musicSource) this.music.volume = 0.25 * this.levels.music;
     }
   }
-  setVolume(value) {
-    if (Number.isFinite(value)) this.volume = Math.min(1, Math.max(0, value));
+  setVolume(channel, value) {
+    if (!Object.hasOwn(this.levels, channel) || !Number.isFinite(value)) return;
+    this.levels[channel] = Math.min(1, Math.max(0, value));
     this.syncVolume();
   }
   setMuted(muted) { this.muted = muted; this.syncVolume(); }

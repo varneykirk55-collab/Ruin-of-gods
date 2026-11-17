@@ -18,12 +18,22 @@ module.exports = async function mobileSoundCamera(browser) {
       }
       return route.fulfill({ status:404 });
     });
+    await page.addInitScript(() => {
+      if (!localStorage.getItem('ruin-sound')) localStorage.setItem('ruin-sound', '{"volume":0.6}');
+    });
     await page.goto(origin);
     await page.locator('#begin').tap();
     await page.locator('#menub').tap();
-    await page.locator('#master-volume').press('Home');
-    await page.locator('#master-volume').press('ArrowRight');
-    await page.waitForFunction(() => __game.audio.output.gain.value.toFixed(2) === '0.01' && __game.audio.musicSource);
+    assert.equal(await page.locator('#music-volume').inputValue(), '60');
+    assert.equal(await page.locator('#effects-volume').inputValue(), '60');
+    await page.locator('#music-volume').press('Home');
+    const gains = () => page.evaluate(() => [__game.audio.musicGain, __game.audio.effectsGain].map(node => Number(node.gain.value.toFixed(3))));
+    assert.deepEqual(await gains(), [0, 0.6]);
+    await page.locator('#effects-volume').press('End');
+    assert.deepEqual(await gains(), [0, 1]);
+    await page.locator('#music-volume').press('End');
+    await page.locator('#effects-volume').press('Home');
+    assert.deepEqual(await gains(), [0.25, 0]);
     await page.locator('#menub').tap();
     await page.evaluate(() => window.dispatchEvent(new Event('pagehide')));
     await page.waitForFunction(() => __game.audio.music.paused && __game.audio.ctx.state === 'suspended');
@@ -31,7 +41,8 @@ module.exports = async function mobileSoundCamera(browser) {
     await page.waitForFunction(() => !__game.audio.music.paused && __game.audio.ctx.state === 'running');
     await page.reload();
     await page.locator('#begin').tap();
-    assert.equal(await page.locator('#master-volume').inputValue(), '1');
+    assert.equal(await page.locator('#music-volume').inputValue(), '100');
+    assert.equal(await page.locator('#effects-volume').inputValue(), '0');
     await page.locator('[data-t="quake"]').tap();
     const drag = () => page.evaluate(() => {
       const canvas = document.getElementById('c');
@@ -51,6 +62,6 @@ module.exports = async function mobileSoundCamera(browser) {
     assert.equal(await page.evaluate(() => __game.world.quakes.length),0);
     assert.equal(await page.evaluate(() => __game.tool),'quake');
     assert.deepEqual(errors,[]);
-    console.log('Mobile master volume, page background/return, settings persistence, safe one-finger rotate and pan passed.');
+    console.log('Separate mobile volumes, page background/return, settings persistence, safe one-finger rotate and pan passed.');
   } finally { await context.close(); }
 };
