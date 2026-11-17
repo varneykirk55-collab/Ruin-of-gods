@@ -120,12 +120,18 @@ const ok = (c, m) => { if (c) { pass++; console.log('  ok   ' + m); } else { fai
   ok(await ev(() => __game.tool === 'tornado'), 'retired key 9 leaves Tornado selected');
   await ev(() => __game.setSpeed(0));
   console.log('persistence');
-  const sig = await ev(() => { const w = __game.world; const gone = w.buildings.filter(b => b.gone).map(b => b.id).join(','); const trees = w.tree.reduce((a, b) => a + (b ? 1 : 0), 0); return gone + '|' + trees + '|' + (w.well.gone ? 1 : 0); });
+  const damageSnapshot = () => {
+    const saved = __game.world.serialize();
+    return JSON.stringify([saved.clock, saved.tree, saved.h, saved.w32,
+      saved.B.map(b => b.p), saved.R, saved.tornados]);
+  };
+  const beforeReload = await ev(damageSnapshot);
   await p.click('#save'); await p.reload();
-  await p.waitForFunction(() => window.__game && !document.getElementById('begin').disabled, null, { timeout: 30000 });
-  await p.click('#cont'); await p.waitForTimeout(600);
-  const sig2 = await ev(() => { const w = __game.world; const gone = w.buildings.filter(b => b.gone).map(b => b.id).join(','); const trees = w.tree.reduce((a, b) => a + (b ? 1 : 0), 0); return gone + '|' + trees + '|' + (w.well.gone ? 1 : 0); });
-  ok(sig === sig2, 'world damage survives reload (' + sig2 + ')');
+  await p.waitForFunction(() => window.__game && !document.getElementById('begin').disabled);
+  // Pause before Continue, so the restored tornado cannot advance between snapshots.
+  await ev(() => __game.setSpeed(0));
+  await p.click('#cont');
+  ok(beforeReload === await ev(damageSnapshot), 'world damage and active tornado survive reload at the saved tick');
 
   console.log('performance');
   await ev(() => {__game.newWorld(1234);__game.world.rainT=1e9;__game.setSpeed(1);});
