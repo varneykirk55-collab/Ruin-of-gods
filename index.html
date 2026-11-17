@@ -2,110 +2,863 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>God Sim — Destruction Sandbox</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Ruin of Gods — God Sim Sandbox</title>
 <style>
-  :root { --ink:#f1e9da; --dim:#b9ad98; --panel:rgba(22,18,15,.72); --line:rgba(241,233,218,.16); --gold:#e2b25a; --ember:#e8683a; }
-  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-  html,body { margin:0; height:100%; overflow:hidden; background:#0d0b0a; color:var(--ink); font:14px/1.35 "Avenir Next","Segoe UI",system-ui,sans-serif; user-select:none; -webkit-user-select:none; }
-  #c { position:fixed; inset:0; width:100%; height:100%; display:block; touch-action:none; outline:none; }
-  #flash { position:fixed; inset:0; background:#fff3d6; opacity:0; pointer-events:none; }
-  .panel { background:var(--panel); border:1px solid var(--line); border-radius:10px; backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); }
-  #stats { position:fixed; top:10px; left:10px; padding:9px 12px; min-width:178px; pointer-events:none; }
-  #stats h1 { margin:0 0 2px; font:600 12px/1 Georgia,"Iowan Old Style",serif; letter-spacing:.22em; text-transform:uppercase; color:var(--gold); }
-  #s-clock { color:var(--dim); font-size:12px; margin-bottom:6px; font-variant-numeric:tabular-nums; }
-  #stats .g { display:grid; grid-template-columns:1fr auto; gap:1px 14px; font-variant-numeric:tabular-nums; }
-  #stats .g span:nth-child(odd) { color:var(--dim); }
-  #stats .g span:nth-child(even) { text-align:right; font-weight:600; }
-  #s-wind { display:inline-block; color:var(--gold); }
-  #sys { position:fixed; top:10px; right:10px; display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; max-width:60vw; }
-  button { font:inherit; color:var(--ink); background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:7px 11px; cursor:pointer; backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); }
-  button:hover { border-color:rgba(241,233,218,.4); }
-  button.on { border-color:var(--gold); background:rgba(226,178,90,.2); }
-  #speed { display:flex; } #speed button { border-radius:0; margin-left:-1px; padding:7px 9px; }
-  #speed button:first-child { border-radius:8px 0 0 8px; margin-left:0; } #speed button:last-child { border-radius:0 8px 8px 0; }
-  #bar { position:fixed; left:50%; bottom:10px; transform:translateX(-50%); padding:8px; display:flex; flex-direction:column; gap:6px; align-items:center; max-width:calc(100vw - 16px); }
-  #tools { display:flex; gap:4px; flex-wrap:nowrap; justify-content:center; }
-  #tools button { position:relative; display:flex; flex-direction:column; align-items:center; gap:1px; min-width:58px; padding:6px 5px 4px; background:rgba(255,255,255,.04); }
-  #tools .ic { font-size:20px; line-height:1.1; } #tools .nm { font-size:10px; color:var(--dim); white-space:nowrap; }
-  #tools .ky { position:absolute; top:3px; right:6px; font-size:10px; color:var(--dim); opacity:.7; }
-  #tools button.on { background:rgba(232,104,58,.22); border-color:var(--ember); } #tools button.on .nm { color:var(--ink); }
-  #row2 { display:flex; align-items:center; gap:12px; width:100%; padding:0 4px; min-height:22px; }
-  #hint { flex:1; color:var(--dim); font-size:12px; }
-  #inten { display:flex; align-items:center; gap:7px; font-size:12px; color:var(--dim); }
-  #rng { width:120px; accent-color:var(--ember); } #rv { width:34px; text-align:right; color:var(--ink); font-variant-numeric:tabular-nums; }
-  #log { position:fixed; left:10px; bottom:118px; width:min(330px,70vw); display:flex; flex-direction:column; gap:3px; pointer-events:none; }
-  #log div { padding:4px 9px; background:rgba(22,18,15,.6); border-left:2px solid var(--ember); border-radius:0 6px 6px 0; font-size:12.5px; transition:opacity 6s; }
-  #log div.old { opacity:0; }
-  #card { position:fixed; right:10px; top:58px; width:210px; padding:10px 12px; display:none; pointer-events:none; }
-  #card.show { display:block; } #c-name { font:600 16px Georgia,serif; } #c-job { color:var(--gold); font-size:12px; text-transform:capitalize; } #c-st { margin:6px 0; font-size:12.5px; }
-  .hpb { height:5px; background:rgba(255,255,255,.12); border-radius:3px; overflow:hidden; } #c-hp { height:100%; background:#7fbf6a; }
-  #toast { position:fixed; left:50%; top:16px; transform:translate(-50%,-70px); padding:9px 16px; transition:transform .3s; pointer-events:none; max-width:90vw; text-align:center; }
-  #toast.show { transform:translate(-50%,0); }
-  #help { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(8,6,5,.6); z-index:5; }
-  #help.show { display:flex; } #help .panel { padding:18px 22px; max-width:min(560px,92vw); max-height:86vh; overflow:auto; }
-  #help h2 { margin:0 0 10px; font:600 15px Georgia,serif; letter-spacing:.14em; text-transform:uppercase; color:var(--gold); }
-  #help table { border-collapse:collapse; } #help td { padding:3px 14px 3px 0; vertical-align:top; } #help td:first-child { color:var(--gold); white-space:nowrap; }
-  #start { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:radial-gradient(ellipse at center, rgba(13,11,10,.35), rgba(13,11,10,.9)); z-index:10; transition:opacity .9s; text-align:center; padding:20px; }
-  #start.gone { opacity:0; pointer-events:none; }
-  #start h1 { margin:0; font:400 clamp(40px,9vw,84px)/1 Georgia,"Iowan Old Style",serif; letter-spacing:.12em; text-wrap:balance; }
-  #start .sub { margin:8px 0 22px; letter-spacing:.34em; text-transform:uppercase; color:var(--gold); font-size:12px; }
-  #start p { color:var(--dim); max-width:440px; margin:0 auto 22px; min-height:2.6em; }
-  #start button { font-size:16px; padding:11px 26px; margin:0 5px 8px; border-color:var(--gold); } #start button:disabled { opacity:.4; }
-  @media (max-width:640px) { #tools button { min-width:0; padding:7px 9px 5px; } #tools .nm, #tools .ky { display:none; } #tools .ic { font-size:24px; } #hint { display:none; } #row2 { justify-content:center; } #stats { font-size:12px; min-width:150px; } #sys button { padding:6px 8px; } #log { bottom:112px; } }
+  :root {
+    --sat: env(safe-area-inset-top, 0px);
+    --sar: env(safe-area-inset-right, 0px);
+    --sab: env(safe-area-inset-bottom, 0px);
+    --sal: env(safe-area-inset-left, 0px);
+    --bg: rgba(255, 250, 238, 0.94);
+    --bg-soft: rgba(255, 244, 218, 0.95);
+    --ink: #2a2018;
+    --dim: #6c5a49;
+    --line: rgba(84, 58, 30, 0.18);
+    --gold: #f6b93b;
+    --gold-deep: #d98200;
+    --coral: #ff6b35;
+    --coral-soft: rgba(255, 107, 53, 0.16);
+    --sky: #2d9cdb;
+    --sky-soft: rgba(45, 156, 219, 0.15);
+    --mint: #27ae60;
+    --danger: #e74c3c;
+    --shadow: 0 6px 18px rgba(28, 20, 10, 0.18), 0 2px 0 rgba(84, 58, 30, 0.14);
+    --btn-shadow: 0 2px 0 rgba(84, 58, 30, 0.16);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    height: 100dvh;
+    overflow: hidden;
+    overscroll-behavior: none;
+    background: #7ec8e3;
+    color: var(--ink);
+    font: 500 13.5px/1.35 "Nunito", "Avenir Next", "Segoe UI", system-ui, -apple-system, sans-serif;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+  }
+  #c {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+    touch-action: none;
+    outline: none;
+  }
+  #flash { position: fixed; inset: 0; background: #fff7df; opacity: 0; pointer-events: none; z-index: 2; }
+
+  .panel {
+    background: var(--bg);
+    border: 2px solid var(--line);
+    border-radius: 16px;
+    box-shadow: var(--shadow);
+  }
+  button {
+    font: inherit;
+    font-weight: 700;
+    color: var(--ink);
+    background: #fffdf7;
+    border: 2px solid var(--line);
+    border-radius: 12px;
+    padding: 7px 11px;
+    min-height: 36px;
+    cursor: pointer;
+    box-shadow: var(--btn-shadow);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    transition: transform .08s ease, border-color .12s ease, background-color .12s ease;
+    touch-action: manipulation;
+  }
+  button:hover { border-color: rgba(84, 58, 30, 0.36); background: #ffffff; }
+  button:active { transform: translateY(1px); box-shadow: 0 1px 0 rgba(84, 58, 30, 0.16); }
+  button.on {
+    border-color: var(--gold-deep);
+    background: #fff0c2;
+    color: #5b3300;
+  }
+  button svg { width: 17px; height: 17px; flex: 0 0 auto; }
+
+  /* ---------- Top-left Stats HUD ---------- */
+  #stats {
+    position: fixed;
+    top: calc(var(--sat) + 8px);
+    left: calc(var(--sal) + 8px);
+    padding: 7px 10px;
+    z-index: 12;
+    pointer-events: none;
+    max-width: calc(100vw - var(--sal) - var(--sar) - 220px);
+  }
+  #stats-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: nowrap;
+  }
+  #stats-title {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  #stats h1 {
+    margin: 0;
+    font: 800 11.5px/1.1 "Nunito", "Segoe UI", system-ui, sans-serif;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--gold-deep);
+    white-space: nowrap;
+  }
+  #s-clock {
+    color: var(--dim);
+    font-size: 11.5px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .st-pills {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .st-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: rgba(84, 58, 30, 0.08);
+    font-size: 11.5px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .st-pill .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--mint);
+    flex: 0 0 auto;
+  }
+  .st-pill.warn { background: rgba(255, 107, 53, 0.16); color: #9a3008; }
+  .st-pill.warn .dot { background: var(--coral); }
+  #s-wind-mini { display: inline-block; font-size: 12px; color: var(--sky); font-weight: 800; }
+  #stats-toggle {
+    pointer-events: auto;
+    min-height: 28px;
+    width: 28px;
+    padding: 0;
+    border-radius: 999px;
+    font-size: 12px;
+    background: #fff;
+    flex: 0 0 auto;
+  }
+  #stats:not(.collapsed) #stats-toggle { transform: rotate(180deg); }
+  #stats-body {
+    margin-top: 7px;
+    padding-top: 6px;
+    border-top: 1.5px solid var(--line);
+  }
+  #stats.collapsed #stats-body { display: none; }
+  #stats .g {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 2px 14px;
+    font-size: 12.5px;
+    font-variant-numeric: tabular-nums;
+  }
+  #stats .g span:nth-child(odd) { color: var(--dim); font-weight: 600; }
+  #stats .g span:nth-child(even) { text-align: right; font-weight: 800; }
+  #s-wind { display: inline-block; color: var(--sky); font-weight: 900; }
+
+  /* ---------- Top-right System & Menu Bar ---------- */
+  #sys {
+    position: fixed;
+    top: calc(var(--sat) + 8px);
+    right: calc(var(--sar) + 8px);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    z-index: 15;
+  }
+  #speed {
+    display: inline-flex;
+    background: var(--bg);
+    border: 2px solid var(--line);
+    border-radius: 14px;
+    padding: 2px;
+    box-shadow: var(--shadow);
+  }
+  #speed button {
+    border: 0;
+    box-shadow: none;
+    background: transparent;
+    border-radius: 10px;
+    padding: 5px 9px;
+    min-height: 32px;
+    min-width: 34px;
+    font-size: 12.5px;
+  }
+  #speed button.on {
+    background: var(--gold);
+    color: #462600;
+    box-shadow: 0 1px 0 rgba(84, 58, 30, 0.22);
+  }
+  #sys-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  #menub, #mute-quick { display: none; min-height: 38px; padding: 6px 10px; border-radius: 14px; box-shadow: var(--shadow); }
+  #menub.on { background: var(--sky); color: #fff; border-color: #1c7bb2; }
+  .menu-only { display: none; }
+  .menu-sep { display: none; height: 1.5px; background: var(--line); margin: 2px 0; }
+  #menu-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(24, 18, 10, 0.22);
+    z-index: 14;
+    display: none;
+    touch-action: none;
+  }
+  #menu-backdrop.show { display: block; }
+
+  /* ---------- Rotate Hint ---------- */
+  #rotate-tip {
+    position: fixed;
+    top: calc(var(--sat) + 56px);
+    left: 50%;
+    transform: translateX(-50%);
+    display: none;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 8px 5px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    z-index: 11;
+    white-space: nowrap;
+    background: var(--bg-soft);
+  }
+  #rotate-dismiss {
+    min-height: 24px;
+    width: 24px;
+    padding: 0;
+    border-radius: 999px;
+    font-size: 13px;
+    line-height: 1;
+  }
+
+  /* ---------- Selected Villager Card ---------- */
+  #card {
+    position: fixed;
+    right: calc(var(--sar) + 8px);
+    top: calc(var(--sat) + 56px);
+    width: min(210px, 46vw);
+    padding: 9px 11px;
+    display: none;
+    z-index: 12;
+  }
+  #card.show { display: block; }
+  #card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 6px; }
+  #c-name { font-weight: 800; font-size: 15px; line-height: 1.15; }
+  #card-close {
+    min-height: 24px;
+    width: 24px;
+    padding: 0;
+    border-radius: 999px;
+    font-size: 13px;
+    flex: 0 0 auto;
+  }
+  #c-job { color: var(--gold-deep); font-size: 11.5px; font-weight: 700; text-transform: capitalize; margin-top: 1px; }
+  #c-st { margin: 5px 0 6px; font-size: 12px; color: var(--ink); }
+  .hpb { height: 7px; background: rgba(84, 58, 30, 0.14); border-radius: 999px; overflow: hidden; }
+  #c-hp { height: 100%; background: var(--mint); border-radius: 999px; transition: width .18s ease; }
+
+  /* ---------- Event Log ---------- */
+  #log {
+    position: fixed;
+    left: calc(var(--sal) + 8px);
+    bottom: calc(var(--sab) + 114px);
+    width: min(310px, 58vw);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    pointer-events: none;
+    z-index: 9;
+  }
+  #log div {
+    padding: 5px 10px;
+    background: rgba(255, 250, 238, 0.88);
+    border: 1.5px solid var(--line);
+    border-left: 4px solid var(--coral);
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--ink);
+    box-shadow: 0 3px 10px rgba(28, 20, 10, 0.12);
+    transition: opacity 2.5s ease;
+  }
+  #log div.old { opacity: 0; }
+
+  /* ---------- Bottom Power Toolbar ---------- */
+  #bar {
+    position: fixed;
+    left: 50%;
+    bottom: calc(var(--sab) + 8px);
+    transform: translateX(-50%);
+    padding: 6px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: stretch;
+    max-width: calc(100vw - var(--sal) - var(--sar) - 16px);
+    z-index: 13;
+    border-radius: 20px;
+  }
+  #dock {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
+  #pan-btn {
+    display: none;
+    flex: 0 0 auto;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 50px;
+    height: 52px;
+    padding: 5px 7px;
+    border-radius: 14px;
+    font-size: 10.5px;
+    background: #eef8fd;
+    border-color: rgba(45, 156, 219, 0.35);
+    color: #135a85;
+  }
+  #pan-btn.on {
+    background: var(--sky);
+    border-color: #1974aa;
+    color: #fff;
+  }
+  #pan-btn svg { width: 20px; height: 20px; }
+  #tools {
+    display: flex;
+    gap: 5px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding: 2px 1px;
+    min-width: 0;
+    flex: 1 1 auto;
+    touch-action: pan-x;
+  }
+  #tools::-webkit-scrollbar { display: none; }
+  #tools button {
+    position: relative;
+    flex: 0 0 auto;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 60px;
+    height: 54px;
+    padding: 5px 7px;
+    border-radius: 14px;
+    background: #fffdf7;
+    scroll-snap-align: center;
+  }
+  #tools .ic {
+    width: 24px;
+    height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #tools .ic svg { width: 23px; height: 23px; }
+  #tools .nm {
+    font-size: 10.5px;
+    font-weight: 800;
+    color: var(--dim);
+    white-space: nowrap;
+    line-height: 1;
+  }
+  #tools .ky {
+    position: absolute;
+    top: 3px;
+    right: 5px;
+    font-size: 9.5px;
+    font-weight: 800;
+    color: var(--dim);
+    opacity: .65;
+  }
+  #tools button.on {
+    background: linear-gradient(180deg, #fff5dc 0%, #ffe0b5 100%);
+    border-color: var(--coral);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 0 rgba(210, 74, 24, 0.28);
+  }
+  #tools button.on .nm { color: #8c2c06; }
+  #tools button[data-t="observe"].on {
+    background: linear-gradient(180deg, #edf8ff 0%, #ccecff 100%);
+    border-color: var(--sky);
+    box-shadow: 0 4px 0 rgba(27, 118, 173, 0.25);
+  }
+  #tools button[data-t="observe"].on .nm { color: #105580; }
+
+  #dock-extra {
+    display: none;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 5px;
+  }
+  #inten-btn, #land-btn {
+    min-height: 52px;
+    padding: 5px 9px;
+    border-radius: 14px;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 10.5px;
+    min-width: 48px;
+  }
+  #inten-btn.on { background: #fff0c2; border-color: var(--gold-deep); }
+  #land-btn { display: none; background: #fff6db; border-color: rgba(217, 130, 0, 0.35); color: #7a4500; }
+  #land-btn.on { background: var(--coral); border-color: #bd3b0c; color: #fff; }
+  #land-btn svg, #inten-btn svg { width: 18px; height: 18px; }
+
+  #row2 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 2px 6px 0;
+    min-height: 24px;
+  }
+  #hint { flex: 1; color: var(--dim); font-size: 12px; font-weight: 600; min-width: 0; }
+  #land-desk {
+    display: none;
+    min-height: 26px;
+    padding: 3px 9px;
+    font-size: 11.5px;
+    border-radius: 999px;
+  }
+  #land-desk.on { background: var(--coral); border-color: #bd3b0c; color: #fff; }
+  #inten {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--dim);
+    white-space: nowrap;
+  }
+  #rng {
+    width: 116px;
+    height: 20px;
+    accent-color: var(--coral);
+    cursor: pointer;
+    touch-action: pan-x;
+  }
+  #rv { width: 34px; text-align: right; color: var(--ink); font-weight: 800; font-variant-numeric: tabular-nums; }
+  .inten-presets { display: none; gap: 4px; }
+  .inten-presets button { min-height: 26px; padding: 2px 8px; font-size: 11px; border-radius: 999px; }
+
+  /* ---------- Toast ---------- */
+  #toast {
+    position: fixed;
+    left: 50%;
+    top: calc(var(--sat) + 12px);
+    transform: translate(-50%, -90px);
+    padding: 8px 16px;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 13px;
+    transition: transform .26s cubic-bezier(.22, 1, .36, 1);
+    pointer-events: none;
+    max-width: 88vw;
+    text-align: center;
+    z-index: 30;
+  }
+  #toast.show { transform: translate(-50%, 0); }
+
+  /* ---------- Help Modal ---------- */
+  #help {
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(24, 18, 10, 0.42);
+    z-index: 25;
+    padding: calc(var(--sat) + 12px) calc(var(--sar) + 12px) calc(var(--sab) + 12px) calc(var(--sal) + 12px);
+  }
+  #help.show { display: flex; }
+  #help .panel {
+    padding: 16px 18px;
+    width: min(560px, 94vw);
+    max-height: calc(100dvh - var(--sat) - var(--sab) - 24px);
+    overflow-y: auto;
+    touch-action: pan-y;
+    -webkit-overflow-scrolling: touch;
+  }
+  #help-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+  #help h2 { margin: 0; font-size: 16px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--gold-deep); }
+  #help-close { min-height: 30px; width: 30px; padding: 0; border-radius: 999px; }
+  #help h3 { margin: 12px 0 5px; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--sky); }
+  #help table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+  #help td { padding: 4px 10px 4px 0; vertical-align: top; border-bottom: 1px solid rgba(84, 58, 30, 0.08); }
+  #help td:first-child { color: var(--gold-deep); font-weight: 800; white-space: nowrap; }
+
+  /* ---------- Start Overlay ---------- */
+  #start {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(ellipse at center, rgba(255, 248, 228, 0.35), rgba(32, 24, 14, 0.68));
+    z-index: 28;
+    transition: opacity .55s ease;
+    text-align: center;
+    padding: calc(var(--sat) + 14px) calc(var(--sar) + 14px) calc(var(--sab) + 14px) calc(var(--sal) + 14px);
+  }
+  #start.gone { opacity: 0; pointer-events: none; }
+  #start-card {
+    background: var(--bg);
+    border: 3px solid rgba(255, 255, 255, 0.85);
+    border-radius: 26px;
+    padding: clamp(16px, 3.5vh, 30px) clamp(18px, 4vw, 34px);
+    max-width: min(460px, 92vw);
+    max-height: calc(100dvh - var(--sat) - var(--sab) - 28px);
+    overflow-y: auto;
+    box-shadow: 0 18px 46px rgba(20, 14, 6, 0.34);
+  }
+  #start h1 {
+    margin: 0;
+    font-weight: 900;
+    font-size: clamp(28px, 6vw, 52px);
+    line-height: 1.02;
+    letter-spacing: .04em;
+    color: var(--ink);
+  }
+  #start .sub {
+    margin: 6px 0 12px;
+    letter-spacing: .22em;
+    text-transform: uppercase;
+    color: var(--coral);
+    font-size: 11.5px;
+    font-weight: 800;
+  }
+  #start p { color: var(--dim); max-width: 380px; margin: 0 auto 16px; font-size: 13.5px; font-weight: 600; }
+  #start .start-btns { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+  #start button {
+    font-size: 15px;
+    padding: 10px 24px;
+    min-height: 44px;
+    border-radius: 14px;
+  }
+  #begin { background: linear-gradient(180deg, #ffd859 0%, #f5a623 100%); border-color: #c87b00; color: #3d2100; }
+  #cont { background: linear-gradient(180deg, #dff5e6 0%, #b8e8c8 100%); border-color: #27944d; color: #104923; }
+  #start button:disabled { opacity: .45; }
+
+  /* ---------- Compact / Mobile / Landscape Phone Layout ---------- */
+  @media (max-width: 899px), (max-height: 519px), (pointer: coarse) {
+    #pan-btn.show { display: inline-flex; }
+    #tools .ky { display: none; }
+  }
+
+  @media (max-width: 899px), (max-height: 519px) {
+    #menub, #mute-quick { display: inline-flex; }
+    #mute { display: none; }
+    #sys-actions {
+      display: none;
+      position: fixed;
+      top: calc(var(--sat) + 52px);
+      right: calc(var(--sar) + 8px);
+      width: min(252px, 84vw);
+      max-height: calc(100dvh - var(--sat) - var(--sab) - 70px);
+      overflow-y: auto;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 6px;
+      padding: 10px;
+      background: var(--bg);
+      border: 2px solid var(--line);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      z-index: 16;
+      touch-action: pan-y;
+    }
+    #sys-actions.open { display: flex; }
+    #sys-actions button { justify-content: flex-start; min-height: 40px; width: 100%; }
+    .menu-only { display: flex; }
+    .menu-sep { display: block; }
+    .menu-tilt-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--dim);
+      padding: 2px 2px;
+    }
+    .menu-tilt-btns { display: flex; gap: 4px; }
+    .menu-tilt-btns button { min-height: 30px; padding: 3px 8px; width: auto; font-size: 11.5px; }
+
+    #bar {
+      padding: 5px 6px;
+      border-radius: 18px;
+      gap: 4px;
+    }
+    #tools button {
+      min-width: 54px;
+      height: 48px;
+      padding: 4px 5px;
+      border-radius: 12px;
+    }
+    #tools .ic { width: 21px; height: 21px; }
+    #tools .ic svg { width: 21px; height: 21px; }
+    #tools .nm { font-size: 10px; }
+    #pan-btn, #inten-btn, #land-btn { height: 48px; min-height: 48px; border-radius: 12px; }
+    #dock-extra.show { display: inline-flex; }
+    #land-btn.show { display: inline-flex; }
+
+    /* Compact floating intensity popover instead of persistent second row */
+    #row2 { display: none; }
+    #bar.inten-open #row2 {
+      display: flex;
+      position: absolute;
+      bottom: calc(100% + 8px);
+      right: 0;
+      background: var(--bg);
+      border: 2px solid var(--line);
+      border-radius: 16px;
+      padding: 8px 10px;
+      box-shadow: var(--shadow);
+      flex-direction: column;
+      align-items: stretch;
+      gap: 6px;
+      min-width: 210px;
+    }
+    #bar.inten-open #hint,
+    #bar.inten-open #land-desk { display: none !important; }
+    #bar.inten-open .inten-presets { display: flex; justify-content: space-between; }
+    #bar.inten-open #rng { flex: 1; width: 120px; }
+
+    #log { bottom: calc(var(--sab) + 74px); width: min(270px, 52vw); }
+    #log div { font-size: 11.5px; padding: 4px 8px; }
+  }
+
+  /* Extra vertical compactness on short landscape phones */
+  @media (max-height: 460px) {
+    #stats { padding: 5px 8px; }
+    #stats h1 { font-size: 10.5px; }
+    #s-clock { font-size: 10.5px; }
+    #log div:nth-last-child(n+3) { display: none; }
+    #card { top: calc(var(--sat) + 50px); padding: 7px 9px; }
+    #sys-actions { gap: 4px; padding: 7px; top: calc(var(--sat) + 48px); }
+    #sys-actions button { min-height: 32px; padding: 4px 9px; font-size: 12.5px; }
+  }
+
+  /* Portrait phone layout */
+  @media (orientation: portrait) and (max-width: 599px) {
+    #stats { max-width: calc(100vw - var(--sal) - var(--sar) - 188px); padding: 5px 8px; }
+    #stats-title h1 { display: none; }
+    #s-mood-mini, #s-wind-mini { display: none; }
+    #speed button { padding: 4px 7px; min-width: 28px; font-size: 12px; }
+    #mute-quick, #menub { padding: 5px 8px; min-height: 36px; }
+    #menub span { display: none; }
+    #rotate-tip.show { display: inline-flex; }
+    #bar { width: calc(100vw - var(--sal) - var(--sar) - 14px); }
+    #log { bottom: calc(var(--sab) + 78px); width: calc(100vw - var(--sal) - var(--sar) - 20px); max-width: 300px; }
+    #log div:nth-last-child(n+3) { display: none; }
+  }
+
+  /* Very narrow portrait (<380px) */
+  @media (orientation: portrait) and (max-width: 380px) {
+    #speed button { padding: 4px 6px; min-width: 26px; font-size: 11.5px; }
+    #mute-quick, #menub { padding: 5px 7px; }
+    #stats { max-width: calc(100vw - var(--sal) - var(--sar) - 172px); }
+  }
 </style>
 </head>
 <body>
 <canvas id="c" tabindex="0"></canvas>
 <div id="flash"></div>
+
 <div id="stats" class="panel">
-  <h1>God Sim</h1>
-  <div id="s-clock">Day 1</div>
-  <div class="g">
-    <span>Villagers</span><span id="s-pop">0</span>
-    <span>Injured</span><span id="s-inj">0</span>
-    <span>Dead</span><span id="s-dead">0</span>
-    <span>Homeless</span><span id="s-hl">0</span>
-    <span>Buildings</span><span id="s-b">0</span>
-    <span>Fires</span><span id="s-fire">0</span>
-    <span>Mood</span><span id="s-mood">at peace</span>
-    <span>Wind</span><span><span id="s-wind">↑</span></span>
+  <div id="stats-head">
+    <div id="stats-title">
+      <h1>Ruin of Gods</h1>
+      <div id="s-clock">Day 1</div>
+    </div>
+    <div class="st-pills">
+      <span class="st-pill" title="Living villagers"><span class="dot"></span><span id="s-pop-mini">0</span></span>
+      <span class="st-pill" id="s-mood-mini">at peace</span>
+      <span id="s-wind-mini" title="Wind direction">↑</span>
+    </div>
+    <button id="stats-toggle" type="button" aria-expanded="true" aria-label="Toggle world details" title="Expand or collapse world stats">▾</button>
+  </div>
+  <div id="stats-body">
+    <div class="g">
+      <span>Villagers</span><span id="s-pop">0</span>
+      <span>Injured</span><span id="s-inj">0</span>
+      <span>Dead</span><span id="s-dead">0</span>
+      <span>Homeless</span><span id="s-hl">0</span>
+      <span>Buildings</span><span id="s-b">0</span>
+      <span>Fires</span><span id="s-fire">0</span>
+      <span>Mood</span><span id="s-mood">at peace</span>
+      <span>Wind</span><span><span id="s-wind">↑</span></span>
+    </div>
   </div>
 </div>
+
 <div id="sys">
-  <div id="speed"><button data-s="0" title="Pause (Space)">❚❚</button><button data-s="1" title="Normal speed">1×</button><button data-s="3" title="Fast">3×</button></div>
-  <button id="save" title="Save this world">Save</button><button id="load" title="Restore the saved world">Load</button><button id="new" title="Generate a new world">New world</button>
-  <button id="mute" title="Sound (M)">🔊</button><button id="helpb" title="Controls (H)">?</button>
+  <div id="speed" role="group" aria-label="Simulation speed">
+    <button type="button" data-s="0" title="Pause (Space)">❚❚</button>
+    <button type="button" data-s="1" title="Normal speed">1×</button>
+    <button type="button" data-s="3" title="Fast speed">3×</button>
+  </div>
+  <button type="button" id="mute-quick" title="Sound (M)" aria-label="Toggle sound"></button>
+  <button type="button" id="menub" title="Menu" aria-expanded="false" aria-controls="sys-actions">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    <span>Menu</span>
+  </button>
+  <div id="sys-actions">
+    <button type="button" id="save" title="Save this world">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h11l3 3v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4z"/><path d="M8 4v5h7V4M8 20v-6h8v6"/></svg>
+      <span>Save</span>
+    </button>
+    <button type="button" id="load" title="Restore the saved world">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+      <span>Load</span>
+    </button>
+    <button type="button" id="new" title="Generate a new world">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3.6 9h16.8M3.6 15h16.8M12 3a13 13 0 0 0 0 18M12 3a13 13 0 0 1 0 18"/></svg>
+      <span>New world</span>
+    </button>
+    <button type="button" id="mute" title="Sound (M)"></button>
+    <button type="button" id="helpb" title="Controls (H)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 4.8.8c0 1.7-2.3 2.2-2.3 3.7"/><circle cx="12" cy="17" r=".8" fill="currentColor"/></svg>
+      <span class="menu-only">Controls &amp; Help</span>
+    </button>
+    <div class="menu-sep"></div>
+    <div class="menu-only menu-tilt-row">
+      <span>Camera tilt</span>
+      <div class="menu-tilt-btns">
+        <button type="button" data-tilt="0.45">Low</button>
+        <button type="button" data-tilt="0.78">Mid</button>
+        <button type="button" data-tilt="1.22">Top</button>
+      </div>
+    </div>
+    <button type="button" id="cam-reset" class="menu-only">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10l9-7 9 7v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+      <span>Center on village</span>
+    </button>
+  </div>
 </div>
-<div id="card" class="panel"><div id="c-name"></div><div id="c-job"></div><div id="c-st"></div><div class="hpb"><div id="c-hp"></div></div></div>
+<div id="menu-backdrop"></div>
+
+<div id="rotate-tip" class="panel" role="status">
+  <span>↻ Rotate to landscape for best view</span>
+  <button type="button" id="rotate-dismiss" aria-label="Dismiss rotate hint">×</button>
+</div>
+
+<div id="card" class="panel">
+  <div id="card-head">
+    <div id="c-name"></div>
+    <button type="button" id="card-close" aria-label="Stop following villager" title="Close (Esc)">×</button>
+  </div>
+  <div id="c-job"></div>
+  <div id="c-st"></div>
+  <div class="hpb"><div id="c-hp"></div></div>
+</div>
+
 <div id="log"></div>
+
 <div id="bar" class="panel">
-  <div id="tools"></div>
-  <div id="row2"><div id="hint"></div><div id="inten">Intensity <input id="rng" type="range" min="10" max="100" value="60"><span id="rv">60%</span></div></div>
+  <div id="dock">
+    <button type="button" id="pan-btn" title="Toggle 1-finger camera pan without changing selected power">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M2 12h20M12 2l-3 3M12 2l3 3M12 22l-3-3M12 22l3-3M2 12l3-3M2 12l3 3M22 12l-3-3M22 12l-3 3"/></svg>
+      <span>Move</span>
+    </button>
+    <div id="tools" role="toolbar" aria-label="Divine powers"></div>
+    <div id="dock-extra">
+      <button type="button" id="land-btn" title="Toggle land carving mode for Divine Deletion">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-9 4 6 3-4 6 7H3z"/></svg>
+        <span id="land-btn-txt">Obj</span>
+      </button>
+      <button type="button" id="inten-btn" title="Power intensity">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 14a8 8 0 1 1 16 0"/><path d="M12 14l4-4"/><circle cx="12" cy="14" r="1.5" fill="currentColor"/></svg>
+        <span id="rv-mini">60%</span>
+      </button>
+    </div>
+  </div>
+  <div id="row2">
+    <div id="hint"></div>
+    <button type="button" id="land-desk" title="Carve terrain instead of deleting single objects (Alt-drag)">Carve land</button>
+    <div id="inten">
+      <span>Intensity</span>
+      <input id="rng" type="range" min="10" max="100" value="60">
+      <span id="rv">60%</span>
+    </div>
+    <div class="inten-presets">
+      <button type="button" data-p="25">25%</button>
+      <button type="button" data-p="60">60%</button>
+      <button type="button" data-p="100">100%</button>
+    </div>
+  </div>
 </div>
+
 <div id="toast" class="panel"></div>
-<div id="help"><div class="panel">
-  <h2>Controls</h2>
-  <table>
-    <tr><td>1 – 9</td><td>Observe, Earthquake, Flood, Meteor, Divine Finger, Firestorm, Lightning, Tornado, Divine Deletion</td></tr>
-    <tr><td>Left mouse</td><td>Use the chosen power. With Observe: drag to move, click a villager to follow</td></tr>
-    <tr><td>Right-drag</td><td>Rotate and tilt the camera</td></tr>
-    <tr><td>Shift-drag / middle-drag</td><td>Move the camera while a power is selected</td></tr>
-    <tr><td>Wheel</td><td>Zoom from a single villager to the whole valley</td></tr>
-    <tr><td>W A S D / arrows</td><td>Move · <b>Q E</b> rotate · <b>R F</b> tilt · <b>+ −</b> zoom</td></tr>
-    <tr><td>[ ]</td><td>Lower / raise power intensity</td></tr>
-    <tr><td>Space</td><td>Pause · <b>M</b> mute · <b>Esc</b> stop following</td></tr>
-    <tr><td>Touch</td><td>One finger uses the power; two fingers move, pinch to zoom, twist to rotate</td></tr>
-  </table>
-  <p style="color:var(--dim);margin:12px 0 0">Earthquake: drag a line, release. Flood: click or hold to summon water; drag to move the source. Water flows downhill without digging. Tornado: click to touch down, then move the mouse to steer the funnel. Divine Deletion: click or drag to unmake the highlighted object. Hold Alt when starting a drag to erase land separately. Water will run into erased land. The dam and the outer edge of the map stay. [ ] changes intensity and the land brush. Everything you break stays broken — Save keeps the scarred world, including what you deleted.</p>
-</div></div>
-<div id="start"><div>
-  <h1>GOD SIM</h1>
-  <div class="sub">Destruction sandbox</div>
-  <p id="start-msg">Shaping the world…</p>
-  <button id="begin" disabled>Begin</button><button id="cont" style="display:none">Continue saved world</button>
-</div></div>
+
+<div id="help" role="dialog" aria-modal="true" aria-label="Controls and powers">
+  <div class="panel">
+    <div id="help-head">
+      <h2>How to Play</h2>
+      <button type="button" id="help-close" aria-label="Close help">×</button>
+    </div>
+    <h3>Touch Controls</h3>
+    <table>
+      <tr><td>1-finger drag</td><td><b>Observe / Move:</b> pan camera · <b>Powers:</b> draw quake, steer tornado, pour flood, ignite, press or erase</td></tr>
+      <tr><td>1-finger tap</td><td><b>Observe:</b> inspect &amp; follow a villager · <b>Powers:</b> drop meteor, call lightning, or zap object</td></tr>
+      <tr><td>2-finger gesture</td><td>Pinch to zoom, drag to pan, twist to rotate (never triggers powers)</td></tr>
+      <tr><td>Move button</td><td>Lock 1-finger camera panning without losing your selected power</td></tr>
+      <tr><td>Obj / Land</td><td>Switch Divine Deletion between unmaking objects and carving terrain</td></tr>
+    </table>
+    <h3>Mouse &amp; Keyboard</h3>
+    <table>
+      <tr><td>1 – 9</td><td>Observe, Earthquake, Flood, Meteor, Divine Finger, Firestorm, Lightning, Tornado, Divine Deletion</td></tr>
+      <tr><td>Left mouse</td><td>Use power (with Observe: drag to move, click villager to follow)</td></tr>
+      <tr><td>Right-drag</td><td>Rotate and tilt camera · <b>Shift/Middle-drag:</b> pan anytime</td></tr>
+      <tr><td>Wheel</td><td>Zoom from a single villager to the whole valley</td></tr>
+      <tr><td>W A S D / Arrows</td><td>Move · <b>Q E</b> rotate · <b>R F</b> tilt · <b>+ −</b> zoom · <b>[ ]</b> intensity</td></tr>
+      <tr><td>Space · M · Esc</td><td>Pause · Mute · Stop following / close modal</td></tr>
+    </table>
+    <p style="color:var(--dim);margin:12px 0 0;font-size:12.5px">Earthquake: drag a fault line, release. Flood: tap or drag to pour water downhill without digging. Tornado: tap to touch down, drag or steer to guide the funnel. Divine Deletion: target highlighted objects, or toggle <b>Carve land</b> (Alt-drag on desktop) to erase terrain. Everything broken stays broken — Save preserves the scarred valley.</p>
+  </div>
+</div>
+
+<div id="start">
+  <div id="start-card">
+    <h1>RUIN OF GODS</h1>
+    <div class="sub">God Sim Sandbox</div>
+    <p id="start-msg">Shaping the world…</p>
+    <div class="start-btns">
+      <button type="button" id="begin" disabled>Begin</button>
+      <button type="button" id="cont" style="display:none">Continue saved world</button>
+    </div>
+  </div>
+</div>
+
 <script>
+'use strict';
 'use strict';
 // ===================== GOD SIM — simulation core (no DOM) =====================
 const N = 160, NN = N * N;
@@ -1359,6 +2112,7 @@ class World {
 
 if (typeof module !== 'undefined') module.exports = { World, N, NN, K, ROUTINE, PANIC, STUMBLE, SHAKEN, DEAD, DAYLEN };
 
+'use strict';
 // ===================== GOD SIM — WebGL2 renderer + particles =====================
 const M4 = {
   persp(fov, asp, n, f) { const t = 1 / Math.tan(fov / 2), o = new Float32Array(16); o[0] = t / asp; o[5] = t; o[10] = (f + n) / (n - f); o[11] = -1; o[14] = 2 * f * n / (n - f); return o; },
@@ -1682,6 +2436,7 @@ class Renderer {
   }
 }
 
+'use strict';
 // ===================== GOD SIM — procedural audio (WebAudio, placeholder synthesis) =====================
 class AudioEngine {
   constructor() { this.ctx = null; this.on = false; this.muted = false; this.last = {}; this.loops = {}; }
@@ -1746,46 +2501,213 @@ class AudioEngine {
 (function () {
   const $ = id => document.getElementById(id);
   const canvas = $('c'), STEP = 1 / 60, KEY = 'godsim.save.v1';
+  const TAP_SLOP = 11, TOUCH_HOLD_MS = 65;
+
+  const ICONS = {
+    observe: '<svg viewBox="0 0 24 24" fill="none"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6z" fill="#fff" stroke="#1b76ad" stroke-width="2"/><circle cx="12" cy="12" r="3.4" fill="#2d9cdb"/><circle cx="12" cy="12" r="1.5" fill="#1b3042"/><circle cx="13.1" cy="10.9" r=".8" fill="#fff"/></svg>',
+    quake: '<svg viewBox="0 0 24 24" fill="none"><path d="M3 19L9.5 6l4 6.5L16.5 9 21 19H3z" fill="#b7824c" stroke="#5a3b1e" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 7l-1.8 4.2 2.4 2.1L10.8 19" stroke="#ff6b35" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    flood: '<svg viewBox="0 0 24 24" fill="none"><path d="M3 15c2.2-2.8 4.5-4.5 7.5-4.5 2.3 0 3.2 1.8 1.6 2.8-1 .6-2 .1-2-.9 2.6-1.2 5.4.6 7.4 2.6 1.2 1.2 2.2 1.5 3.5 1.5v3.5H3v-5z" fill="#2d9cdb" stroke="#165c87" stroke-width="1.7" stroke-linejoin="round"/><path d="M4 19.5c2.5 1.2 5 1.2 7.5 0s5-1.2 8.5 0" stroke="#9be2ff" stroke-width="1.8" stroke-linecap="round"/></svg>',
+    meteor: '<svg viewBox="0 0 24 24" fill="none"><path d="M19.5 4.5L11 10l3 3 5.5-8.5z" fill="#ffd166" stroke="#e65c00" stroke-width="1.5" stroke-linejoin="round"/><path d="M15 3.5L9.5 8.5M20.5 9l-5 5.5" stroke="#ff6b35" stroke-width="2" stroke-linecap="round"/><circle cx="9" cy="15" r="5" fill="#ff7b29" stroke="#7d2b06" stroke-width="1.8"/><circle cx="7.6" cy="13.6" r="1.4" fill="#ffd166"/></svg>',
+    finger: '<svg viewBox="0 0 24 24" fill="none"><path d="M9 4h6v7.5l2.2.8a2 2 0 0 1 1.3 1.9V17a4 4 0 0 1-4 4h-3.6a4 4 0 0 1-3.6-2.2L5.5 15a1.6 1.6 0 0 1 2.7-1.7L9 14.4V4z" fill="#ffd2a6" stroke="#7a4924" stroke-width="1.8" stroke-linejoin="round"/><path d="M10.5 19.5h3" stroke="#ff6b35" stroke-width="2" stroke-linecap="round"/></svg>',
+    fire: '<svg viewBox="0 0 24 24" fill="none"><path d="M12.5 3c.5 3.5-2.5 5-2.5 8 0 1.4.9 2.4 2 2.4 1.6 0 2.5-1.6 2-3.8 2.8 1.6 4.5 4.3 4.5 7 0 3.2-2.9 5.4-6.5 5.4S5.5 19.8 5.5 16.4C5.5 11.4 9 7 12.5 3z" fill="#ff6b35" stroke="#8c2303" stroke-width="1.7" stroke-linejoin="round"/><path d="M12 13.5c1.5 1.1 2.5 2.4 2.5 4a2.5 2.5 0 0 1-5 0c0-1.6 1-2.9 2.5-4z" fill="#ffe066"/></svg>',
+    lightning: '<svg viewBox="0 0 24 24" fill="none"><path d="M13.5 2.5L5.5 13h5.5l-1.5 8.5L18.5 11H13l.5-8.5z" fill="#ffd93d" stroke="#b36b00" stroke-width="1.8" stroke-linejoin="round"/></svg>',
+    tornado: '<svg viewBox="0 0 24 24" fill="none"><path d="M4 6h16M6 10h12M8 14h8M10 18h4M11.5 21h1.5" stroke="#4f6d7a" stroke-width="2.4" stroke-linecap="round"/><path d="M7 6c1 2 10 2 11 0M8 10c1 1.6 7 1.6 8 0" stroke="#8ab4c4" stroke-width="1.5" stroke-linecap="round"/></svg>',
+    delete: '<svg viewBox="0 0 24 24" fill="none"><path d="M12 3l2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2L12 3z" fill="#ffe066" stroke="#c93b76" stroke-width="1.8" stroke-linejoin="round"/><circle cx="18.5" cy="5.5" r="1.4" fill="#ff6b9d"/><circle cx="5.5" cy="18.5" r="1.4" fill="#2d9cdb"/></svg>'
+  };
+
+  const SND_ON_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12"/></svg>';
+  const SND_OFF_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M22 9l-6 6M16 9l6 6"/></svg>';
+
   const TOOLS = [
-    { id: 'observe', icon: '👁', name: 'Observe', hint: 'Drag to move the camera. Click a villager to follow them.' },
-    { id: 'quake', icon: '⛰️', name: 'Earthquake', hint: 'Drag a fault line across the land, then release.' },
-    { id: 'flood', icon: '🌊', name: 'Flood', hint: 'Click or hold to summon water. Drag to move the source; water flows downhill and remains.' },
-    { id: 'meteor', icon: '☄️', name: 'Meteor', hint: 'Click to call down a meteor.' },
-    { id: 'finger', icon: '👆', name: 'Divine Finger', hint: 'Click or hold to press the land flat.' },
-    { id: 'fire', icon: '🔥', name: 'Firestorm', hint: 'Click or drag to set the land alight. Fire follows the wind.' },
-    { id: 'lightning', icon: '⚡', name: 'Lightning', hint: 'Click to blast a storm of lightning down. Bolts seek the tallest things.' },
-    { id: 'tornado', icon: '🌪️', name: 'Tornado', hint: 'Click to touch down a tornado. Move the mouse to steer it. It pulls, lifts, and throws.' },
-    { id: 'delete', icon: '✧', name: 'Deletion', hint: 'Click or drag to unmake highlighted objects. Hold Alt when starting a drag to erase land separately. The dam and map edge are protected.' }
+    { id: 'observe', short: 'Observe', name: 'Observe', hint: 'Drag to pan. Tap or click a villager to follow them.' },
+    { id: 'quake', short: 'Quake', name: 'Earthquake', hint: 'Drag a fault line across the land, then release.' },
+    { id: 'flood', short: 'Flood', name: 'Flood', hint: 'Tap or drag to pour water downhill across the valley.' },
+    { id: 'meteor', short: 'Meteor', name: 'Meteor', hint: 'Tap or click to call down a meteor.' },
+    { id: 'finger', short: 'Finger', name: 'Divine Finger', hint: 'Hold or drag to press the land flat.' },
+    { id: 'fire', short: 'Fire', name: 'Firestorm', hint: 'Tap or drag to set the land alight. Fire follows the wind.' },
+    { id: 'lightning', short: 'Bolt', name: 'Lightning', hint: 'Tap or click to unleash a storm of lightning.' },
+    { id: 'tornado', short: 'Tornado', name: 'Tornado', hint: 'Tap to touch down a tornado; move or drag to steer it.' },
+    { id: 'delete', short: 'Delete', name: 'Deletion', hint: 'Tap or drag to unmake highlighted objects. Toggle Carve land (or Alt-drag) to erase terrain.' }
   ];
+
   let R, world, audio = new AudioEngine(), tool = 'observe', intensity = 0.6, paused = false, speed = 1, started = false, memSave = null;
   let last = 0, acc = 0, frameN = 0, hudT = 0, follow = false, lastHour = -1;
-  const mouse = { nx: 0, ny: 0, px: 0, py: 0, down: false, mode: '', hit: null, moved: 0, inside: false };
-  const keys = {}; const ptrs = new Map(); let gest = null;
+  let panMode = false, landDeleteMode = false, statsUserSet = false, rotateDismissed = false;
+  let canvasRect = { left: 0, top: 0, width: 1, height: 1 };
+  const mouse = { nx: 0, ny: 0, px: 0, py: 0, down: false, mode: '', hit: null, moved: 0, inside: false, landDelete: false };
+  const keys = {}; const ptrs = new Map();
+  let gest = null, gestLock = false, pending = null;
   let qStart = null, lastCarve = null, fireT = 0, fing = { ph: 0, t: 0, x: 0, z: 0, cd: 0 }, delHover = null, delStroke = null, delCarve = null;
   const fps = { n: 0, acc: 0, ms: 16, fps: 60, worst: 16 };
   const mix = { wind: 0, river: 0, fire: 0, quake: 0, rain: 0, flood: 0, village: 0, day: 1, calm: true, near: 1 };
+  const prevHud = { pop: -1, inj: -1, dead: -1, hl: -1, bs: -1, bt: -1, fires: -1, mood: '', clock: '', windDeg: 999, warn: null, selId: -1, selSt: '', selJob: '', selHp: -1 };
+
+  function isCompact() { return window.innerWidth < 900 || window.innerHeight < 520; }
+  function isSingleTapTool(t) { return t === 'meteor' || t === 'lightning'; }
+  function isMenuOpen() { return $('sys-actions').classList.contains('open'); }
+  function isHelpOpen() { return $('help').classList.contains('show'); }
+  function isModalOpen() { return !started || isMenuOpen() || isHelpOpen(); }
 
   function toast(m) { const t = $('toast'); t.textContent = m; t.classList.add('show'); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove('show'), 2600); }
-  function log(m) { const l = $('log'), d = document.createElement('div'); d.textContent = m; l.appendChild(d); while (l.children.length > 5) l.removeChild(l.firstChild); setTimeout(() => d.classList.add('old'), 7000); setTimeout(() => { if (d.parentNode) d.parentNode.removeChild(d); }, 14000); }
+  function log(m) { const l = $('log'), d = document.createElement('div'); d.textContent = m; l.appendChild(d); while (l.children.length > 5) l.removeChild(l.firstChild); setTimeout(() => d.classList.add('old'), 7000); setTimeout(() => { if (d.parentNode) d.parentNode.removeChild(d); }, 11000); }
   function flash(a) { const f = $('flash'); f.style.transition = 'none'; f.style.opacity = a; requestAnimationFrame(() => { f.style.transition = 'opacity 1.4s ease-out'; f.style.opacity = 0; }); }
   function sfx(name, x, z, v) { const c = R.cam, d = Math.hypot(x - c.tx, z - c.tz), a = clamp(1.25 - d / (c.dist * 1.1 + 45), 0.06, 1); audio.play(name, v * a); }
+
+  function updateCanvasRect() {
+    const r = canvas.getBoundingClientRect();
+    canvasRect = { left: r.left, top: r.top, width: Math.max(1, r.width), height: Math.max(1, r.height) };
+  }
+
+  function syncLayout() {
+    updateCanvasRect();
+    const compact = isCompact();
+    if (!compact && isMenuOpen()) setMenuOpen(false);
+    if (!statsUserSet) setStatsCollapsed(compact, false);
+    const portraitSmall = window.innerHeight > window.innerWidth && window.innerWidth < 600;
+    $('rotate-tip').classList.toggle('show', portraitSmall && !rotateDismissed && started);
+    if (R) R.resize();
+  }
+
+  function setStatsCollapsed(collapsed, userTriggered) {
+    if (userTriggered) statsUserSet = true;
+    $('stats').classList.toggle('collapsed', !!collapsed);
+    $('stats-toggle').setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+  }
+
+  function clearPending() {
+    if (pending && pending.timer) clearTimeout(pending.timer);
+    pending = null;
+  }
+
+  function cancelPointer() {
+    clearPending();
+    ptrs.clear();
+    gest = null;
+    gestLock = false;
+    mouse.down = false;
+    mouse.mode = '';
+    mouse.inside = false;
+    mouse.landDelete = false;
+    qStart = null;
+    lastCarve = null;
+    delStroke = null;
+    delCarve = null;
+    delHover = null;
+    if (world) { world.finger = null; world.steer = null; }
+    canvas.style.cursor = (tool === 'observe' || panMode) ? 'grab' : 'crosshair';
+  }
+
+  function setMenuOpen(open) {
+    const acts = $('sys-actions'), bd = $('menu-backdrop'), mb = $('menub');
+    if (open) { cancelPointer(); $('bar').classList.remove('inten-open'); }
+    acts.classList.toggle('open', !!open);
+    bd.classList.toggle('show', !!open);
+    mb.classList.toggle('on', !!open);
+    mb.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+
+  function setHelpOpen(open) {
+    if (open) { setMenuOpen(false); cancelPointer(); $('bar').classList.remove('inten-open'); }
+    $('help').classList.toggle('show', !!open);
+  }
+
+  function setPanMode(on) {
+    panMode = !!on && tool !== 'observe';
+    $('pan-btn').classList.toggle('on', panMode);
+    canvas.style.cursor = (tool === 'observe' || panMode) ? 'grab' : 'crosshair';
+    if (panMode) { qStart = null; delHover = null; }
+  }
+
+  function setLandDelete(on) {
+    landDeleteMode = !!on && tool === 'delete';
+    $('land-btn').classList.toggle('on', landDeleteMode);
+    $('land-btn-txt').textContent = landDeleteMode ? 'Land' : 'Obj';
+    $('land-desk').classList.toggle('on', landDeleteMode);
+  }
+
   function bindWorld(w) {
     world = w; R.sel = null; follow = false; qStart = null;
     w.fx = { burst: (t, x, y, z, n, s, p) => R.parts.burst(t, x, y, z, n, s, p), sound: sfx, shake: a => { R.cam.shake = Math.max(R.cam.shake, Math.min(1.7, a)); }, flash, log };
     w.terrDirty = true; w.staticDirty = true;
+    prevHud.pop = -1;
   }
-  function setTool(id) { tool = id; qStart = null; for (const b of document.querySelectorAll('#tools button')) b.classList.toggle('on', b.dataset.t === id); const t = TOOLS.find(t => t.id === id); $('hint').textContent = t.hint; canvas.style.cursor = id === 'observe' ? 'grab' : 'crosshair'; $('inten').style.visibility = id === 'observe' ? 'hidden' : 'visible'; audio.play('ui', 1); }
-  function setSpeed(s) { speed = s; paused = s === 0; for (const b of document.querySelectorAll('#speed button')) b.classList.toggle('on', +b.dataset.s === s); }
+
+  function setTool(id) {
+    tool = id; qStart = null; delHover = null;
+    setPanMode(false);
+    if (id !== 'delete') setLandDelete(false);
+    for (const b of document.querySelectorAll('#tools button')) {
+      const active = b.dataset.t === id;
+      b.classList.toggle('on', active);
+      b.setAttribute('aria-pressed', active ? 'true' : 'false');
+      if (active) {
+        const tb = $('tools');
+        if (tb.scrollWidth > tb.clientWidth) {
+          const targetLeft = b.offsetLeft - (tb.clientWidth - b.offsetWidth) / 2;
+          try { tb.scrollTo({ left: Math.max(0, targetLeft), behavior: 'smooth' }); } catch (_) { tb.scrollLeft = Math.max(0, targetLeft); }
+        }
+      }
+    }
+    const t = TOOLS.find(t => t.id === id);
+    $('hint').textContent = t.hint;
+    canvas.style.cursor = id === 'observe' ? 'grab' : 'crosshair';
+    const showInt = id !== 'observe';
+    $('inten').style.visibility = showInt ? 'visible' : 'hidden';
+    $('dock-extra').classList.toggle('show', showInt);
+    $('pan-btn').classList.toggle('show', showInt);
+    $('land-btn').classList.toggle('show', id === 'delete');
+    $('land-desk').style.display = id === 'delete' ? 'inline-flex' : 'none';
+    if (!showInt) $('bar').classList.remove('inten-open');
+    audio.play('ui', 1);
+  }
+
+  function setSpeed(s) {
+    speed = s; paused = s === 0;
+    for (const b of document.querySelectorAll('#speed button')) b.classList.toggle('on', +b.dataset.s === s);
+  }
 
   // ------------------------------------------------------------ save / load
   function hasSave() { try { if (localStorage.getItem(KEY)) return true; } catch (e) { } return !!memSave; }
-  function save() { const c = R.cam, s = JSON.stringify({ world: world.serialize(), cam: [c.gtx, c.gtz, c.gyaw, c.gpitch, c.gdist] }); memSave = s; let ok = false; try { localStorage.setItem(KEY, s); ok = true; } catch (e) { } toast(ok ? 'World saved — it will be here when you come back' : 'Saved for this session only (browser storage is unavailable here)'); }
-  function load() { let s = null; try { s = localStorage.getItem(KEY); } catch (e) { } s = s || memSave; if (!s) { toast('No saved world yet'); return false; } try { const d = JSON.parse(s); bindWorld(World.load(d.world)); const c = R.cam; if (d.cam) { c.gtx = d.cam[0]; c.gtz = d.cam[1]; c.gyaw = d.cam[2]; c.gpitch = d.cam[3]; c.gdist = d.cam[4]; } R.parts.n = 0; toast('Saved world restored'); return true; } catch (e) { console.error(e); toast('That save could not be read'); return false; } }
-  function newWorld(seed) { bindWorld(new World(seed || ((Math.random() * 1e9) | 0))); const c = R.cam; c.gtx = c.tx = world.vc.x; c.gtz = c.tz = world.vc.z; c.gdist = 62; c.gpitch = 0.72; c.gyaw = 0.5; R.parts.n = 0; }
+  function save() {
+    const c = R.cam, s = JSON.stringify({ world: world.serialize(), cam: [c.gtx, c.gtz, c.gyaw, c.gpitch, c.gdist] });
+    memSave = s; let ok = false; try { localStorage.setItem(KEY, s); ok = true; } catch (e) { }
+    toast(ok ? 'World saved — it will be here when you come back' : 'Saved for this session only (browser storage is unavailable here)');
+  }
+  function load() {
+    let s = null; try { s = localStorage.getItem(KEY); } catch (e) { }
+    s = s || memSave; if (!s) { toast('No saved world yet'); return false; }
+    try {
+      const d = JSON.parse(s); bindWorld(World.load(d.world));
+      const c = R.cam;
+      if (d.cam) { c.gtx = d.cam[0]; c.gtz = d.cam[1]; c.gyaw = d.cam[2]; c.gpitch = d.cam[3]; c.gdist = d.cam[4]; }
+      R.parts.n = 0; toast('Saved world restored'); return true;
+    } catch (e) { console.error(e); toast('That save could not be read'); return false; }
+  }
+  function newWorld(seed) {
+    bindWorld(new World(seed || ((Math.random() * 1e9) | 0)));
+    const c = R.cam; c.gtx = c.tx = world.vc.x; c.gtz = c.tz = world.vc.z;
+    c.gdist = 62; c.gpitch = 0.72; c.gyaw = 0.5; R.parts.n = 0;
+  }
 
   // ------------------------------------------------------------ input
-  function setMouse(e) { const r = canvas.getBoundingClientRect(); mouse.px = e.clientX - r.left; mouse.py = e.clientY - r.top; mouse.nx = mouse.px / r.width * 2 - 1; mouse.ny = 1 - mouse.py / r.height * 2; mouse.inside = true; }
-  function pan(dx, dy) { const c = R.cam, s = c.gdist * 0.0019, cy = Math.cos(c.gyaw), sy = Math.sin(c.gyaw); c.gtx += (-dx * cy - dy * sy) * s; c.gtz += (dx * sy - dy * cy) * s; follow = false; }
+  function setMouse(e) {
+    const r = canvasRect;
+    mouse.px = e.clientX - r.left; mouse.py = e.clientY - r.top;
+    mouse.nx = mouse.px / r.width * 2 - 1; mouse.ny = 1 - mouse.py / r.height * 2;
+    mouse.inside = true;
+  }
+  function setMouseCoords(clientX, clientY) {
+    const r = canvasRect;
+    mouse.px = clientX - r.left; mouse.py = clientY - r.top;
+    mouse.nx = mouse.px / r.width * 2 - 1; mouse.ny = 1 - mouse.py / r.height * 2;
+    mouse.inside = true;
+  }
+  function pan(dx, dy) {
+    const c = R.cam, s = c.gdist * 0.0019, cy = Math.cos(c.gyaw), sy = Math.sin(c.gyaw);
+    c.gtx = clamp(c.gtx + (-dx * cy - dy * sy) * s, 2, N - 3);
+    c.gtz = clamp(c.gtz + (dx * sy - dy * cy) * s, 2, N - 3);
+    follow = false;
+  }
   function beginAction() {
     const h = mouse.hit = R.pick(mouse.nx, mouse.ny, world);
     // Object rays remain valid even when the terrain ray misses at a map edge.
@@ -1799,6 +2721,7 @@ class AudioEngine {
     else if (tool === 'fire') fireT = 0;
   }
   function endAction() { if (tool === 'quake' && qStart) { const h = mouse.hit; if (h) world.quake(qStart.x, qStart.z, h.x, h.z, intensity); qStart = null; } lastCarve = null; delStroke = null; delCarve = null; mouse.landDelete = false; }
+
   function deletionTarget() {
     if (!mouse.hit && !mouse.inside) return null;
     const d = R.ray(mouse.nx, mouse.ny), h = mouse.hit = R.pick(mouse.nx, mouse.ny, world);
@@ -1841,51 +2764,257 @@ class AudioEngine {
     beam(x0, y1, (z0 + z1) * 0.5, th, th, z1 - z0); beam(x1, y1, (z0 + z1) * 0.5, th, th, z1 - z0);
     beam(o.x, y0 + 0.06, o.z, (x1 - x0) * 1.05, 0.1, (z1 - z0) * 1.05);
   }
-  function trySelect() { let best = 30, bn = null; const r = canvas.getBoundingClientRect(); for (const n of world.npcs) { if (n.inside || (n.st === DEAD && n.deadT >= 999)) continue; const p = R.project(n.x, n.y + 0.4, n.z); if (p[2] <= 0) continue; const d = Math.hypot((p[0] + 1) / 2 * r.width - mouse.px, (1 - p[1]) / 2 * r.height - mouse.py); if (d < best) { best = d; bn = n; } } R.sel = bn; follow = !!bn; if (bn) R.cam.gdist = Math.min(R.cam.gdist, 26); }
+  function trySelect(radius) {
+    let best = radius || 30, bn = null;
+    const r = canvasRect;
+    for (const n of world.npcs) {
+      if (n.inside || (n.st === DEAD && n.deadT >= 999)) continue;
+      const p = R.project(n.x, n.y + 0.4, n.z);
+      if (p[2] <= 0) continue;
+      const d = Math.hypot((p[0] + 1) / 2 * r.width - mouse.px, (1 - p[1]) / 2 * r.height - mouse.py);
+      if (d < best) { best = d; bn = n; }
+    }
+    R.sel = bn; follow = !!bn;
+    if (bn) R.cam.gdist = Math.min(R.cam.gdist, 26);
+  }
+
+  function promotePendingToAct(curX, curY) {
+    if (!pending) return;
+    const p = pending;
+    clearPending();
+    mouse.mode = 'act';
+    mouse.down = true;
+    mouse.nx = p.nx; mouse.ny = p.ny;
+    mouse.inside = true;
+    beginAction();
+    if (curX !== undefined && curY !== undefined) {
+      setMouseCoords(curX, curY);
+      if (tool === 'delete') tryDelete(true);
+    }
+  }
+
+  function startTwoFingerGesture() {
+    clearPending();
+    if (mouse.mode === 'act') {
+      qStart = null; lastCarve = null; delStroke = null; delCarve = null; mouse.landDelete = false;
+    }
+    mouse.down = false;
+    mouse.mode = 'gest';
+    gestLock = true;
+    const p = [...ptrs.values()];
+    gest = {
+      d: Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y),
+      a: Math.atan2(p[1].y - p[0].y, p[1].x - p[0].x),
+      cx: (p[0].x + p[1].x) / 2,
+      cy: (p[0].y + p[1].y) / 2
+    };
+  }
+
   canvas.addEventListener('contextmenu', e => e.preventDefault());
   canvas.addEventListener('pointerdown', e => {
-    if (!started) return; audio.start(); canvas.setPointerCapture(e.pointerId); setMouse(e); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (e.pointerType === 'touch' && ptrs.size === 2) { if (mouse.mode === 'act') { qStart = null; lastCarve = null; } mouse.down = false; mouse.mode = 'gest'; const p = [...ptrs.values()]; gest = { d: Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y), a: Math.atan2(p[1].y - p[0].y, p[1].x - p[0].x), cx: (p[0].x + p[1].x) / 2, cy: (p[0].y + p[1].y) / 2 }; return; }
+    if (e.target !== canvas || isModalOpen()) return;
+    $('bar').classList.remove('inten-open');
+    audio.start();
+    try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
+    ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    if (e.pointerType === 'touch') {
+      if (ptrs.size >= 2) { startTwoFingerGesture(); return; }
+      if (gestLock) return;
+      setMouse(e);
+      mouse.moved = 0;
+      mouse.landDelete = !!(e.altKey || landDeleteMode);
+      if (tool === 'observe' || panMode) {
+        mouse.down = true;
+        mouse.mode = 'pan';
+        canvas.style.cursor = 'grabbing';
+        return;
+      }
+      mouse.down = false;
+      mouse.mode = 'pending';
+      const p = { id: e.pointerId, sx: e.clientX, sy: e.clientY, nx: mouse.nx, ny: mouse.ny, t: performance.now(), timer: null };
+      pending = p;
+      if (!isSingleTapTool(tool)) {
+        p.timer = setTimeout(() => {
+          if (pending === p && mouse.mode === 'pending' && ptrs.size === 1 && !gestLock && !isModalOpen()) {
+            const cur = ptrs.get(p.id);
+            if (tool === 'tornado' && world.tornados.length > 0) {
+              clearPending();
+              mouse.mode = 'act'; mouse.down = true; mouse.inside = true;
+              if (cur) setMouseCoords(cur.x, cur.y);
+            } else {
+              promotePendingToAct(cur ? cur.x : p.sx, cur ? cur.y : p.sy);
+            }
+          }
+        }, TOUCH_HOLD_MS);
+      }
+      return;
+    }
+
     if (ptrs.size > 1) return;
-    mouse.down = true; mouse.moved = 0; mouse.landDelete = !!e.altKey;
-    if (e.button === 2) mouse.mode = 'rot'; else if (e.button === 1 || e.shiftKey || tool === 'observe') mouse.mode = 'pan'; else { mouse.mode = 'act'; beginAction(); }
+    setMouse(e);
+    mouse.down = true; mouse.moved = 0;
+    mouse.landDelete = !!(e.altKey || (tool === 'delete' && landDeleteMode));
+    if (e.button === 2) mouse.mode = 'rot';
+    else if (e.button === 1 || e.shiftKey || tool === 'observe' || panMode) mouse.mode = 'pan';
+    else { mouse.mode = 'act'; beginAction(); }
     if (mouse.mode === 'pan') canvas.style.cursor = 'grabbing';
   });
+
   canvas.addEventListener('pointermove', e => {
-    const p = ptrs.get(e.pointerId), dx = p ? e.clientX - p.x : 0, dy = p ? e.clientY - p.y : 0; if (p) { p.x = e.clientX; p.y = e.clientY; }
-    if (mouse.mode === 'gest' && ptrs.size >= 2 && gest) { const q = [...ptrs.values()], d = Math.hypot(q[0].x - q[1].x, q[0].y - q[1].y), a = Math.atan2(q[1].y - q[0].y, q[1].x - q[0].x), cx = (q[0].x + q[1].x) / 2, cy = (q[0].y + q[1].y) / 2, c = R.cam; if (gest.d > 10 && d > 10) c.gdist *= gest.d / d; let da = a - gest.a; if (da > 3.14) da -= 6.283; if (da < -3.14) da += 6.283; c.gyaw -= da; pan(cx - gest.cx, cy - gest.cy); gest = { d, a, cx, cy }; return; }
-    setMouse(e); if (!mouse.down) return; mouse.moved += Math.abs(dx) + Math.abs(dy);
-    if (mouse.mode === 'rot') { R.cam.gyaw -= dx * 0.006; R.cam.gpitch += dy * 0.005; } else if (mouse.mode === 'pan') pan(dx, dy);
+    if (isModalOpen()) return;
+    const p = ptrs.get(e.pointerId), dx = p ? e.clientX - p.x : 0, dy = p ? e.clientY - p.y : 0;
+    if (p) { p.x = e.clientX; p.y = e.clientY; }
+    if (mouse.mode === 'gest' && ptrs.size >= 2 && gest) {
+      const q = [...ptrs.values()];
+      const d = Math.hypot(q[0].x - q[1].x, q[0].y - q[1].y);
+      const a = Math.atan2(q[1].y - q[0].y, q[1].x - q[0].x);
+      const cx = (q[0].x + q[1].x) / 2, cy = (q[0].y + q[1].y) / 2;
+      const c = R.cam;
+      if (gest.d > 10 && d > 10) c.gdist = clamp(c.gdist * (gest.d / d), 7, 230);
+      let da = a - gest.a;
+      if (da > Math.PI) da -= Math.PI * 2;
+      if (da < -Math.PI) da += Math.PI * 2;
+      if (Math.abs(da) > 0.004) c.gyaw -= da;
+      pan(cx - gest.cx, cy - gest.cy);
+      gest = { d, a, cx, cy };
+      return;
+    }
+    if (e.pointerType === 'touch' && gestLock) return;
+
+    setMouse(e);
+    if (mouse.mode === 'pending' && pending && e.pointerId === pending.id) {
+      const dist = Math.hypot(e.clientX - pending.sx, e.clientY - pending.sy);
+      mouse.moved = dist;
+      if (dist > TAP_SLOP) {
+        if (isSingleTapTool(tool)) {
+          const px = pending.sx, py = pending.sy;
+          clearPending();
+          mouse.down = true;
+          mouse.mode = 'pan';
+          pan(e.clientX - px, e.clientY - py);
+        } else if (tool === 'tornado' && world.tornados.length > 0) {
+          clearPending();
+          mouse.down = true;
+          mouse.mode = 'act';
+          mouse.inside = true;
+        } else {
+          promotePendingToAct(e.clientX, e.clientY);
+        }
+      }
+      return;
+    }
+
+    if (!mouse.down) return;
+    mouse.moved += Math.abs(dx) + Math.abs(dy);
+    if (mouse.mode === 'rot') { R.cam.gyaw -= dx * 0.006; R.cam.gpitch = clamp(R.cam.gpitch + dy * 0.005, 0.3, 1.45); }
+    else if (mouse.mode === 'pan') pan(dx, dy);
     else if (mouse.mode === 'act' && tool === 'delete') tryDelete(true);
   });
+
   const up = e => {
-    ptrs.delete(e.pointerId); if (mouse.mode === 'gest') { if (ptrs.size < 2) { gest = null; mouse.mode = ''; } return; }
-    if (!mouse.down) return; mouse.down = false;
-    if (mouse.mode === 'act') endAction(); else if (mouse.mode === 'pan' && tool === 'observe' && mouse.moved < 6) trySelect();
-    mouse.mode = ''; canvas.style.cursor = tool === 'observe' ? 'grab' : 'crosshair';
+    ptrs.delete(e.pointerId);
+    const isTouch = e.pointerType === 'touch';
+    if (mouse.mode === 'gest') {
+      if (ptrs.size < 2) { gest = null; mouse.mode = ''; }
+      if (ptrs.size === 0) { gestLock = false; if (isTouch) { mouse.inside = false; delHover = null; } }
+      return;
+    }
+    if (isTouch && ptrs.size === 0) gestLock = false;
+
+    if (mouse.mode === 'pending' && pending && e.pointerId === pending.id) {
+      const p = pending;
+      clearPending();
+      if (e.type === 'pointerup' && !isModalOpen()) {
+        mouse.nx = p.nx; mouse.ny = p.ny; mouse.inside = true;
+        mouse.down = true; mouse.mode = 'act';
+        beginAction();
+        mouse.hit = R.pick(mouse.nx, mouse.ny, world);
+        endAction();
+      }
+      mouse.down = false; mouse.mode = '';
+      if (isTouch) { mouse.inside = false; delHover = null; }
+      return;
+    }
+
+    if (!mouse.down) {
+      if (isTouch && ptrs.size === 0) { mouse.inside = false; delHover = null; }
+      return;
+    }
+    mouse.down = false;
+    if (mouse.mode === 'act') {
+      if (e.type === 'pointercancel') { qStart = null; lastCarve = null; delStroke = null; delCarve = null; mouse.landDelete = false; }
+      else endAction();
+    } else if (mouse.mode === 'pan' && tool === 'observe' && !panMode && mouse.moved < (isTouch ? 12 : 6)) {
+      trySelect(isTouch ? 44 : 30);
+    }
+    mouse.mode = '';
+    if (isTouch && ptrs.size === 0) { mouse.inside = false; delHover = null; }
+    canvas.style.cursor = (tool === 'observe' || panMode) ? 'grab' : 'crosshair';
   };
-  canvas.addEventListener('pointerup', up); canvas.addEventListener('pointercancel', up);
-  canvas.addEventListener('pointerleave', () => { mouse.inside = false; });
-  canvas.addEventListener('wheel', e => { e.preventDefault(); R.cam.gdist *= Math.exp(e.deltaY * 0.0012); }, { passive: false });
+  canvas.addEventListener('pointerup', up);
+  canvas.addEventListener('pointercancel', up);
+  canvas.addEventListener('pointerleave', e => { if (e.pointerType !== 'touch' && !mouse.down) mouse.inside = false; });
+  canvas.addEventListener('wheel', e => {
+    if (isModalOpen()) return;
+    e.preventDefault();
+    R.cam.gdist = clamp(R.cam.gdist * Math.exp(e.deltaY * 0.0012), 7, 230);
+  }, { passive: false });
+
   window.addEventListener('keydown', e => {
-    if (!started) return; const k = e.key.toLowerCase(); keys[k] = true;
+    if (!started) return;
+    const k = e.key.toLowerCase();
+    if (k === 'escape') {
+      if (isMenuOpen()) { setMenuOpen(false); return; }
+      if (isHelpOpen()) { setHelpOpen(false); return; }
+      if ($('bar').classList.contains('inten-open')) { $('bar').classList.remove('inten-open'); return; }
+      R.sel = null; follow = false; qStart = null;
+      return;
+    }
+    if (k === 'h' || k === '?') { setHelpOpen(!isHelpOpen()); return; }
+    if (isMenuOpen() || isHelpOpen()) return;
+    keys[k] = true;
     if (k >= '1' && k <= '9') setTool(TOOLS[+k - 1].id);
     else if (k === ' ' || k === 'p') { setSpeed(paused ? 1 : 0); e.preventDefault(); }
-    else if (k === '[') setInt(intensity - 0.1); else if (k === ']') setInt(intensity + 0.1);
-    else if (k === 'm') toggleMute(); else if (k === 'escape') { R.sel = null; follow = false; qStart = null; $('help').classList.remove('show'); }
-    else if (k === 'h' || k === '?') $('help').classList.toggle('show');
+    else if (k === '[') setInt(intensity - 0.1);
+    else if (k === ']') setInt(intensity + 0.1);
+    else if (k === 'm') toggleMute();
     if (k.startsWith('arrow')) e.preventDefault();
   });
   window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
-  window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
-  function setInt(v) { intensity = clamp(v, 0.1, 1); $('rng').value = Math.round(intensity * 100); $('rv').textContent = Math.round(intensity * 100) + '%'; }
-  function toggleMute() { audio.setMuted(!audio.muted); $('mute').textContent = audio.muted ? '🔇' : '🔊'; }
+  window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; cancelPointer(); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) cancelPointer(); });
+  window.addEventListener('resize', syncLayout);
+  window.addEventListener('orientationchange', () => setTimeout(syncLayout, 60));
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', syncLayout);
+    window.visualViewport.addEventListener('scroll', updateCanvasRect);
+  }
+
+  function setInt(v) {
+    intensity = clamp(v, 0.1, 1);
+    const pct = Math.round(intensity * 100);
+    $('rng').value = pct;
+    $('rv').textContent = pct + '%';
+    $('rv-mini').textContent = pct + '%';
+  }
+  function syncMuteUI() {
+    const svg = audio.muted ? SND_OFF_SVG : SND_ON_SVG;
+    const lbl = audio.muted ? 'Sound off' : 'Sound on';
+    $('mute').innerHTML = svg + '<span class="menu-only">' + lbl + '</span>';
+    $('mute-quick').innerHTML = svg;
+    $('mute').setAttribute('aria-pressed', audio.muted ? 'true' : 'false');
+    $('mute-quick').setAttribute('aria-pressed', audio.muted ? 'true' : 'false');
+  }
+  function toggleMute() { audio.setMuted(!audio.muted); syncMuteUI(); }
 
   function keyCam(dt) {
     const c = R.cam, s = c.gdist * 0.9 * dt; let f = 0, r = 0;
-    if (keys.w || keys.arrowup) f += 1; if (keys.s || keys.arrowdown) f -= 1; if (keys.d || keys.arrowright) r += 1; if (keys.a || keys.arrowleft) r -= 1;
+    if (keys.w || keys.arrowup) f += 1; if (keys.s || keys.arrowdown) f -= 1;
+    if (keys.d || keys.arrowright) r += 1; if (keys.a || keys.arrowleft) r -= 1;
     if (f || r) { const cy = Math.cos(c.gyaw), sy = Math.sin(c.gyaw); c.gtx += (-sy * f + cy * r) * s; c.gtz += (-cy * f - sy * r) * s; follow = false; }
-    if (keys.q) c.gyaw += dt * 1.4; if (keys.e) c.gyaw -= dt * 1.4; if (keys.r) c.gpitch += dt * 0.8; if (keys.f) c.gpitch -= dt * 0.8;
+    if (keys.q) c.gyaw += dt * 1.4; if (keys.e) c.gyaw -= dt * 1.4;
+    if (keys.r) c.gpitch += dt * 0.8; if (keys.f) c.gpitch -= dt * 0.8;
     if (keys['='] || keys['+']) c.gdist *= 1 - dt * 1.2; if (keys['-']) c.gdist *= 1 + dt * 1.2;
     if (follow && R.sel) { c.gtx = R.sel.x; c.gtz = R.sel.z; }
   }
@@ -1893,19 +3022,27 @@ class AudioEngine {
   // ------------------------------------------------------------ powers held down (per sim tick)
   function toolTick(dt) {
     const h = mouse.hit, act = mouse.down && mouse.mode === 'act';
-    world.finger = (tool === 'finger' && h && mouse.inside) ? { x: h.x, z: h.z, r: 3.5 + 2.4 * intensity } : null;
-    world.steer = (tool === 'tornado' && h && (mouse.inside || act)) ? { x: h.x, z: h.z, strong: !!act } : null;
-    if (tool === 'flood' && act && h) { const a = lastCarve || h, d = Math.hypot(h.x - a.x, h.z - a.z), n = Math.min(240, Math.max(1, Math.ceil(d))); for (let k = 1; k <= n; k++) world.emitWater(a.x + (h.x - a.x) * k / n, a.z + (h.z - a.z) * k / n, intensity, dt / n); lastCarve = { x: h.x, z: h.z }; }
+    world.finger = (tool === 'finger' && !panMode && h && (mouse.inside || act)) ? { x: h.x, z: h.z, r: 3.5 + 2.4 * intensity } : null;
+    world.steer = (tool === 'tornado' && !panMode && h && (mouse.inside || act)) ? { x: h.x, z: h.z, strong: !!act } : null;
+    if (tool === 'flood' && act && h) {
+      const a = lastCarve || h, d = Math.hypot(h.x - a.x, h.z - a.z), n = Math.min(240, Math.max(1, Math.ceil(d)));
+      for (let k = 1; k <= n; k++) world.emitWater(a.x + (h.x - a.x) * k / n, a.z + (h.z - a.z) * k / n, intensity, dt / n);
+      lastCarve = { x: h.x, z: h.z };
+    }
     if (tool === 'fire' && act && h) { fireT -= dt; if (fireT <= 0) { world.ignite(h.x, h.z, intensity); fireT = 0.22; } }
     if (fing.cd > 0) fing.cd -= dt;
     if (fing.ph === 0) { if (tool === 'finger' && act && h && fing.cd <= 0) { fing.ph = 1; fing.t = 0; fing.x = h.x; fing.z = h.z; } }
     else if (fing.ph === 1) { fing.t += dt / 0.16; if (fing.t >= 1) { world.fingerPress(fing.x, fing.z, intensity); fing.ph = 2; fing.t = 0; } }
     else { fing.t += dt / 0.32; if (fing.t >= 1) { fing.ph = 0; fing.cd = 0.08; } }
   }
+
   function extraDraw(B, P) {
     const h = mouse.hit;
-    if (tool === 'quake' && qStart && h) { const d = Math.hypot(h.x - qStart.x, h.z - qStart.z), n = Math.max(2, Math.ceil(d / 1.2)); for (let k = 0; k <= n; k++) { const x = qStart.x + (h.x - qStart.x) * k / n, z = qStart.z + (h.z - qStart.z) * k / n; B.push(x, world.hAt(x, z) + 0.25, z, 0.5, 0.18, 0.5, 0, k, 0, 1, 0.35, 0.15, 1); } }
-    if (tool === 'finger' && (h && mouse.inside || fing.ph)) {
+    if (tool === 'quake' && qStart && h) {
+      const d = Math.hypot(h.x - qStart.x, h.z - qStart.z), n = Math.max(2, Math.ceil(d / 1.2));
+      for (let k = 0; k <= n; k++) { const x = qStart.x + (h.x - qStart.x) * k / n, z = qStart.z + (h.z - qStart.z) * k / n; B.push(x, world.hAt(x, z) + 0.25, z, 0.5, 0.18, 0.5, 0, k, 0, 1, 0.35, 0.15, 1); }
+    }
+    if (tool === 'finger' && !panMode && (h && mouse.inside || fing.ph)) {
       const fx = fing.ph ? fing.x : h.x, fz = fing.ph ? fing.z : h.z, fr = (1.6 + 2.4 * intensity) * 0.6, hov = 3.5 + fr * 2;
       const p = fing.ph === 1 ? fing.t * fing.t : fing.ph === 2 ? 1 - fing.t : 0, ty = world.hAt(fx, fz) + hov * (1 - p) - 0.2 * p, c = [0.94, 0.77, 0.63], yw = R.cam.yaw;
       B.push(fx, ty + 0.35 * fr, fz, 1.1 * fr, 0.7 * fr, 1.1 * fr, 0, yw, 0, c[0], c[1], c[2], 0.08);
@@ -1913,26 +3050,30 @@ class AudioEngine {
       B.push(fx, ty + 3.5 * fr, fz, 1.6 * fr, 2.5 * fr, 1.6 * fr, 0, yw, 0, c[0] * 0.97, c[1] * 0.96, c[2] * 0.95, 0.08);
       B.push(fx, ty + 6.4 * fr, fz, 1.78 * fr, 3.4 * fr, 1.78 * fr, 0, yw, 0, c[0] * 0.95, c[1] * 0.93, c[2] * 0.92, 0.08);
       B.push(fx + Math.sin(yw) * 0.74 * fr, ty + 1.25 * fr, fz + Math.cos(yw) * 0.74 * fr, 1.05 * fr, 1.5 * fr, 0.1 * fr, 0, yw, 0, 0.99, 0.92, 0.88, 0.15);
-      B.push(fx, ty + 2.36 * fr, fz, 1.5 * fr, 0.05 * fr, 1.5 * fr, 0, yw, 0, c[0] * 0.8, c[1] * 0.75, c[2] * 0.72, 0); B.push(fx, ty + 4.76 * fr, fz, 1.65 * fr, 0.05 * fr, 1.65 * fr, 0, yw, 0, c[0] * 0.8, c[1] * 0.75, c[2] * 0.72, 0);
+      B.push(fx, ty + 2.36 * fr, fz, 1.5 * fr, 0.05 * fr, 1.5 * fr, 0, yw, 0, c[0] * 0.8, c[1] * 0.75, c[2] * 0.72, 0);
+      B.push(fx, ty + 4.76 * fr, fz, 1.65 * fr, 0.05 * fr, 1.65 * fr, 0, yw, 0, c[0] * 0.8, c[1] * 0.75, c[2] * 0.72, 0);
       R.shadow[0] = fx; R.shadow[1] = fz; R.shadow[2] = fr * 2.6; R.shadow[3] = 0.25 + 0.35 * p;
     } else R.shadow[3] = 0;
-    if (tool === 'delete' && h && (mouse.landDelete || keys.alt) && (mouse.inside || mouse.down)) {
+    const landActive = mouse.landDelete || keys.alt || landDeleteMode;
+    if (tool === 'delete' && !panMode && h && landActive && (mouse.inside || mouse.down)) {
       const br = world.eraseRadius(intensity), y = world.hAt(h.x, h.z);
       B.push(h.x, y + 2.6, h.z, 0.16, 5.2, 0.16, 0, 0, 0, 1, 0.95, 0.4, 1);
       for (let k = 0; k < 4; k++) { const a = (R.time || 0) * 1.6 + k * 1.5708; B.push(h.x + Math.cos(a) * br, y + 0.55, h.z + Math.sin(a) * br, 0.22, 1.1, 0.22, 0, a, 0, 1, 0.98, 0.55, 1); }
     }
-    if (tool === 'delete' && delHover && !mouse.landDelete && !keys.alt) frameTarget(B, delHover);
+    if (tool === 'delete' && !panMode && delHover && !landActive) frameTarget(B, delHover);
   }
+
   function marker() {
-    const h = mouse.hit, m = R.mark, c = R.markC; R.brush = 0; if (!h || tool === 'observe' || !mouse.inside && !mouse.down) { c[3] = 0; return; }
+    const h = mouse.hit, m = R.mark, c = R.markC; R.brush = 0;
+    if (!h || tool === 'observe' || panMode || (!mouse.inside && !mouse.down)) { c[3] = 0; return; }
     m[0] = h.x; m[1] = h.z; c[3] = 0.75;
     if (tool === 'quake') { m[2] = 1.2; c[0] = 1; c[1] = 0.5; c[2] = 0.2; }
-    else if (tool === 'flood') { m[2] = 1.2 + 1.3 * intensity; c[0] = 0.3; c[1] = 0.7; c[2] = 1;  }
+    else if (tool === 'flood') { m[2] = 1.2 + 1.3 * intensity; c[0] = 0.3; c[1] = 0.7; c[2] = 1; }
     else if (tool === 'meteor') { m[2] = 4 + 7 * intensity; c[0] = 1; c[1] = 0.25; c[2] = 0.15; }
     else if (tool === 'finger') { m[2] = 1.6 + 2.4 * intensity; c[0] = 1; c[1] = 0.9; c[2] = 0.75; }
     else if (tool === 'lightning') { m[2] = 5 + 9 * intensity; c[0] = 0.6; c[1] = 0.75; c[2] = 1; }
     else if (tool === 'tornado') { m[2] = 3.2 + 5.5 * intensity; c[0] = 0.72; c[1] = 0.78; c[2] = 0.84; }
-    else if (tool === 'delete') { R.brush = 1; m[2] = (mouse.landDelete || keys.alt) ? world.eraseRadius(intensity) : 0.45; c[0] = 1; c[1] = 0.86; c[2] = 0.22; c[3] = 1; }
+    else if (tool === 'delete') { R.brush = 1; m[2] = (mouse.landDelete || keys.alt || landDeleteMode) ? world.eraseRadius(intensity) : 0.45; c[0] = 1; c[1] = 0.86; c[2] = 0.22; c[3] = 1; }
     else { m[2] = 1.5 + 4 * intensity; c[0] = 1; c[1] = 0.55; c[2] = 0.1; }
   }
 
@@ -1953,6 +3094,7 @@ class AudioEngine {
     for (let q = 0; q < 14 * k; q++) { const x = (c.tx + (rnd() - .5) * (c.dist + 20)) | 0, z = (c.tz + (rnd() - .5) * (c.dist + 20)) | 0; if (x < 1 || z < 1 || x > N - 2 || z > N - 2) continue; const i = z * N + x; if (w.flow[i] > 0.035 && w.w[i] > 0.15 && w.w[i] - w.wb[i] > 0.12) P.burst('splash', x, w.h[i] + w.w[i], z, 1, 0.5, 0.7); }
     for (const n of w.npcs) if (n.onFire > 0 && n.st !== DEAD && rnd() < 0.5) P.burst('fire', n.x, n.y + 0.5, n.z, 1, 0.15, 0.5);
   }
+
   function audioMix(dt) {
     const w = world, c = R.cam, rad = c.dist * 0.6 + 14; let riv = 0, fl = 0, cnt = 0;
     for (let k = 0; k < 28; k++) { const a = k * 2.4, r = rad * Math.sqrt((k + 0.5) / 28), x = Math.round(c.tx + Math.cos(a) * r), z = Math.round(c.tz + Math.sin(a) * r); if (x < 0 || z < 0 || x >= N || z >= N) continue; const i = z * N + x; cnt++; if (w.w[i] > 0.1 && !(w.flag[i] & 2)) { riv += Math.min(1, w.flow[i] * 40); fl += Math.min(1, Math.max(0, w.w[i] - w.wb[i]) * w.flow[i] * 80); } }
@@ -1967,28 +3109,67 @@ class AudioEngine {
     const hr = Math.floor(w.time * 24); if (hr !== lastHour) { if ((hr === 12 || hr === 18 || hr === 6) && lastHour >= 0) { const ch = w.buildings.find(b => b.type === 'church'); if (ch && !ch.ruin) sfx('bell', ch.x, ch.z, 0.9); } lastHour = hr; }
   }
 
-  // ------------------------------------------------------------ HUD
+  // ------------------------------------------------------------ HUD (cached DOM updates)
   function hud() {
     const s = world.stats(), t = world.time * 24, hh = Math.floor(t), mm = Math.floor((t - hh) * 60);
-    $('s-pop').textContent = s.alive; $('s-inj').textContent = s.inj; $('s-dead').textContent = s.dead; $('s-hl').textContent = s.hl; $('s-b').textContent = s.bs + '/' + s.bt; $('s-fire').textContent = s.fires + world.buildings.filter(b => b.fire > 0).length;
-    $('s-clock').textContent = 'Day ' + world.day + ' · ' + String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0') + (world.rain > 0 ? ' · rain' : '');
-    const y = R.cam.yaw, wx = world.wind[0], wz = world.wind[1]; $('s-wind').style.transform = 'rotate(' + Math.atan2(wx * Math.cos(y) - wz * Math.sin(y), -wx * Math.sin(y) - wz * Math.cos(y)) + 'rad)';
-    $('s-mood').textContent = s.pan > 0 ? s.pan + ' fleeing' : world.alarm > 0 ? 'shaken' : s.hl > 0 ? 'surviving' : 'at peace';
+    let bFires = 0;
+    for (let i = 0; i < world.buildings.length; i++) if (world.buildings[i].fire > 0) bFires++;
+    const totalFires = s.fires + bFires;
+    const clock = 'Day ' + world.day + ' · ' + String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0') + (world.rain > 0 ? ' · rain' : '');
+    const mood = s.pan > 0 ? s.pan + ' fleeing' : world.alarm > 0 ? 'shaken' : s.hl > 0 ? 'surviving' : 'at peace';
+    const warn = s.pan > 0 || world.alarm > 0 || totalFires > 0;
+    const y = R.cam.yaw, wx = world.wind[0], wz = world.wind[1];
+    const windDeg = Math.round(Math.atan2(wx * Math.cos(y) - wz * Math.sin(y), -wx * Math.sin(y) - wz * Math.cos(y)) * 57.2958);
+
+    if (prevHud.pop !== s.alive) { prevHud.pop = s.alive; $('s-pop').textContent = s.alive; $('s-pop-mini').textContent = s.alive; }
+    if (prevHud.inj !== s.inj) { prevHud.inj = s.inj; $('s-inj').textContent = s.inj; }
+    if (prevHud.dead !== s.dead) { prevHud.dead = s.dead; $('s-dead').textContent = s.dead; }
+    if (prevHud.hl !== s.hl) { prevHud.hl = s.hl; $('s-hl').textContent = s.hl; }
+    if (prevHud.bs !== s.bs || prevHud.bt !== s.bt) { prevHud.bs = s.bs; prevHud.bt = s.bt; $('s-b').textContent = s.bs + '/' + s.bt; }
+    if (prevHud.fires !== totalFires) { prevHud.fires = totalFires; $('s-fire').textContent = totalFires; }
+    if (prevHud.clock !== clock) { prevHud.clock = clock; $('s-clock').textContent = clock; }
+    if (prevHud.mood !== mood) { prevHud.mood = mood; $('s-mood').textContent = mood; $('s-mood-mini').textContent = mood; }
+    if (prevHud.warn !== warn) { prevHud.warn = warn; $('s-mood-mini').classList.toggle('warn', warn); }
+    if (prevHud.windDeg !== windDeg) {
+      prevHud.windDeg = windDeg;
+      const tr = 'rotate(' + windDeg + 'deg)';
+      $('s-wind').style.transform = tr;
+      $('s-wind-mini').style.transform = tr;
+    }
+
     const n = R.sel, card = $('card');
-    if (n) { card.classList.add('show'); const b = world.buildings[n.home]; let st = n.st === DEAD ? 'Dead' + (n.cause ? ' — ' + n.cause : '') : n.st === PANIC ? 'Fleeing in terror' : n.st === STUMBLE ? 'Knocked to the ground' : n.st === SHAKEN ? 'Shaken, watching from a distance' : n.inside ? 'Asleep at home' : n.goal === 'camp' ? 'Sheltering at the camp' : n.goal === 'home' ? 'Heading home' : n.goal === 'plaza' ? (n.moving ? 'Walking to the square' : 'Talking in the square') : n.working ? 'Working' : n.moving ? 'Walking to work' : 'Resting';
-      $('c-name').textContent = n.name; $('c-job').textContent = n.job + (n.homeless ? ' · homeless' : b && b.type === 'tent' ? ' · lives in a tent' : ''); $('c-st').textContent = st; $('c-hp').style.width = Math.round(clamp(n.hp, 0, 1) * 100) + '%'; }
-    else card.classList.remove('show');
+    if (n) {
+      if (prevHud.selId !== n.id) { prevHud.selId = n.id; card.classList.add('show'); $('c-name').textContent = n.name; }
+      const b = world.buildings[n.home];
+      const job = n.job + (n.homeless ? ' · homeless' : b && b.type === 'tent' ? ' · lives in a tent' : '');
+      const st = n.st === DEAD ? 'Dead' + (n.cause ? ' — ' + n.cause : '') : n.st === PANIC ? 'Fleeing in terror' : n.st === STUMBLE ? 'Knocked to the ground' : n.st === SHAKEN ? 'Shaken, watching from a distance' : n.inside ? 'Asleep at home' : n.goal === 'camp' ? 'Sheltering at the camp' : n.goal === 'home' ? 'Heading home' : n.goal === 'plaza' ? (n.moving ? 'Walking to the square' : 'Talking in the square') : n.working ? 'Working' : n.moving ? 'Walking to work' : 'Resting';
+      const hp = Math.round(clamp(n.hp, 0, 1) * 100);
+      if (prevHud.selJob !== job) { prevHud.selJob = job; $('c-job').textContent = job; }
+      if (prevHud.selSt !== st) { prevHud.selSt = st; $('c-st').textContent = st; }
+      if (prevHud.selHp !== hp) { prevHud.selHp = hp; $('c-hp').style.width = hp + '%'; }
+    } else if (prevHud.selId !== -1) {
+      prevHud.selId = -1;
+      card.classList.remove('show');
+    }
   }
 
   // ------------------------------------------------------------ loop
   function frame(ts) {
     const elapsed = (ts - last) / 1000 || 0.016, dt = Math.min(0.05, elapsed); last = ts; frameN++;
-    fps.n++; fps.acc += elapsed; fps.worst = Math.max(fps.worst, elapsed * 1000); if (fps.n >= 30) { fps.ms = fps.acc / fps.n * 1000; fps.fps = 1000 / fps.ms; fps.n = 0; fps.acc = 0; fps.worst = dt * 1000; }
+    fps.n++; fps.acc += elapsed; fps.worst = Math.max(fps.worst, elapsed * 1000);
+    if (fps.n >= 30) { fps.ms = fps.acc / fps.n * 1000; fps.fps = 1000 / fps.ms; fps.n = 0; fps.acc = 0; fps.worst = dt * 1000; }
     keyCam(dt);
-    if (!paused && started) { acc += dt * speed; let n = 0; while (acc >= STEP && n < 6) { toolTick(STEP); world.tick(STEP); acc -= STEP; n++; } if (n >= 6) acc = 0; } else if (started) { world.finger = null; }
+    if (!paused && started) {
+      acc += dt * speed; let n = 0;
+      while (acc >= STEP && n < 6) { toolTick(STEP); world.tick(STEP); acc -= STEP; n++; }
+      if (n >= 6) acc = 0;
+    } else if (started) { world.finger = null; }
     if (started) world.decayFades(dt);
-    R.updateCam(dt, world); mouse.hit = mouse.inside || mouse.down ? R.pick(mouse.nx, mouse.ny, world) : null;
-    if (started && tool === 'delete') delHover = deletionTarget(); else if (tool !== 'delete') delHover = null;
+    R.updateCam(dt, world);
+    const needPick = (mouse.inside || mouse.down) && tool !== 'observe' && !panMode && mouse.mode !== 'pan' && mouse.mode !== 'gest';
+    mouse.hit = needPick ? R.pick(mouse.nx, mouse.ny, world) : null;
+    if (started && tool === 'delete' && !panMode && (mouse.inside || mouse.down)) delHover = deletionTarget();
+    else if (tool !== 'delete' || panMode) delHover = null;
     marker();
     if (!paused && started) emitFx(dt);
     R.draw(world, paused ? 0 : dt);
@@ -1999,17 +3180,82 @@ class AudioEngine {
   function init() {
     try { R = new Renderer(canvas); } catch (e) { $('start-msg').textContent = 'This browser cannot run the game: ' + e.message; $('begin').style.display = 'none'; return; }
     R.extra = extraDraw;
-    const tb = $('tools'); TOOLS.forEach((t, i) => { const b = document.createElement('button'); b.dataset.t = t.id; b.title = t.name + ' (' + (i + 1) + ')'; b.innerHTML = '<span class="ic">' + t.icon + '</span><span class="nm">' + t.name + '</span><span class="ky">' + (i + 1) + '</span>'; b.onclick = () => { audio.start(); setTool(t.id); }; tb.appendChild(b); });
+    const tb = $('tools');
+    TOOLS.forEach((t, i) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.dataset.t = t.id;
+      b.title = t.name + ' (' + (i + 1) + ')';
+      b.setAttribute('aria-label', t.name);
+      b.innerHTML = '<span class="ic">' + ICONS[t.id] + '</span><span class="nm">' + t.short + '</span><span class="ky">' + (i + 1) + '</span>';
+      b.onclick = () => { audio.start(); setTool(t.id); };
+      tb.appendChild(b);
+    });
+
     $('rng').oninput = e => setInt(e.target.value / 100);
+    for (const b of document.querySelectorAll('.inten-presets button')) b.onclick = () => setInt(+b.dataset.p / 100);
+    $('inten-btn').onclick = e => { e.stopPropagation(); $('bar').classList.toggle('inten-open'); };
+    $('pan-btn').onclick = () => { audio.start(); setPanMode(!panMode); };
+    $('land-btn').onclick = () => { audio.start(); setLandDelete(!landDeleteMode); };
+    $('land-desk').onclick = () => { audio.start(); setLandDelete(!landDeleteMode); };
+
     for (const b of document.querySelectorAll('#speed button')) b.onclick = () => setSpeed(+b.dataset.s);
-    $('save').onclick = save; $('load').onclick = load; $('new').onclick = () => { newWorld(); toast('A new world is born — your saved world is untouched'); };
-    $('mute').onclick = toggleMute; $('helpb').onclick = () => $('help').classList.toggle('show'); $('help').onclick = () => $('help').classList.remove('show');
-    newWorld(); setInt(0.6); setTool('observe'); setSpeed(1);
+    $('save').onclick = () => { save(); if (isMenuOpen()) setMenuOpen(false); };
+    $('load').onclick = () => { load(); if (isMenuOpen()) setMenuOpen(false); };
+    $('new').onclick = () => { newWorld(); toast('A new world is born — your saved world is untouched'); if (isMenuOpen()) setMenuOpen(false); };
+    $('mute').onclick = toggleMute;
+    $('mute-quick').onclick = toggleMute;
+    $('helpb').onclick = () => setHelpOpen(!isHelpOpen());
+    $('help-close').onclick = () => setHelpOpen(false);
+    $('help').onclick = e => { if (e.target === $('help')) setHelpOpen(false); };
+    $('help').firstElementChild.onclick = e => e.stopPropagation();
+
+    $('menub').onclick = e => { e.stopPropagation(); setMenuOpen(!isMenuOpen()); };
+    $('menu-backdrop').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); setMenuOpen(false); });
+    $('menu-backdrop').addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); setMenuOpen(false); });
+
+    for (const b of document.querySelectorAll('.menu-tilt-btns button')) {
+      b.onclick = () => { R.cam.gpitch = +b.dataset.tilt; setMenuOpen(false); };
+    }
+    $('cam-reset').onclick = () => {
+      R.cam.gtx = world.vc.x; R.cam.gtz = world.vc.z; R.cam.gdist = 62; R.cam.gpitch = 0.72; R.cam.gyaw = 0.5;
+      follow = false; setMenuOpen(false);
+    };
+
+    $('stats-toggle').onclick = () => setStatsCollapsed(!$('stats').classList.contains('collapsed'), true);
+    $('card-close').onclick = () => { R.sel = null; follow = false; };
+    $('rotate-dismiss').onclick = () => { rotateDismissed = true; $('rotate-tip').classList.remove('show'); };
+
+    document.addEventListener('pointerdown', e => {
+      if ($('bar').classList.contains('inten-open') && !$('bar').contains(e.target)) {
+        $('bar').classList.remove('inten-open');
+      }
+    });
+
+    newWorld(); setInt(0.6); setTool('observe'); setSpeed(1); syncMuteUI(); syncLayout();
     $('start-msg').textContent = 'A village wakes beside the river. It does not know you are watching.';
     $('begin').disabled = false; if (hasSave()) $('cont').style.display = '';
-    const go = cont => { audio.start(); if (cont) load(); started = true; $('start').classList.add('gone'); log('The valley wakes. ' + world.stats().alive + ' villagers begin their day.'); };
+    const go = cont => {
+      audio.start(); if (cont) load();
+      started = true; $('start').classList.add('gone');
+      syncLayout();
+      log('The valley wakes. ' + world.stats().alive + ' villagers begin their day.');
+    };
     $('begin').onclick = () => go(false); $('cont').onclick = () => go(true);
-    window.__game = { get world() { return world; }, R, setTool, setInt, save, load, newWorld, mouse, audio, fps, get started() { return started; }, setSpeed, get tool() { return tool; }, get delHover() { return delHover; } };
+
+    window.__game = {
+      get world() { return world; },
+      R, setTool, setInt, save, load, newWorld, mouse, audio, fps,
+      get started() { return started; },
+      setSpeed,
+      get tool() { return tool; },
+      get delHover() { return delHover; },
+      get panMode() { return panMode; },
+      setPanMode,
+      get landDeleteMode() { return landDeleteMode; },
+      setLandDelete,
+      isModalOpen
+    };
     requestAnimationFrame(frame);
   }
   setTimeout(init, 30);
