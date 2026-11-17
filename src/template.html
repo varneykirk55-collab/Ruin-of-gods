@@ -236,32 +236,6 @@
   }
   #menu-backdrop.show { display: block; }
 
-  /* ---------- Rotate Hint ---------- */
-  #rotate-tip {
-    position: fixed;
-    top: calc(var(--sat) + 56px);
-    left: 50%;
-    transform: translateX(-50%);
-    display: none;
-    align-items: center;
-    gap: 8px;
-    padding: 5px 8px 5px 12px;
-    border-radius: 999px;
-    font-size: 12px;
-    font-weight: 700;
-    z-index: 11;
-    white-space: nowrap;
-    background: var(--bg-soft);
-  }
-  #rotate-dismiss {
-    min-height: 24px;
-    width: 24px;
-    padding: 0;
-    border-radius: 999px;
-    font-size: 13px;
-    line-height: 1;
-  }
-
   /* ---------- Selected Villager Card ---------- */
   #card {
     position: fixed;
@@ -670,7 +644,6 @@
     #speed button { padding: 4px 7px; min-width: 28px; font-size: 12px; }
     #mute-quick, #menub { padding: 5px 8px; min-height: 36px; }
     #menub span { display: none; }
-    #rotate-tip.show { display: inline-flex; }
     #bar { width: calc(100vw - var(--sal) - var(--sar) - 14px); }
     #log { bottom: calc(var(--sab) + 78px); width: calc(100vw - var(--sal) - var(--sar) - 20px); max-width: 300px; }
     #log div:nth-last-child(n+3) { display: none; }
@@ -764,11 +737,6 @@
   </div>
 </div>
 <div id="menu-backdrop"></div>
-
-<div id="rotate-tip" class="panel" role="status">
-  <span>↻ Rotate to landscape for best view</span>
-  <button type="button" id="rotate-dismiss" aria-label="Dismiss rotate hint">×</button>
-</div>
 
 <div id="card" class="panel">
   <div id="card-head">

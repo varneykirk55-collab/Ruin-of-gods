@@ -1,7 +1,7 @@
 name: Disaster regression
 on:
   push:
-    branches: [astra/water-disaster-survival]
+    branches: [astra/water-disaster-survival, astra/volcanic-frontier]
   pull_request:
     branches: [main]
 permissions:
@@ -12,6 +12,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -19,6 +21,10 @@ jobs:
         run: |
           node build.js
           git diff --exit-code -- index.html
+      - name: Frontier and authentic legacy save regression
+        run: |
+          git show f21ec4ecc68e9ed422d5b5cf5ebc08c663caa98c:src/sim.js > "$RUNNER_TEMP/legacy-valley.cjs"
+          LEGACY_SIM="$RUNNER_TEMP/legacy-valley.cjs" node tests/frontier.js
       - name: Existing simulation regression
         run: node tests/test_sim.js 1234
       - name: Water and survival regression
@@ -28,6 +34,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -37,6 +45,10 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Build
         run: node build.js
+      - name: Portrait before and after, crater interaction and camera
+        run: |
+          git show f21ec4ecc68e9ed422d5b5cf5ebc08c663caa98c:index.html > baseline.html
+          FRONTIER_BASE_HTML="$PWD/baseline.html" node tests/frontier_browser.js
       - name: Browser power combinations and persistence
         run: node tests/browser_powers.js
       - uses: actions/upload-artifact@v4
