@@ -12,7 +12,7 @@ The four music tracks play in sequence and repeat while you play. Music adjusts 
 ## Controls
 | Input | Action |
 |---|---|
-| 1-8 | Observe, Earthquake, Flood, Meteor, Divine Finger, Firestorm, Lightning, Tornado |
+| 1-9 | Observe, Earthquake, Flood, Meteor, Divine Finger, Firestorm, Lightning, Tornado, Lava |
 | Left mouse | Use the power (Observe: drag to pan, click a villager to follow) |
 | Right-drag | Rotate and tilt |
 | Shift-drag / middle-drag | Pan while a power is selected |
@@ -47,7 +47,7 @@ Run `node build.js`, `node tests/test_sim.js 1234`, and `node tests/disaster_sur
 
 ## Southern frontier
 
-The valley spans 160 columns and 320 rows. Pan south across the estuary to reach the farm village, forest settlement and volcano. In Observe, tap the glowing crater to start a seven-second warning. A nearby earthquake or the volcano’s own timer can also wake it. An eruption feeds lava for 26 simulation seconds. Hot material follows the lowest neighbouring surface, ignites vegetation, damages structures and cools into basalt. Water accelerates cooling.
+The valley spans 160 columns and 320 rows. Pan south across the estuary to reach the farm village, forest settlement and volcano. In Observe, tap the glowing crater to start a seven-second warning. A nearby earthquake or the volcano’s own timer can also wake it. An eruption feeds a broad lava source for 90 simulation seconds. Hot material spreads across lower neighbouring surfaces, ignites vegetation, damages structures and cools into basalt. Water accelerates cooling.
 
 The original 160 rows retain their indices and seeded generation sequence. Both halves share water, pathfinding, fire, building damage and hazard grids. Rendering culls terrain and vegetation in 32-cell tiles while offscreen hazards continue to advance. The portrait starting view is wider and the camera target can travel the entire length of the valley.
 
@@ -62,3 +62,5 @@ Snow cover grows slowly and more quickly under localized blizzards. Melting a fu
 Version 4 saves preserve snow, ice, thaw timers and blizzard progression alongside the existing world and disasters. Versions 1–3 append the new terrain while retaining their saved terrain and settlements, with shelter references shifted past new permanent buildings. Rendering uses the existing tile culling. Cold processing runs in four alternating bands independently of the camera. Glacial formations are terrain geometry. Individual ice fragments and structural glacier flow are outside this approximation.
 
 For Arctic regression, extract `src/sim.js` from commit `f5751a1` and set `ARCTIC_BASE_SIM` to that file when running `node tests/arctic.js`. `ARCTIC_BASE_HTML` selects the same commit’s bundled HTML for `node tests/arctic_browser.js`. These checks run on feature-branch pushes, with screenshots and benchmark results uploaded by GitHub Actions. Device performance still requires physical iPhone and Android testing.
+
+Lava (9) pours molten material at the cursor. Hold to feed a flow or drag to paint a wider source. Intensity controls the source width and output. Lava uses the volcano simulation, melts Arctic ice and snow, damages settlements, and leaves persistent basalt. Water cools it faster than dry terrain.

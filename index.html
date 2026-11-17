@@ -798,7 +798,7 @@
     </div>
     <h3>Touch Controls</h3>
     <table>
-      <tr><td>1-finger drag</td><td><b>Observe / Move:</b> pan camera · <b>Powers:</b> draw quake, steer tornado, pour flood, ignite or press</td></tr>
+      <tr><td>1-finger drag</td><td><b>Observe / Move:</b> pan camera · <b>Powers:</b> draw quake, steer tornado, pour flood or lava, ignite or press</td></tr>
       <tr><td>1-finger tap</td><td><b>Observe:</b> inspect &amp; follow a villager · <b>Powers:</b> drop meteor, call lightning, or zap object</td></tr>
       <tr><td>2-finger gesture</td><td>Pinch to zoom, drag to pan, twist to rotate (never triggers powers)</td></tr>
       <tr><td>Move button</td><td>Drag to pan while keeping your selected power. Tap Rotate to orbit and tilt with one finger. Tap the active camera button again to cast.</td></tr>
@@ -1222,37 +1222,57 @@ class World {
     this.fx.sound('gust',v.x,v.z,0.6);
   }
 
+  emitLava(x,z,I,dt) {
+    if (![x,z,I,dt].every(Number.isFinite) || dt<=0 || x<1 || z<1 || x>=N-1 || z>=ROWS-1) return 0;
+    const strength=clamp(I,.1,1), radius=1.5+2*strength, extent=Math.ceil(radius), cells=[];
+    const xi=Math.round(x),zi=Math.round(z);
+    let weight=0;
+    for(let dz=-extent;dz<=extent;dz++)for(let dx=-extent;dx<=extent;dx++) {
+      const X=xi+dx,Z=zi+dz,distance=Math.hypot(X-x,Z-z);
+      if(X<1||Z<1||X>=N-1||Z>=ROWS-1||distance>=radius)continue;
+      const share=1-distance/radius;
+      cells.push([Z*N+X,share]);weight+=share;
+    }
+    if(!weight)return 0;
+    const amount=(20+60*strength)*Math.min(dt,.2);
+    for(const [i,share] of cells)this.lava.set(i,(this.lava.get(i)||0)+amount*share/weight);
+    return amount;
+  }
+
   stepVolcano(dt) {
     const v = this.volcano;
     v.remaining -= dt;
     if (v.remaining <= 0) {
       if (v.state === 'dormant') this.wakeVolcano();
       else if (v.state === 'restless') {
-        v.state = 'erupting'; v.remaining = 26;
+        v.state = 'erupting'; v.remaining = 90;
         this.fx.log('The volcano erupts'); this.fx.sound('boom',v.x,v.z,1);
-        this.addThreat(v.x,v.z-11,27,18);
+        this.addThreat(v.x,v.z-11,32,90);
       } else { v.state='dormant'; v.remaining=240; }
     }
     v.step += dt;
     if (v.step < 0.2) return;
     v.step -= 0.2;
-    const vent = this.ci(v.x,v.z-4);
-    if (v.state === 'erupting') this.lava.set(vent,(this.lava.get(vent)||0)+3);
+    if (v.state === 'erupting') this.emitLava(v.x,v.z-3,1,.2);
     if (!this.lava.size) return;
     // Flux uses one snapshot, so iteration order cannot carry a parcel several
     // cells in one step. Only hot cells and their four neighbours do work.
     const next = new Map(this.lava);
     for (const [i,heat] of this.lava) {
-      let lowest=i, level=this.h[i]+heat;
-      const x=i%N,z=Math.floor(i/N);
-      for (const j of [x>0?i-1:i,x<N-1?i+1:i,z>0?i-N:i,z<ROWS-1?i+N:i]) {
-        const there=this.h[j]+(this.lava.get(j)||0);
-        if (there<level) { lowest=j; level=there; }
+      const x=i%N,z=Math.floor(i/N), level=this.h[i]+heat, outlets=[];
+      let pressure=0, maxDrop=0;
+      // Divide a bounded outflow among every lower neighbour. Diagonal routes
+      // widen the stream while the shared budget keeps transfers conservative.
+      for(let dz=-1;dz<=1;dz++)for(let dx=-1;dx<=1;dx++) {
+        if((!dx&&!dz)||x+dx<0||x+dx>=N||z+dz<0||z+dz>=ROWS)continue;
+        const j=i+dz*N+dx, drop=(level-this.h[j]-(this.lava.get(j)||0))/Math.hypot(dx,dz);
+        if(drop<=0)continue;
+        outlets.push([j,drop]);pressure+=drop;maxDrop=Math.max(maxDrop,drop);
       }
-      if (lowest!==i) {
-        const transfer=Math.min(heat*0.74,(this.h[i]+heat-level)*0.48);
-        next.set(i,next.get(i)-transfer);
-        next.set(lowest,(next.get(lowest)||0)+transfer);
+      if(pressure>0) {
+        const outflow=Math.min(heat*.8,maxDrop*.36);
+        next.set(i,next.get(i)-outflow);
+        for(const [j,drop] of outlets)next.set(j,(next.get(j)||0)+outflow*drop/pressure);
       }
       if (heat>0.09) {
         this.meltCell(i,heat);
@@ -1262,7 +1282,7 @@ class World {
       }
     }
     for (const [i,heat] of next) {
-      const wet=this.w[i]>0.08, cool=Math.min(heat,wet ? 0.48 : 0.017);
+      const wet=this.w[i]>0.08, cool=Math.min(heat,wet ? 0.48 : 0.009);
       if (wet && heat>0.12 && this.rnd()<0.12) this.fx.burst('steam',i%N,this.h[i]+this.w[i],Math.floor(i/N),2,0.5,0.5);
       if (heat-cool <= 0.015) next.delete(i);
       else next.set(i,heat-cool);
@@ -1277,7 +1297,7 @@ class World {
       if ((next.get(i)||0)>0.08) {
         n.cause='lava'; n.hp-=0.16;
         if (n.hp<=0) this.kill(n);
-        else this.panic(n,v.x,v.z,20);
+        else this.panic(n,i%N,Math.floor(i/N),9);
       }
     }
   }
@@ -2254,7 +2274,7 @@ const HAND_POSES = {
 };
 const HAND_TINT = {
   observe:[0.42,0.94,1], quake:[1,0.72,0.36], flood:[0.35,0.84,1], meteor:[1,0.53,0.36],
-  finger:[0.64,1,0.83], fire:[1,0.66,0.28], lightning:[0.78,0.76,1], tornado:[0.54,1,0.93]
+  lava:[1,.48,.17], finger:[0.64,1,0.83], fire:[1,0.66,0.28], lightning:[0.78,0.76,1], tornado:[0.54,1,0.93]
 };
 
 class GodHand {
@@ -2884,6 +2904,7 @@ class AudioEngine {
     finger: '<svg viewBox="0 0 24 24" fill="none"><path d="M9 4h6v7.5l2.2.8a2 2 0 0 1 1.3 1.9V17a4 4 0 0 1-4 4h-3.6a4 4 0 0 1-3.6-2.2L5.5 15a1.6 1.6 0 0 1 2.7-1.7L9 14.4V4z" fill="#ffd2a6" stroke="#7a4924" stroke-width="1.8" stroke-linejoin="round"/><path d="M10.5 19.5h3" stroke="#ff6b35" stroke-width="2" stroke-linecap="round"/></svg>',
     fire: '<svg viewBox="0 0 24 24" fill="none"><path d="M12.5 3c.5 3.5-2.5 5-2.5 8 0 1.4.9 2.4 2 2.4 1.6 0 2.5-1.6 2-3.8 2.8 1.6 4.5 4.3 4.5 7 0 3.2-2.9 5.4-6.5 5.4S5.5 19.8 5.5 16.4C5.5 11.4 9 7 12.5 3z" fill="#ff6b35" stroke="#8c2303" stroke-width="1.7" stroke-linejoin="round"/><path d="M12 13.5c1.5 1.1 2.5 2.4 2.5 4a2.5 2.5 0 0 1-5 0c0-1.6 1-2.9 2.5-4z" fill="#ffe066"/></svg>',
     lightning: '<svg viewBox="0 0 24 24" fill="none"><path d="M13.5 2.5L5.5 13h5.5l-1.5 8.5L18.5 11H13l.5-8.5z" fill="#ffd93d" stroke="#b36b00" stroke-width="1.8" stroke-linejoin="round"/></svg>',
+    lava: '<svg viewBox="0 0 24 24" fill="none"><path d="M3 20L9 5h6l6 15H3z" fill="#9b6680" stroke="#674458" stroke-width="1.7"/><path d="M10 6l2 5-2 4 4 5M15 6l-2 4" stroke="#ff8838" stroke-width="3" stroke-linecap="round"/></svg>',
     tornado: '<svg viewBox="0 0 24 24" fill="none"><path d="M4 6h16M6 10h12M8 14h8M10 18h4M11.5 21h1.5" stroke="#4f6d7a" stroke-width="2.4" stroke-linecap="round"/><path d="M7 6c1 2 10 2 11 0M8 10c1 1.6 7 1.6 8 0" stroke="#8ab4c4" stroke-width="1.5" stroke-linecap="round"/></svg>',
   };
 
@@ -2899,6 +2920,7 @@ class AudioEngine {
     { id: 'fire', short: 'Fire', name: 'Firestorm', hint: 'Tap or drag to set the land alight. Fire follows the wind.' },
     { id: 'lightning', short: 'Bolt', name: 'Lightning', hint: 'Tap or click to unleash a storm of lightning.' },
     { id: 'tornado', short: 'Tornado', name: 'Tornado', hint: 'Tap to touch down a tornado; move or drag to steer it.' },
+    { id: 'lava', short: 'Lava', name: 'Lava', hint: 'Hold or drag to pour lava. It spreads downhill, burns and cools into rock.' },
   ];
 
   let R, world, audio = new AudioEngine(), tool = 'observe', intensity = 0.6, paused = false, speed = 1, started = false, memSave = null;
@@ -3076,6 +3098,7 @@ class AudioEngine {
     R.hand.cast(h);
     if (tool === 'quake') qStart = { x: h.x, z: h.z };
     else if (tool === 'flood') { world.emitWater(h.x, h.z, intensity, 0.1); lastCarve = { x: h.x, z: h.z }; }
+    else if (tool === 'lava') { world.emitLava(h.x,h.z,intensity,.1); lastCarve={x:h.x,z:h.z}; world.fx.sound('ignite',h.x,h.z,.8); }
     else if (tool === 'meteor') world.meteor(h.x, h.z, intensity);
     else if (tool === 'lightning') world.lightning(h.x, h.z, intensity);
     else if (tool === 'tornado') world.spawnTornado(h.x, h.z, intensity);
@@ -3297,7 +3320,7 @@ class AudioEngine {
     if (k === 'h' || k === '?') { setHelpOpen(!isHelpOpen()); return; }
     if (isMenuOpen() || isHelpOpen() || e.target.matches?.('.sound-level input')) return;
     keys[k] = true;
-    if (/^[1-8]$/.test(k)) setTool(TOOLS[+k - 1].id);
+    if (/^[1-9]$/.test(k)) setTool(TOOLS[+k - 1].id);
     else if (k === ' ' || k === 'p') { setSpeed(paused ? 1 : 0); e.preventDefault(); }
     else if (k === '[') setInt(intensity - 0.1);
     else if (k === ']') setInt(intensity + 0.1);
@@ -3355,9 +3378,13 @@ class AudioEngine {
     const h = mouse.hit, act = mouse.down && mouse.mode === 'act';
     world.finger = (tool === 'finger' && !panMode && h && (mouse.inside || act)) ? { x: h.x, z: h.z, r: 3.5 + 2.4 * intensity } : null;
     world.steer = (tool === 'tornado' && !panMode && h && (mouse.inside || act)) ? { x: h.x, z: h.z, strong: !!act } : null;
-    if (tool === 'flood' && act && h) {
+    if ((tool === 'flood' || tool === 'lava') && act && h) {
       const a = lastCarve || h, d = Math.hypot(h.x - a.x, h.z - a.z), n = Math.min(240, Math.max(1, Math.ceil(d)));
-      for (let k = 1; k <= n; k++) world.emitWater(a.x + (h.x - a.x) * k / n, a.z + (h.z - a.z) * k / n, intensity, dt / n);
+      for (let k = 1; k <= n; k++) {
+        const x=a.x+(h.x-a.x)*k/n,z=a.z+(h.z-a.z)*k/n;
+        if(tool==='lava')world.emitLava(x,z,intensity,dt/n);
+        else world.emitWater(x,z,intensity,dt/n);
+      }
       lastCarve = { x: h.x, z: h.z };
     }
     if (tool === 'fire' && act && h) { fireT -= dt; if (fireT <= 0) { world.ignite(h.x, h.z, intensity); fireT = 0.22; } }
@@ -3381,6 +3408,7 @@ class AudioEngine {
     m[0] = h.x; m[1] = h.z; c[3] = 0.75;
     if (tool === 'quake') { m[2] = 1.2; c[0] = 1; c[1] = 0.5; c[2] = 0.2; }
     else if (tool === 'flood') { m[2] = 1.2 + 1.3 * intensity; c[0] = 0.3; c[1] = 0.7; c[2] = 1; }
+    else if (tool === 'lava') { m[2]=1.5+2*intensity;c[0]=1;c[1]=.36;c[2]=.06; }
     else if (tool === 'meteor') { m[2] = 4 + 7 * intensity; c[0] = 1; c[1] = 0.25; c[2] = 0.15; }
     else if (tool === 'finger') { m[2] = 1.6 + 2.4 * intensity; c[0] = 1; c[1] = 0.9; c[2] = 0.75; }
     else if (tool === 'lightning') { m[2] = 5 + 9 * intensity; c[0] = 0.6; c[1] = 0.75; c[2] = 1; }

@@ -13,6 +13,7 @@
     finger: '<svg viewBox="0 0 24 24" fill="none"><path d="M9 4h6v7.5l2.2.8a2 2 0 0 1 1.3 1.9V17a4 4 0 0 1-4 4h-3.6a4 4 0 0 1-3.6-2.2L5.5 15a1.6 1.6 0 0 1 2.7-1.7L9 14.4V4z" fill="#ffd2a6" stroke="#7a4924" stroke-width="1.8" stroke-linejoin="round"/><path d="M10.5 19.5h3" stroke="#ff6b35" stroke-width="2" stroke-linecap="round"/></svg>',
     fire: '<svg viewBox="0 0 24 24" fill="none"><path d="M12.5 3c.5 3.5-2.5 5-2.5 8 0 1.4.9 2.4 2 2.4 1.6 0 2.5-1.6 2-3.8 2.8 1.6 4.5 4.3 4.5 7 0 3.2-2.9 5.4-6.5 5.4S5.5 19.8 5.5 16.4C5.5 11.4 9 7 12.5 3z" fill="#ff6b35" stroke="#8c2303" stroke-width="1.7" stroke-linejoin="round"/><path d="M12 13.5c1.5 1.1 2.5 2.4 2.5 4a2.5 2.5 0 0 1-5 0c0-1.6 1-2.9 2.5-4z" fill="#ffe066"/></svg>',
     lightning: '<svg viewBox="0 0 24 24" fill="none"><path d="M13.5 2.5L5.5 13h5.5l-1.5 8.5L18.5 11H13l.5-8.5z" fill="#ffd93d" stroke="#b36b00" stroke-width="1.8" stroke-linejoin="round"/></svg>',
+    lava: '<svg viewBox="0 0 24 24" fill="none"><path d="M3 20L9 5h6l6 15H3z" fill="#9b6680" stroke="#674458" stroke-width="1.7"/><path d="M10 6l2 5-2 4 4 5M15 6l-2 4" stroke="#ff8838" stroke-width="3" stroke-linecap="round"/></svg>',
     tornado: '<svg viewBox="0 0 24 24" fill="none"><path d="M4 6h16M6 10h12M8 14h8M10 18h4M11.5 21h1.5" stroke="#4f6d7a" stroke-width="2.4" stroke-linecap="round"/><path d="M7 6c1 2 10 2 11 0M8 10c1 1.6 7 1.6 8 0" stroke="#8ab4c4" stroke-width="1.5" stroke-linecap="round"/></svg>',
   };
 
@@ -28,6 +29,7 @@
     { id: 'fire', short: 'Fire', name: 'Firestorm', hint: 'Tap or drag to set the land alight. Fire follows the wind.' },
     { id: 'lightning', short: 'Bolt', name: 'Lightning', hint: 'Tap or click to unleash a storm of lightning.' },
     { id: 'tornado', short: 'Tornado', name: 'Tornado', hint: 'Tap to touch down a tornado; move or drag to steer it.' },
+    { id: 'lava', short: 'Lava', name: 'Lava', hint: 'Hold or drag to pour lava. It spreads downhill, burns and cools into rock.' },
   ];
 
   let R, world, audio = new AudioEngine(), tool = 'observe', intensity = 0.6, paused = false, speed = 1, started = false, memSave = null;
@@ -205,6 +207,7 @@
     R.hand.cast(h);
     if (tool === 'quake') qStart = { x: h.x, z: h.z };
     else if (tool === 'flood') { world.emitWater(h.x, h.z, intensity, 0.1); lastCarve = { x: h.x, z: h.z }; }
+    else if (tool === 'lava') { world.emitLava(h.x,h.z,intensity,.1); lastCarve={x:h.x,z:h.z}; world.fx.sound('ignite',h.x,h.z,.8); }
     else if (tool === 'meteor') world.meteor(h.x, h.z, intensity);
     else if (tool === 'lightning') world.lightning(h.x, h.z, intensity);
     else if (tool === 'tornado') world.spawnTornado(h.x, h.z, intensity);
@@ -426,7 +429,7 @@
     if (k === 'h' || k === '?') { setHelpOpen(!isHelpOpen()); return; }
     if (isMenuOpen() || isHelpOpen() || e.target.matches?.('.sound-level input')) return;
     keys[k] = true;
-    if (/^[1-8]$/.test(k)) setTool(TOOLS[+k - 1].id);
+    if (/^[1-9]$/.test(k)) setTool(TOOLS[+k - 1].id);
     else if (k === ' ' || k === 'p') { setSpeed(paused ? 1 : 0); e.preventDefault(); }
     else if (k === '[') setInt(intensity - 0.1);
     else if (k === ']') setInt(intensity + 0.1);
@@ -484,9 +487,13 @@
     const h = mouse.hit, act = mouse.down && mouse.mode === 'act';
     world.finger = (tool === 'finger' && !panMode && h && (mouse.inside || act)) ? { x: h.x, z: h.z, r: 3.5 + 2.4 * intensity } : null;
     world.steer = (tool === 'tornado' && !panMode && h && (mouse.inside || act)) ? { x: h.x, z: h.z, strong: !!act } : null;
-    if (tool === 'flood' && act && h) {
+    if ((tool === 'flood' || tool === 'lava') && act && h) {
       const a = lastCarve || h, d = Math.hypot(h.x - a.x, h.z - a.z), n = Math.min(240, Math.max(1, Math.ceil(d)));
-      for (let k = 1; k <= n; k++) world.emitWater(a.x + (h.x - a.x) * k / n, a.z + (h.z - a.z) * k / n, intensity, dt / n);
+      for (let k = 1; k <= n; k++) {
+        const x=a.x+(h.x-a.x)*k/n,z=a.z+(h.z-a.z)*k/n;
+        if(tool==='lava')world.emitLava(x,z,intensity,dt/n);
+        else world.emitWater(x,z,intensity,dt/n);
+      }
       lastCarve = { x: h.x, z: h.z };
     }
     if (tool === 'fire' && act && h) { fireT -= dt; if (fireT <= 0) { world.ignite(h.x, h.z, intensity); fireT = 0.22; } }
@@ -510,6 +517,7 @@
     m[0] = h.x; m[1] = h.z; c[3] = 0.75;
     if (tool === 'quake') { m[2] = 1.2; c[0] = 1; c[1] = 0.5; c[2] = 0.2; }
     else if (tool === 'flood') { m[2] = 1.2 + 1.3 * intensity; c[0] = 0.3; c[1] = 0.7; c[2] = 1; }
+    else if (tool === 'lava') { m[2]=1.5+2*intensity;c[0]=1;c[1]=.36;c[2]=.06; }
     else if (tool === 'meteor') { m[2] = 4 + 7 * intensity; c[0] = 1; c[1] = 0.25; c[2] = 0.15; }
     else if (tool === 'finger') { m[2] = 1.6 + 2.4 * intensity; c[0] = 1; c[1] = 0.9; c[2] = 0.75; }
     else if (tool === 'lightning') { m[2] = 5 + 9 * intensity; c[0] = 0.6; c[1] = 0.75; c[2] = 1; }

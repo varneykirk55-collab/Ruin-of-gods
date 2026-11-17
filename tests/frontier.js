@@ -32,7 +32,9 @@ const saved=JSON.parse(JSON.stringify(world.serialize())), loaded=World.load(sav
 assert.deepEqual([...loaded.lava], [...world.lava]); assert.deepEqual(loaded.volcano,world.volcano);
 assert.deepEqual(loaded.basalt,world.basalt);
 check('expanded saves preserve both regions',loaded.buildings.length===world.buildings.length && loaded.npcs.length===world.npcs.length && loaded.w.every((v,i)=>v===world.w[i]));
-for(let i=0;i<700;i++) loaded.stepVolcano(.2);
+while(loaded.volcano.state==='erupting')loaded.stepVolcano(.2);
+loaded.volcano.remaining=1e6;
+for(let i=0;i<3000&&loaded.lava.size;i++) loaded.stepVolcano(.2);
 check('flows cool into lasting rock',loaded.lava.size===0 && loaded.basalt.some(Boolean) && loaded.volcano.state==='dormant');
 const building=loaded.buildings[loaded.frontierBuildingStart], victim=loaded.npcs.at(-1);
 victim.x=building.x;victim.z=building.z;victim.inside=false;victim.st=ROUTINE;

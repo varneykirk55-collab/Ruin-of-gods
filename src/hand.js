@@ -79,7 +79,7 @@ const HAND_POSES = {
 };
 const HAND_TINT = {
   observe:[0.42,0.94,1], quake:[1,0.72,0.36], flood:[0.35,0.84,1], meteor:[1,0.53,0.36],
-  finger:[0.64,1,0.83], fire:[1,0.66,0.28], lightning:[0.78,0.76,1], tornado:[0.54,1,0.93]
+  lava:[1,.48,.17], finger:[0.64,1,0.83], fire:[1,0.66,0.28], lightning:[0.78,0.76,1], tornado:[0.54,1,0.93]
 };
 
 class GodHand {
