@@ -58,6 +58,14 @@ fs.mkdirSync(out,{recursive:true});
         });
         await frame();
         assert.ok(await page.evaluate(()=>{const h=__game.R.pick(0,0,__game.world);return h&&Math.hypot(h.x-66,h.z-414)<2;}));
+        results.arcticCalm=await page.evaluate(async()=>{
+        const samples=[];let prev=await new Promise(r=>requestAnimationFrame(r));
+        for(let i=0;i<42;i++){
+          const now=await new Promise(r=>requestAnimationFrame(r));if(i>=6)samples.push(now-prev);prev=now;
+        }
+        samples.sort((a,b)=>a-b);
+        return {frames:samples.length,avgFps:1000*samples.length/samples.reduce((a,b)=>a+b),medianMs:samples[18],p95Ms:samples[34]};
+      });
         await page.screenshot({path:path.join(out,'arctic-portrait.png')});
         await page.evaluate(()=>{
           const w=__game.world;
@@ -67,6 +75,14 @@ fs.mkdirSync(out,{recursive:true});
         });
         for(let i=0;i<8;i++)await frame();
         assert.ok(await page.evaluate(()=>__game.world.blizzardAt(66,414)>0 && __game.world.blizzardAt(__game.world.vc.x,__game.world.vc.z)===0));
+        results.arcticBlizzard=await page.evaluate(async()=>{
+        const samples=[];let prev=await new Promise(r=>requestAnimationFrame(r));
+        for(let i=0;i<42;i++){
+          const now=await new Promise(r=>requestAnimationFrame(r));if(i>=6)samples.push(now-prev);prev=now;
+        }
+        samples.sort((a,b)=>a-b);
+        return {frames:samples.length,avgFps:1000*samples.length/samples.reduce((a,b)=>a+b),medianMs:samples[18],p95Ms:samples[34]};
+      });
         await page.screenshot({path:path.join(out,'arctic-blizzard-fracture.png')});
         await page.locator('#menub').tap();
         await page.locator('#save').tap();

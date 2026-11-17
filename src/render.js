@@ -13,7 +13,7 @@ vec3 shade(vec3 base, vec3 n, vec3 wp){
   vec3 c=base*(uAmb*(0.75+0.25*n.y)+uSunC*d);
   for(int i=0;i<6;i++){ vec3 L=uLights[i].xyz-wp; float dd=dot(L,L); float a=uLights[i].w/(1.0+dd*0.035); c+=base*vec3(1.0,0.48,0.14)*a*max(dot(n,normalize(L)),0.25); }
   return c; }
-vec3 fog(vec3 c, vec3 wp){ float fd=distance(wp,uCam); float storm=max(0.0,1.0-distance(wp.xz,uBlizzard.xy)/max(1.0,uBlizzard.z))*uBlizzard.w; return mix(mix(c,uFog,1.0-exp(-fd*fd*uFogD)),vec3(0.76,0.87,0.95),storm*0.68); }
+vec3 fog(vec3 c, vec3 wp){ float fd=distance(wp,uCam); vec3 result=mix(c,uFog,1.0-exp(-fd*fd*uFogD)); if(uBlizzard.w<=0.0)return result; float storm=max(0.0,1.0-distance(wp.xz,uBlizzard.xy)/max(1.0,uBlizzard.z))*uBlizzard.w; return mix(result,vec3(0.76,0.87,0.95),storm*0.68); }
 `;
 const TERR_VS = `#version 300 es
 in vec3 aPos; in vec3 aCol; in float aGlow; uniform mat4 uVP; out vec3 vCol; out vec3 vW; out float vGlow;
@@ -398,7 +398,7 @@ class Renderer {
     gl.viewport(0, 0, this.canvas.width, this.canvas.height); gl.clearColor(this.fogC[0], this.fogC[1], this.fogC[2], 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.disable(gl.BLEND); gl.disable(gl.CULL_FACE);
     const fogD = 0.0000028 + (w.rain > 0 ? 0.000004 : 0);
-    const common = p => { gl.useProgram(p); gl.uniformMatrix4fv(p.u.uVP, false, this.VP); if (p.u.uSun) gl.uniform3fv(p.u.uSun, this.sun); if (p.u.uSunC) gl.uniform3fv(p.u.uSunC, this.sunC); if (p.u.uAmb) gl.uniform3fv(p.u.uAmb, this.amb); if (p.u.uFog) gl.uniform3fv(p.u.uFog, this.fogC); if (p.u.uCam) gl.uniform3fv(p.u.uCam, this.eye); if (p.u.uFogD) gl.uniform1f(p.u.uFogD, fogD); if (p.u.uLights) gl.uniform4fv(p.u.uLights, this.lights); if (p.u.uTime) gl.uniform1f(p.u.uTime, this.time); if(p.u.uBlizzard){const b=w.blizzard;gl.uniform4f(p.u.uBlizzard,b.x,b.z,b.r,w.blizzardAt(b.x,b.z));} };
+    const common = p => { gl.useProgram(p); gl.uniformMatrix4fv(p.u.uVP, false, this.VP); if (p.u.uSun) gl.uniform3fv(p.u.uSun, this.sun); if (p.u.uSunC) gl.uniform3fv(p.u.uSunC, this.sunC); if (p.u.uAmb) gl.uniform3fv(p.u.uAmb, this.amb); if (p.u.uFog) gl.uniform3fv(p.u.uFog, this.fogC); if (p.u.uCam) gl.uniform3fv(p.u.uCam, this.eye); if (p.u.uFogD) gl.uniform1f(p.u.uFogD, fogD); if (p.u.uLights) gl.uniform4fv(p.u.uLights, this.lights); if (p.u.uTime) gl.uniform1f(p.u.uTime, this.time); if(p.u.uBlizzard){const b=w.blizzard;gl.uniform4f(p.u.uBlizzard,b.x,b.z,b.r,this.visibleBox(b.x,15,b.z,b.r,40,b.r)?w.blizzardAt(b.x,b.z):0);} };
     common(this.pT); gl.uniform4fv(this.pT.u.uMark, this.mark); gl.uniform4fv(this.pT.u.uMarkC, this.markC); gl.uniform4fv(this.pT.u.uShadow, this.shadow);
     this.drawGrid(this.tm.vao);
     common(this.pI);
