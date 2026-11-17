@@ -64,3 +64,9 @@ Version 4 saves preserve snow, ice, thaw timers and blizzard progression alongsi
 For Arctic regression, extract `src/sim.js` from commit `f5751a1` and set `ARCTIC_BASE_SIM` to that file when running `node tests/arctic.js`. `ARCTIC_BASE_HTML` selects the same commit’s bundled HTML for `node tests/arctic_browser.js`. These checks run on feature-branch pushes, with screenshots and benchmark results uploaded by GitHub Actions. Device performance still requires physical iPhone and Android testing.
 
 Lava (9) pours molten material at the cursor. Hold to feed a flow or drag to paint a wider source. Intensity controls the source width and output. Lava uses the volcano simulation, melts Arctic ice and snow, damages settlements, and leaves persistent basalt. Water cools it faster than dry terrain.
+
+## Tropical archipelago
+
+Pan east from the volcanic frontier and the Arctic coast into the tropical islands. The continuous simulation now spans 288 × 480 cells. The existing 160-column terrain stays at the same world coordinates. The new islands have pale beaches, palm groves, jungle ridges, a turquoise lagoon and spring-fed freshwater pool. Two timber villages add 28 residents with the existing work, evacuation, shelter and destruction systems. All powers use the same terrain, water, fire and lava simulation across the former eastern boundary.
+
+Version 5 saves record grid width. Versions 1–4 migrate each saved row into the wider grid, including water, ice, damage and lava indices; legacy shelters retain their resident references. New permanent buildings and residents are appended without replacing the original ones. Regression: `TROPICAL_BASE_SIM=<main-before-expansion.cjs> node tests/tropical.js` and `node tests/tropical_browser.js`. Mobile screenshots use Chromium touch emulation; physical phone performance remains unmeasured.

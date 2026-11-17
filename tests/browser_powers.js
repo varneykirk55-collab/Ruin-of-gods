@@ -86,7 +86,7 @@ const ok = (c, m) => { if (c) { pass++; console.log('  ok   ' + m); } else { fai
   ok(await ev(id => __game.world.buildings[id].parts.filter(pt => pt.st).length >= 4, house[2]), 'finger crushed the house');
 
   console.log('firestorm');
-  const fc = await ev(() => { const w = __game.world; let best = 0, bi = 0; for (let z = 70; z < 140; z++) for (let x = 20; x < 140; x++) { let c = 0; for (let dz = -3; dz <= 3; dz++) for (let dx = -3; dx <= 3; dx++) { const i = (z + dz) * 160 + x + dx; if (w.tree[i] === 1) c++; } if (c > best) { best = c; bi = z * 160 + x; } } return [bi % 160, (bi / 160) | 0, best]; });
+  const fc = await ev(() => { const w = __game.world, stride = w.ci(0,1); let best = 0, bi = 0; for (let z = 70; z < 140; z++) for (let x = 20; x < 140; x++) { let c = 0; for (let dz = -3; dz <= 3; dz++) for (let dx = -3; dx <= 3; dx++) { const i = (z + dz) * stride + x + dx; if (w.tree[i] === 1) c++; } if (c > best) { best = c; bi = z * stride + x; } } return [bi % stride, (bi / stride) | 0, best]; });
   await p.keyboard.press('6'); await cam({ tx: fc[0], tz: fc[1], dist: 42, pitch: 0.75, yaw: 0.3 }); await p.waitForTimeout(250);
   a = await scr(fc[0], fc[1]); const f0 = await ev(() => __game.world.fires.length);
   await p.mouse.move(a[0], a[1]); await p.mouse.down(); await p.waitForTimeout(700); await shot('ability_firestorm.png'); await p.mouse.up();

@@ -46,6 +46,7 @@ void main(){ float d=vDF.x; if(d<0.012) discard;
   }
   vec3 n=normalize(vec3(0.07*sin(p.x*2.1+t*1.7)+0.05*sin(p.y*3.3-t*2.3)+0.03*sin((p.x+p.y)*5.0+t*3.0),1.0,0.07*cos(p.y*2.4+t*1.3)+0.05*sin(p.x*3.7+t*2.1)));
   vec3 base=mix(vec3(0.30,0.58,0.62),vec3(0.07,0.22,0.40),smoothstep(0.0,2.2,d));
+  if(p.x>=160.0)base=mix(vec3(.14,.76,.72),vec3(.035,.26,.46),smoothstep(.2,3.5,d));
   base=mix(base,vec3(0.36,0.30,0.20),clamp(vDF.y*9.0,0.0,0.55));
   vec3 c=base*(uAmb*1.1+uSunC*(0.35+0.5*max(dot(n,uSun),0.0)));
   vec3 v=normalize(uCam-vW); vec3 h=normalize(v+uSun); c+=uSunC*pow(max(dot(n,h),0.0),70.0)*0.9;
@@ -200,6 +201,11 @@ class Renderer {
       else if (k === K.DAM) { r = 0.66; g = 0.66; b = 0.64 + nz * 0.04; }
       else if (k === K.SAND) { r = 0.74 + nz * 0.04; g = 0.68 + nz * 0.04; b = 0.50; }
       else { r = 0.5; g = 0.48; b = 0.46; }
+      if(x>=LEGACY_WIDTH){
+        if(k===K.SAND){r=.94+nz*.035;g=.83+nz*.04;b=.56;}
+        if(k===K.GRASS){r=.28;g=.65+nz*.05;b=.22;}
+        if(k===K.FOREST){r=.14;g=.49+nz*.07;b=.23;}
+      }
       if (k !== K.DAM && k !== K.ROAD) {
         const rk = clamp((sl - 0.75) * 2.5, 0, 1) + clamp((hv - 15) * 0.4, 0, 1); if (rk > 0) { const t = Math.min(1, rk), q = 0.44 + nz * 0.1; r += (q - r) * t; g += (q * 0.97 - g) * t; b += (q * 0.94 - b) * t; }
         if (hv > 21) { const t = clamp((hv - 21) * 0.5, 0, 1) * (sl < 2.2 ? 1 : 0.3); r += (0.93 - r) * t; g += (0.95 - g) * t; b += (0.98 - b) * t; }
@@ -287,7 +293,14 @@ class Renderer {
       const t = tree[i]; if (!t) continue; const x = i % N, z = (i / N) | 0, a = hash2(x, z, 3), b = hash2(x, z, 4), c = hash2(x, z, 5);
       const [B,P] = this.groves[Math.min(this.groves.length/this.tileColumns-1,z>>5)*this.tileColumns+Math.min(this.tileColumns-1,x>>5)];
       const px = x + a * 0.7 - 0.35, pz = z + b * 0.7 - 0.35, y = h[i] - 0.05, s = 0.8 + c * 0.7, ry = c * 6.28;
-      if (t === 1 || t === 2) {
+      if ((t===1||t===2) && x>=LEGACY_WIDTH) {
+        const lit=t===2? .7:0, green=t===2?[.95,.44,.1]:[.17,.58,.20];
+        B.push(px,y+1.4*s,pz,.19*s,2.8*s,.19*s,.12,ry,.08,.52,.34,.17,0);
+        for(let leaf=0;leaf<5;leaf++){
+          const angle=ry+leaf*Math.PI*2/5;
+          B.push(px+Math.sin(angle)*.7*s,y+2.75*s,pz+Math.cos(angle)*.7*s,.44*s,.16*s,1.9*s,.18,angle,0,...green,lit);
+        }
+      } else if (t === 1 || t === 2) {
         const e = t === 2 ? 0.7 : 0; B.push(px, y + 0.3 * s, pz, 0.16 * s, 0.6 * s, 0.16 * s, 0, ry, 0, 0.36, 0.25, 0.16, 0);
         if (a < 0.62) { const g = t === 2 ? [0.95, 0.45, 0.1] : [0.13 + b * 0.07, 0.36 + c * 0.1, 0.17]; P.push(px, y + 1.1 * s, pz, 0.95 * s, 1.3 * s, 0.95 * s, 0, ry, 0, g[0], g[1], g[2], e); P.push(px, y + 1.85 * s, pz, 0.66 * s, 1.0 * s, 0.66 * s, 0, ry + 0.6, 0, g[0] * 1.1, g[1] * 1.1, g[2] * 1.1, e); }
         else { const g = t === 2 ? [0.95, 0.45, 0.1] : [0.27 + b * 0.1, 0.5 + c * 0.1, 0.18]; B.push(px, y + 1.0 * s, pz, 0.85 * s, 0.75 * s, 0.85 * s, 0, ry, 0, g[0], g[1], g[2], e); B.push(px + 0.15, y + 1.5 * s, pz - 0.1, 0.55 * s, 0.5 * s, 0.55 * s, 0, ry + 0.8, 0, g[0] * 1.08, g[1] * 1.08, g[2] * 1.08, e); }

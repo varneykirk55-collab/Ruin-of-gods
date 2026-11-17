@@ -18,7 +18,7 @@ const results={};
 for(const [name,Type]of [['before',Old],['after',World]]){
  const world=new Type(1234);world.wakeVolcano();while(world.volcano.state!=='erupting')world.stepVolcano(.2);const duration=world.volcano.remaining;
  let peak=0;const start=performance.now();for(let k=0;k<600;k++){world.stepVolcano(.2);peak=Math.max(peak,world.lava.size);}
- const scars=[];world.basalt.forEach((v,i)=>{if(v)scars.push(i);});results[name]={duration,peak,cells:scars.length,width:Math.max(...scars.map(i=>i%N))-Math.min(...scars.map(i=>i%N))+1,ms:performance.now()-start};
+ const scars=[];world.basalt.forEach((v,i)=>{if(v)scars.push(i);});results[name]={duration,peak,cells:scars.length,width:Math.max(...scars.map(i=>i%(name==='before'?160:N)))-Math.min(...scars.map(i=>i%(name==='before'?160:N)))+1,ms:performance.now()-start};
 }
 check('eruption lasts longer, spreads wider and covers more land',()=>{assert.equal(results.after.duration,90);assert.ok(results.after.cells>results.before.cells*3);assert.ok(results.after.width>results.before.width*3);assert.ok(results.after.peak<5000);});
 console.log(JSON.stringify(results));console.log(passed,'lava checks passed');
