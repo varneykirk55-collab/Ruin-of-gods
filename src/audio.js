@@ -1,28 +1,38 @@
 'use strict';
 // ===================== GOD SIM — procedural audio (WebAudio, placeholder synthesis) =====================
 class AudioEngine {
-  constructor() { this.ctx = null; this.on = false; this.muted = false; this.last = {}; this.loops = {}; }
+  constructor() { this.ctx = null; this.on = false; this.muted = false; this.volume = 1; this.background = false; this.last = {}; this.loops = {}; }
   startMusic() {
     if (!this.music) {
       this.musicTracks = ['assets/music/track-1.mp3', 'assets/music/track-2.mp3', 'assets/music/track-3.mp3', 'assets/music/track-4.mp3'];
       this.musicIndex = 0;
       this.music = new Audio(this.musicTracks[0]);
-      this.music.volume = 0.25;
+      if (this.output) {
+        // Mobile Safari uses hardware volume for media elements. Mix the track
+        // through Web Audio so the in-game slider controls it on phones too.
+        const musicGain = this.ctx.createGain();
+        musicGain.gain.value = 0.25;
+        this.musicSource = this.ctx.createMediaElementSource(this.music);
+        this.musicSource.connect(musicGain);
+        musicGain.connect(this.output);
+      } else this.music.volume = 0.25 * this.volume;
       this.music.muted = this.muted;
       this.music.addEventListener('ended', () => {
         this.musicIndex = (this.musicIndex + 1) % this.musicTracks.length;
         this.music.src = this.musicTracks[this.musicIndex];
-        this.music.play().catch(() => {});
+        if (!this.background) this.music.play().catch(() => {});
       });
     }
-    if (this.music.paused) this.music.play().catch(() => {});
+    if (!this.background && this.music.paused) this.music.play().catch(() => {});
   }
   start() {
+    if (this.background) return;
     if (this.music && this.music.paused) this.startMusic();
-    if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; }
+    if (this.ctx) { if (this.ctx.state !== 'running') this.ctx.resume().catch(() => {}); return; }
     const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
     const c = this.ctx = new AC(); this.master = c.createGain(); this.master.gain.value = 0.8;
-    const comp = c.createDynamicsCompressor(); this.master.connect(comp); comp.connect(c.destination);
+    const comp = c.createDynamicsCompressor(); this.master.connect(comp); this.output = c.createGain();
+    comp.connect(this.output); this.output.connect(c.destination); this.syncVolume();
     this.bus = { amb: c.createGain(), sfx: c.createGain(), voice: c.createGain() }; this.bus.amb.gain.value = 0.9; this.bus.sfx.gain.value = 1; this.bus.voice.gain.value = 0.7;
     for (const k in this.bus) this.bus[k].connect(this.master);
     const len = c.sampleRate * 2, buf = c.createBuffer(1, len, c.sampleRate), d = buf.getChannelData(0); for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1; this.noise = buf;
@@ -31,7 +41,29 @@ class AudioEngine {
     const o = c.createOscillator(); o.type = 'sine'; o.frequency.value = 36; const og = c.createGain(); og.gain.value = 0; o.connect(og); og.connect(this.bus.amb); o.start(); this.loops.sub = { g: og };
     this.on = true; this.amb = { t: 0 };
   }
-  setMuted(m) { this.muted = m; if (this.master) this.master.gain.value = m ? 0 : 0.8; if (this.music) this.music.muted = m; }
+  syncVolume() {
+    if (this.output) this.output.gain.value = this.muted || this.background ? 0 : this.volume;
+    if (this.music) {
+      this.music.muted = this.muted || this.background;
+      if (!this.musicSource) this.music.volume = 0.25 * this.volume;
+    }
+  }
+  setVolume(value) {
+    if (Number.isFinite(value)) this.volume = Math.min(1, Math.max(0, value));
+    this.syncVolume();
+  }
+  setMuted(muted) { this.muted = muted; this.syncVolume(); }
+
+  setBackground(hidden) {
+    this.background = hidden;
+    this.syncVolume();
+    if (hidden) {
+      if (this.music) this.music.pause();
+      if (this.ctx) this.ctx.suspend().catch(() => {});
+    } else if (this.ctx || this.music) {
+      this.start();
+    }
+  }
   mix(m) { // continuous layers, values 0..1
     if (!this.on) return; const t = this.ctx.currentTime, L = this.loops, S = (n, v) => L[n].g.gain.setTargetAtTime(v, t, 0.25);
     const gale = m.tornado || 0;
@@ -47,7 +79,7 @@ class AudioEngine {
   nz(t, dur, type, f0, f1, q, peak, att, bus) { const c = this.ctx, s = c.createBufferSource(); s.buffer = this.noise; s.loop = true; const f = c.createBiquadFilter(); f.type = type; f.Q.value = q; f.frequency.setValueAtTime(f0, t); if (f1 !== f0) f.frequency.exponentialRampToValueAtTime(f1, t + dur); const g = c.createGain(); this.env(g, t, att, peak, dur - att); s.connect(f); f.connect(g); g.connect(bus || this.bus.sfx); s.start(t, Math.random() * 1.5); s.stop(t + dur + 0.05); }
   tone(t, dur, type, f0, f1, peak, att, bus) { const c = this.ctx, o = c.createOscillator(); o.type = type; o.frequency.setValueAtTime(f0, t); if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(f1, t + dur); const g = c.createGain(); this.env(g, t, att, peak, dur - att); o.connect(g); g.connect(bus || this.bus.sfx); o.start(t); o.stop(t + dur + 0.05); return o; }
   play(name, vol) {
-    if (!this.on || this.muted || vol < 0.02) return; const now = performance.now(), gap = { thunder: 140, zap: 60, collapse: 70, crack: 90, thud: 60, scream: 160, crackle: 60, splash: 120, ignite: 150, gust: 160, unmake: 70 }[name] || 0; if (gap && now - (this.last[name] || 0) < gap) return; this.last[name] = now;
+    if (!this.on || this.background || this.muted || vol < 0.02) return; const now = performance.now(), gap = { thunder: 140, zap: 60, collapse: 70, crack: 90, thud: 60, scream: 160, crackle: 60, splash: 120, ignite: 150, gust: 160, unmake: 70 }[name] || 0; if (gap && now - (this.last[name] || 0) < gap) return; this.last[name] = now;
     const t = this.ctx.currentTime + 0.01, R = Math.random, v = Math.min(1, vol);
     switch (name) {
       case 'collapse': this.nz(t, 0.9 + R() * 0.5, 'lowpass', 900 + R() * 600, 120, 0.7, 0.5 * v, 0.02); this.tone(t, 0.35, 'sine', 90 + R() * 30, 40, 0.5 * v, 0.01); this.nz(t + 0.05, 0.25, 'bandpass', 2500 + R() * 1500, 1200, 2, 0.15 * v, 0.005); break;

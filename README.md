@@ -7,7 +7,7 @@ A browser god-sim destruction sandbox. You are the god: break a living valley wi
 ## Play
 Open `index.html` in any WebGL2 browser. Keep the `assets/music` folder alongside it for the soundtrack. No server or dependencies are required.
 
-The four music tracks play in sequence and repeat while you play. The sound control and M key mute both music and effects.
+The four music tracks play in sequence and repeat while you play. Volume adjusts music, ambience and effects together. On phones, open the menu to adjust it. Leaving the game pauses its audio. Returning resumes the track from the same position, with your volume and mute settings preserved.
 
 ## Controls
 | Input | Action |
@@ -20,7 +20,7 @@ The four music tracks play in sequence and repeat while you play. The sound cont
 | WASD / arrows, Q E, R F | Move, rotate, tilt |
 | [ ] | Intensity |
 | Space, M, H | Pause, mute, help |
-| Touch | One finger uses the power; two fingers pan, pinch and twist |
+| Touch | Move for one-finger panning, Rotate for one-finger orbit and tilt. Tap the active camera button again to use the selected power. Two fingers pan, pinch and twist |
 
 Lightning darkens the sky, blasts one huge bolt down, then hurls a barrage of forks that seek the tallest buildings and trees; strikes on water electrocute anyone wading.
 

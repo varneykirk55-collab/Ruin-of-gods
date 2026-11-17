@@ -32,7 +32,7 @@
 
   let R, world, audio = new AudioEngine(), tool = 'observe', intensity = 0.6, paused = false, speed = 1, started = false, memSave = null;
   let last = 0, acc = 0, frameN = 0, hudT = 0, follow = false, lastHour = -1;
-  let panMode = false, statsUserSet = false, rotateDismissed = false;
+  let orbitMode = false, panMode = false, statsUserSet = false, rotateDismissed = false;
   let canvasRect = { left: 0, top: 0, width: 1, height: 1 };
   const mouse = { nx: 0, ny: 0, px: 0, py: 0, down: false, mode: '', hit: null, moved: 0, inside: false };
   const keys = {}; const ptrs = new Map();
@@ -107,9 +107,13 @@
     $('help').classList.toggle('show', !!open);
   }
 
-  function setPanMode(on) {
-    panMode = !!on && tool !== 'observe';
-    $('pan-btn').classList.toggle('on', panMode);
+  function setPanMode(on, orbit = false) {
+    orbitMode = !!on && orbit;
+    panMode = !!on && (orbitMode || tool !== 'observe');
+    $('pan-btn').classList.toggle('on', panMode && !orbitMode);
+    $('pan-btn').setAttribute('aria-pressed', panMode && !orbitMode);
+    $('orbit-btn').classList.toggle('on', orbitMode);
+    $('orbit-btn').setAttribute('aria-pressed', orbitMode);
     canvas.style.cursor = (tool === 'observe' || panMode) ? 'grab' : 'crosshair';
     if (panMode) qStart = null;
   }
@@ -189,8 +193,8 @@
     mouse.nx = mouse.px / r.width * 2 - 1; mouse.ny = 1 - mouse.py / r.height * 2;
     mouse.inside = true;
   }
-  function pan(dx, dy) {
-    const c = R.cam, s = c.gdist * 0.0019, cy = Math.cos(c.gyaw), sy = Math.sin(c.gyaw);
+  function pan(dx, dy, touch = false) {
+    const c = R.cam, s = c.gdist * (touch ? 1.15 / Math.min(canvasRect.width, canvasRect.height) : 0.0019), cy = Math.cos(c.gyaw), sy = Math.sin(c.gyaw);
     c.gtx = clamp(c.gtx + (-dx * cy - dy * sy) * s, 2, N - 3);
     c.gtz = clamp(c.gtz + (dx * sy - dy * cy) * s, 2, N - 3);
     follow = false;
@@ -268,7 +272,7 @@
       mouse.moved = 0;
       if (tool === 'observe' || panMode) {
         mouse.down = true;
-        mouse.mode = 'pan';
+        mouse.mode = orbitMode ? 'rot' : 'pan';
         canvas.style.cursor = 'grabbing';
         return;
       }
@@ -296,7 +300,7 @@
     if (ptrs.size > 1) return;
     setMouse(e);
     mouse.down = true; mouse.moved = 0;
-    if (e.button === 2) mouse.mode = 'rot';
+    if (e.button === 2 || (orbitMode && e.button === 0)) mouse.mode = 'rot';
     else if (e.button === 1 || e.shiftKey || tool === 'observe' || panMode) mouse.mode = 'pan';
     else { mouse.mode = 'act'; beginAction(); }
     if (mouse.mode === 'pan') canvas.style.cursor = 'grabbing';
@@ -317,7 +321,7 @@
       if (da > Math.PI) da -= Math.PI * 2;
       if (da < -Math.PI) da += Math.PI * 2;
       if (Math.abs(da) > 0.004) c.gyaw -= da;
-      pan(cx - gest.cx, cy - gest.cy);
+      pan(cx - gest.cx, cy - gest.cy, true);
       gest = { d, a, cx, cy };
       return;
     }
@@ -333,7 +337,7 @@
           clearPending();
           mouse.down = true;
           mouse.mode = 'pan';
-          pan(e.clientX - px, e.clientY - py);
+          pan(e.clientX - px, e.clientY - py, true);
         } else if (tool === 'tornado' && world.tornados.length > 0) {
           clearPending();
           mouse.down = true;
@@ -348,8 +352,12 @@
 
     if (!mouse.down) return;
     mouse.moved += Math.abs(dx) + Math.abs(dy);
-    if (mouse.mode === 'rot') { R.cam.gyaw -= dx * 0.006; R.cam.gpitch = clamp(R.cam.gpitch + dy * 0.005, 0.3, 1.45); }
-    else if (mouse.mode === 'pan') pan(dx, dy);
+    if (mouse.mode === 'rot') {
+      const sensitivity = e.pointerType === 'touch' ? Math.PI / Math.min(canvasRect.width, canvasRect.height) : 0.006;
+      R.cam.gyaw -= dx * sensitivity;
+      R.cam.gpitch = clamp(R.cam.gpitch + dy * sensitivity * 0.8, 0.3, 1.45);
+    }
+    else if (mouse.mode === 'pan') pan(dx, dy, e.pointerType === 'touch');
   });
 
   const up = e => {
@@ -422,8 +430,13 @@
     if (k.startsWith('arrow')) e.preventDefault();
   });
   window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
-  window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; cancelPointer(); });
-  document.addEventListener('visibilitychange', () => { if (document.hidden) cancelPointer(); });
+  function backgroundAudio() { cancelPointer(); audio.setBackground(true); }
+  function restoreAudio() { if (!document.hidden) audio.setBackground(false); }
+  document.addEventListener('visibilitychange', () => document.hidden ? backgroundAudio() : restoreAudio());
+  window.addEventListener('pagehide', backgroundAudio);
+  window.addEventListener('pageshow', restoreAudio);
+  window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; backgroundAudio(); });
+  window.addEventListener('focus', restoreAudio);
   window.addEventListener('resize', syncLayout);
   window.addEventListener('orientationchange', () => setTimeout(syncLayout, 60));
   if (window.visualViewport) {
@@ -446,7 +459,10 @@
     $('mute').setAttribute('aria-pressed', audio.muted ? 'true' : 'false');
     $('mute-quick').setAttribute('aria-pressed', audio.muted ? 'true' : 'false');
   }
-  function toggleMute() { audio.setMuted(!audio.muted); syncMuteUI(); }
+  function saveSoundSettings() {
+    try { localStorage.setItem('ruin-sound', JSON.stringify({ volume: audio.volume, muted: audio.muted })); } catch (_) {}
+  }
+  function toggleMute() { audio.setMuted(!audio.muted); syncMuteUI(); saveSoundSettings(); }
 
   function keyCam(dt) {
     const c = R.cam, s = c.gdist * 0.9 * dt; let f = 0, r = 0;
@@ -626,9 +642,10 @@
     $('rng').oninput = e => setInt(e.target.value / 100);
     for (const b of document.querySelectorAll('.inten-presets button')) b.onclick = () => setInt(+b.dataset.p / 100);
     $('inten-btn').onclick = e => { e.stopPropagation(); $('bar').classList.toggle('inten-open'); };
-    $('pan-btn').onclick = () => { audio.start(); setPanMode(!panMode); };
+    $('pan-btn').onclick = () => { audio.start(); setPanMode(!panMode || orbitMode); };
 
     for (const b of document.querySelectorAll('#speed button')) b.onclick = () => setSpeed(+b.dataset.s);
+    $('orbit-btn').onclick = () => setPanMode(!orbitMode, true);
     $('save').onclick = () => { save(); if (isMenuOpen()) setMenuOpen(false); };
     $('load').onclick = () => { load(); if (isMenuOpen()) setMenuOpen(false); };
     $('new').onclick = () => { newWorld(); toast('A new world is born — your saved world is untouched'); if (isMenuOpen()) setMenuOpen(false); };
@@ -661,6 +678,18 @@
       }
     });
 
+    try {
+      const saved = JSON.parse(localStorage.getItem('ruin-sound'));
+      if (saved) { audio.setVolume(saved.volume); audio.setMuted(saved.muted === true); }
+    } catch (_) {}
+    const volume = $('master-volume');
+    volume.value = Math.round(audio.volume * 100);
+    $('volume-value').textContent = volume.value + '%';
+    volume.oninput = () => {
+      audio.setVolume(Number(volume.value) / 100);
+      $('volume-value').textContent = volume.value + '%';
+      saveSoundSettings();
+    };
     newWorld(); setInt(0.6); setTool('observe'); setSpeed(1); syncMuteUI(); syncLayout();
     $('start-msg').textContent = 'A village wakes beside the river. It does not know you are watching.';
     $('begin').disabled = false; if (hasSave()) $('cont').style.display = '';

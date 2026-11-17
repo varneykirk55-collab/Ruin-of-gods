@@ -209,6 +209,12 @@
     color: #462600;
     box-shadow: 0 1px 0 rgba(84, 58, 30, 0.22);
   }
+  .sound-level { display: flex; gap: 6px; align-items: center; font-size: 12px; font-weight: 700; }
+  .sound-level input { width: 76px; min-height: 36px; accent-color: var(--sky); }
+  @media (max-width: 899px), (max-height: 519px) {
+    .sound-level { min-height: 44px; padding: 0 6px; }
+    .sound-level input { flex: 1; min-width: 44px; height: 44px; }
+  }
   #sys-actions {
     display: flex;
     align-items: center;
@@ -327,7 +333,7 @@
     gap: 6px;
     min-width: 0;
   }
-  #pan-btn {
+  #pan-btn, #orbit-btn {
     display: none;
     flex: 0 0 auto;
     flex-direction: column;
@@ -341,12 +347,12 @@
     border-color: rgba(45, 156, 219, 0.35);
     color: #135a85;
   }
-  #pan-btn.on {
+  #pan-btn.on, #orbit-btn.on {
     background: var(--sky);
     border-color: #1974aa;
     color: #fff;
   }
-  #pan-btn svg { width: 20px; height: 20px; }
+  #pan-btn svg, #orbit-btn svg { width: 20px; height: 20px; }
   #tools {
     display: flex;
     gap: 5px;
@@ -558,7 +564,7 @@
 
   /* ---------- Compact / Mobile / Landscape Phone Layout ---------- */
   @media (max-width: 899px), (max-height: 519px), (pointer: coarse) {
-    #pan-btn.show { display: inline-flex; }
+    #pan-btn.show, #orbit-btn { display: inline-flex; }
     #tools .ky { display: none; }
   }
 
@@ -615,7 +621,7 @@
     #tools .ic { width: 21px; height: 21px; }
     #tools .ic svg { width: 21px; height: 21px; }
     #tools .nm { font-size: 10px; }
-    #pan-btn, #inten-btn { height: 48px; min-height: 48px; border-radius: 12px; }
+    #pan-btn, #orbit-btn, #inten-btn { height: 48px; min-height: 48px; border-radius: 12px; }
     #dock-extra.show { display: inline-flex; }
 
     /* Compact floating intensity popover instead of persistent second row */
@@ -731,6 +737,7 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3.6 9h16.8M3.6 15h16.8M12 3a13 13 0 0 0 0 18M12 3a13 13 0 0 1 0 18"/></svg>
       <span>New world</span>
     </button>
+    <label class="sound-level" for="master-volume">Volume <input type="range" id="master-volume" min="0" max="100" value="100" aria-label="Master volume"><output id="volume-value" for="master-volume">100%</output></label>
     <button type="button" id="mute" title="Sound (M)"></button>
     <button type="button" id="helpb" title="Controls (H)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 4.8.8c0 1.7-2.3 2.2-2.3 3.7"/><circle cx="12" cy="17" r=".8" fill="currentColor"/></svg>
@@ -776,6 +783,10 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M2 12h20M12 2l-3 3M12 2l3 3M12 22l-3-3M12 22l3-3M2 12l3-3M2 12l3 3M22 12l-3-3M22 12l-3 3"/></svg>
       <span>Move</span>
     </button>
+    <button type="button" id="orbit-btn" title="Drag to rotate and tilt" aria-pressed="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 8a8 8 0 1 0 1 6M19 3v5h-5"/></svg>
+      <span>Rotate</span>
+    </button>
     <div id="tools" role="toolbar" aria-label="Divine powers"></div>
     <div id="dock-extra">
       <button type="button" id="inten-btn" title="Power intensity">
@@ -812,7 +823,7 @@
       <tr><td>1-finger drag</td><td><b>Observe / Move:</b> pan camera · <b>Powers:</b> draw quake, steer tornado, pour flood, ignite or press</td></tr>
       <tr><td>1-finger tap</td><td><b>Observe:</b> inspect &amp; follow a villager · <b>Powers:</b> drop meteor, call lightning, or zap object</td></tr>
       <tr><td>2-finger gesture</td><td>Pinch to zoom, drag to pan, twist to rotate (never triggers powers)</td></tr>
-      <tr><td>Move button</td><td>Lock 1-finger camera panning without losing your selected power</td></tr>
+      <tr><td>Move button</td><td>Drag to pan while keeping your selected power. Tap Rotate to orbit and tilt with one finger. Tap the active camera button again to cast.</td></tr>
     </table>
     <h3>Mouse &amp; Keyboard</h3>
     <table>
@@ -2352,28 +2363,38 @@ class Renderer {
 
 // ===================== GOD SIM — procedural audio (WebAudio, placeholder synthesis) =====================
 class AudioEngine {
-  constructor() { this.ctx = null; this.on = false; this.muted = false; this.last = {}; this.loops = {}; }
+  constructor() { this.ctx = null; this.on = false; this.muted = false; this.volume = 1; this.background = false; this.last = {}; this.loops = {}; }
   startMusic() {
     if (!this.music) {
       this.musicTracks = ['assets/music/track-1.mp3', 'assets/music/track-2.mp3', 'assets/music/track-3.mp3', 'assets/music/track-4.mp3'];
       this.musicIndex = 0;
       this.music = new Audio(this.musicTracks[0]);
-      this.music.volume = 0.25;
+      if (this.output) {
+        // Mobile Safari uses hardware volume for media elements. Mix the track
+        // through Web Audio so the in-game slider controls it on phones too.
+        const musicGain = this.ctx.createGain();
+        musicGain.gain.value = 0.25;
+        this.musicSource = this.ctx.createMediaElementSource(this.music);
+        this.musicSource.connect(musicGain);
+        musicGain.connect(this.output);
+      } else this.music.volume = 0.25 * this.volume;
       this.music.muted = this.muted;
       this.music.addEventListener('ended', () => {
         this.musicIndex = (this.musicIndex + 1) % this.musicTracks.length;
         this.music.src = this.musicTracks[this.musicIndex];
-        this.music.play().catch(() => {});
+        if (!this.background) this.music.play().catch(() => {});
       });
     }
-    if (this.music.paused) this.music.play().catch(() => {});
+    if (!this.background && this.music.paused) this.music.play().catch(() => {});
   }
   start() {
+    if (this.background) return;
     if (this.music && this.music.paused) this.startMusic();
-    if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; }
+    if (this.ctx) { if (this.ctx.state !== 'running') this.ctx.resume().catch(() => {}); return; }
     const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
     const c = this.ctx = new AC(); this.master = c.createGain(); this.master.gain.value = 0.8;
-    const comp = c.createDynamicsCompressor(); this.master.connect(comp); comp.connect(c.destination);
+    const comp = c.createDynamicsCompressor(); this.master.connect(comp); this.output = c.createGain();
+    comp.connect(this.output); this.output.connect(c.destination); this.syncVolume();
     this.bus = { amb: c.createGain(), sfx: c.createGain(), voice: c.createGain() }; this.bus.amb.gain.value = 0.9; this.bus.sfx.gain.value = 1; this.bus.voice.gain.value = 0.7;
     for (const k in this.bus) this.bus[k].connect(this.master);
     const len = c.sampleRate * 2, buf = c.createBuffer(1, len, c.sampleRate), d = buf.getChannelData(0); for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1; this.noise = buf;
@@ -2382,7 +2403,29 @@ class AudioEngine {
     const o = c.createOscillator(); o.type = 'sine'; o.frequency.value = 36; const og = c.createGain(); og.gain.value = 0; o.connect(og); og.connect(this.bus.amb); o.start(); this.loops.sub = { g: og };
     this.on = true; this.amb = { t: 0 };
   }
-  setMuted(m) { this.muted = m; if (this.master) this.master.gain.value = m ? 0 : 0.8; if (this.music) this.music.muted = m; }
+  syncVolume() {
+    if (this.output) this.output.gain.value = this.muted || this.background ? 0 : this.volume;
+    if (this.music) {
+      this.music.muted = this.muted || this.background;
+      if (!this.musicSource) this.music.volume = 0.25 * this.volume;
+    }
+  }
+  setVolume(value) {
+    if (Number.isFinite(value)) this.volume = Math.min(1, Math.max(0, value));
+    this.syncVolume();
+  }
+  setMuted(muted) { this.muted = muted; this.syncVolume(); }
+
+  setBackground(hidden) {
+    this.background = hidden;
+    this.syncVolume();
+    if (hidden) {
+      if (this.music) this.music.pause();
+      if (this.ctx) this.ctx.suspend().catch(() => {});
+    } else if (this.ctx || this.music) {
+      this.start();
+    }
+  }
   mix(m) { // continuous layers, values 0..1
     if (!this.on) return; const t = this.ctx.currentTime, L = this.loops, S = (n, v) => L[n].g.gain.setTargetAtTime(v, t, 0.25);
     const gale = m.tornado || 0;
@@ -2398,7 +2441,7 @@ class AudioEngine {
   nz(t, dur, type, f0, f1, q, peak, att, bus) { const c = this.ctx, s = c.createBufferSource(); s.buffer = this.noise; s.loop = true; const f = c.createBiquadFilter(); f.type = type; f.Q.value = q; f.frequency.setValueAtTime(f0, t); if (f1 !== f0) f.frequency.exponentialRampToValueAtTime(f1, t + dur); const g = c.createGain(); this.env(g, t, att, peak, dur - att); s.connect(f); f.connect(g); g.connect(bus || this.bus.sfx); s.start(t, Math.random() * 1.5); s.stop(t + dur + 0.05); }
   tone(t, dur, type, f0, f1, peak, att, bus) { const c = this.ctx, o = c.createOscillator(); o.type = type; o.frequency.setValueAtTime(f0, t); if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(f1, t + dur); const g = c.createGain(); this.env(g, t, att, peak, dur - att); o.connect(g); g.connect(bus || this.bus.sfx); o.start(t); o.stop(t + dur + 0.05); return o; }
   play(name, vol) {
-    if (!this.on || this.muted || vol < 0.02) return; const now = performance.now(), gap = { thunder: 140, zap: 60, collapse: 70, crack: 90, thud: 60, scream: 160, crackle: 60, splash: 120, ignite: 150, gust: 160, unmake: 70 }[name] || 0; if (gap && now - (this.last[name] || 0) < gap) return; this.last[name] = now;
+    if (!this.on || this.background || this.muted || vol < 0.02) return; const now = performance.now(), gap = { thunder: 140, zap: 60, collapse: 70, crack: 90, thud: 60, scream: 160, crackle: 60, splash: 120, ignite: 150, gust: 160, unmake: 70 }[name] || 0; if (gap && now - (this.last[name] || 0) < gap) return; this.last[name] = now;
     const t = this.ctx.currentTime + 0.01, R = Math.random, v = Math.min(1, vol);
     switch (name) {
       case 'collapse': this.nz(t, 0.9 + R() * 0.5, 'lowpass', 900 + R() * 600, 120, 0.7, 0.5 * v, 0.02); this.tone(t, 0.35, 'sine', 90 + R() * 30, 40, 0.5 * v, 0.01); this.nz(t + 0.05, 0.25, 'bandpass', 2500 + R() * 1500, 1200, 2, 0.15 * v, 0.005); break;
@@ -2459,7 +2502,7 @@ class AudioEngine {
 
   let R, world, audio = new AudioEngine(), tool = 'observe', intensity = 0.6, paused = false, speed = 1, started = false, memSave = null;
   let last = 0, acc = 0, frameN = 0, hudT = 0, follow = false, lastHour = -1;
-  let panMode = false, statsUserSet = false, rotateDismissed = false;
+  let orbitMode = false, panMode = false, statsUserSet = false, rotateDismissed = false;
   let canvasRect = { left: 0, top: 0, width: 1, height: 1 };
   const mouse = { nx: 0, ny: 0, px: 0, py: 0, down: false, mode: '', hit: null, moved: 0, inside: false };
   const keys = {}; const ptrs = new Map();
@@ -2534,9 +2577,13 @@ class AudioEngine {
     $('help').classList.toggle('show', !!open);
   }
 
-  function setPanMode(on) {
-    panMode = !!on && tool !== 'observe';
-    $('pan-btn').classList.toggle('on', panMode);
+  function setPanMode(on, orbit = false) {
+    orbitMode = !!on && orbit;
+    panMode = !!on && (orbitMode || tool !== 'observe');
+    $('pan-btn').classList.toggle('on', panMode && !orbitMode);
+    $('pan-btn').setAttribute('aria-pressed', panMode && !orbitMode);
+    $('orbit-btn').classList.toggle('on', orbitMode);
+    $('orbit-btn').setAttribute('aria-pressed', orbitMode);
     canvas.style.cursor = (tool === 'observe' || panMode) ? 'grab' : 'crosshair';
     if (panMode) qStart = null;
   }
@@ -2616,8 +2663,8 @@ class AudioEngine {
     mouse.nx = mouse.px / r.width * 2 - 1; mouse.ny = 1 - mouse.py / r.height * 2;
     mouse.inside = true;
   }
-  function pan(dx, dy) {
-    const c = R.cam, s = c.gdist * 0.0019, cy = Math.cos(c.gyaw), sy = Math.sin(c.gyaw);
+  function pan(dx, dy, touch = false) {
+    const c = R.cam, s = c.gdist * (touch ? 1.15 / Math.min(canvasRect.width, canvasRect.height) : 0.0019), cy = Math.cos(c.gyaw), sy = Math.sin(c.gyaw);
     c.gtx = clamp(c.gtx + (-dx * cy - dy * sy) * s, 2, N - 3);
     c.gtz = clamp(c.gtz + (dx * sy - dy * cy) * s, 2, N - 3);
     follow = false;
@@ -2695,7 +2742,7 @@ class AudioEngine {
       mouse.moved = 0;
       if (tool === 'observe' || panMode) {
         mouse.down = true;
-        mouse.mode = 'pan';
+        mouse.mode = orbitMode ? 'rot' : 'pan';
         canvas.style.cursor = 'grabbing';
         return;
       }
@@ -2723,7 +2770,7 @@ class AudioEngine {
     if (ptrs.size > 1) return;
     setMouse(e);
     mouse.down = true; mouse.moved = 0;
-    if (e.button === 2) mouse.mode = 'rot';
+    if (e.button === 2 || (orbitMode && e.button === 0)) mouse.mode = 'rot';
     else if (e.button === 1 || e.shiftKey || tool === 'observe' || panMode) mouse.mode = 'pan';
     else { mouse.mode = 'act'; beginAction(); }
     if (mouse.mode === 'pan') canvas.style.cursor = 'grabbing';
@@ -2744,7 +2791,7 @@ class AudioEngine {
       if (da > Math.PI) da -= Math.PI * 2;
       if (da < -Math.PI) da += Math.PI * 2;
       if (Math.abs(da) > 0.004) c.gyaw -= da;
-      pan(cx - gest.cx, cy - gest.cy);
+      pan(cx - gest.cx, cy - gest.cy, true);
       gest = { d, a, cx, cy };
       return;
     }
@@ -2760,7 +2807,7 @@ class AudioEngine {
           clearPending();
           mouse.down = true;
           mouse.mode = 'pan';
-          pan(e.clientX - px, e.clientY - py);
+          pan(e.clientX - px, e.clientY - py, true);
         } else if (tool === 'tornado' && world.tornados.length > 0) {
           clearPending();
           mouse.down = true;
@@ -2775,8 +2822,12 @@ class AudioEngine {
 
     if (!mouse.down) return;
     mouse.moved += Math.abs(dx) + Math.abs(dy);
-    if (mouse.mode === 'rot') { R.cam.gyaw -= dx * 0.006; R.cam.gpitch = clamp(R.cam.gpitch + dy * 0.005, 0.3, 1.45); }
-    else if (mouse.mode === 'pan') pan(dx, dy);
+    if (mouse.mode === 'rot') {
+      const sensitivity = e.pointerType === 'touch' ? Math.PI / Math.min(canvasRect.width, canvasRect.height) : 0.006;
+      R.cam.gyaw -= dx * sensitivity;
+      R.cam.gpitch = clamp(R.cam.gpitch + dy * sensitivity * 0.8, 0.3, 1.45);
+    }
+    else if (mouse.mode === 'pan') pan(dx, dy, e.pointerType === 'touch');
   });
 
   const up = e => {
@@ -2849,8 +2900,13 @@ class AudioEngine {
     if (k.startsWith('arrow')) e.preventDefault();
   });
   window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
-  window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; cancelPointer(); });
-  document.addEventListener('visibilitychange', () => { if (document.hidden) cancelPointer(); });
+  function backgroundAudio() { cancelPointer(); audio.setBackground(true); }
+  function restoreAudio() { if (!document.hidden) audio.setBackground(false); }
+  document.addEventListener('visibilitychange', () => document.hidden ? backgroundAudio() : restoreAudio());
+  window.addEventListener('pagehide', backgroundAudio);
+  window.addEventListener('pageshow', restoreAudio);
+  window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; backgroundAudio(); });
+  window.addEventListener('focus', restoreAudio);
   window.addEventListener('resize', syncLayout);
   window.addEventListener('orientationchange', () => setTimeout(syncLayout, 60));
   if (window.visualViewport) {
@@ -2873,7 +2929,10 @@ class AudioEngine {
     $('mute').setAttribute('aria-pressed', audio.muted ? 'true' : 'false');
     $('mute-quick').setAttribute('aria-pressed', audio.muted ? 'true' : 'false');
   }
-  function toggleMute() { audio.setMuted(!audio.muted); syncMuteUI(); }
+  function saveSoundSettings() {
+    try { localStorage.setItem('ruin-sound', JSON.stringify({ volume: audio.volume, muted: audio.muted })); } catch (_) {}
+  }
+  function toggleMute() { audio.setMuted(!audio.muted); syncMuteUI(); saveSoundSettings(); }
 
   function keyCam(dt) {
     const c = R.cam, s = c.gdist * 0.9 * dt; let f = 0, r = 0;
@@ -3053,9 +3112,10 @@ class AudioEngine {
     $('rng').oninput = e => setInt(e.target.value / 100);
     for (const b of document.querySelectorAll('.inten-presets button')) b.onclick = () => setInt(+b.dataset.p / 100);
     $('inten-btn').onclick = e => { e.stopPropagation(); $('bar').classList.toggle('inten-open'); };
-    $('pan-btn').onclick = () => { audio.start(); setPanMode(!panMode); };
+    $('pan-btn').onclick = () => { audio.start(); setPanMode(!panMode || orbitMode); };
 
     for (const b of document.querySelectorAll('#speed button')) b.onclick = () => setSpeed(+b.dataset.s);
+    $('orbit-btn').onclick = () => setPanMode(!orbitMode, true);
     $('save').onclick = () => { save(); if (isMenuOpen()) setMenuOpen(false); };
     $('load').onclick = () => { load(); if (isMenuOpen()) setMenuOpen(false); };
     $('new').onclick = () => { newWorld(); toast('A new world is born — your saved world is untouched'); if (isMenuOpen()) setMenuOpen(false); };
@@ -3088,6 +3148,18 @@ class AudioEngine {
       }
     });
 
+    try {
+      const saved = JSON.parse(localStorage.getItem('ruin-sound'));
+      if (saved) { audio.setVolume(saved.volume); audio.setMuted(saved.muted === true); }
+    } catch (_) {}
+    const volume = $('master-volume');
+    volume.value = Math.round(audio.volume * 100);
+    $('volume-value').textContent = volume.value + '%';
+    volume.oninput = () => {
+      audio.setVolume(Number(volume.value) / 100);
+      $('volume-value').textContent = volume.value + '%';
+      saveSoundSettings();
+    };
     newWorld(); setInt(0.6); setTool('observe'); setSpeed(1); syncMuteUI(); syncLayout();
     $('start-msg').textContent = 'A village wakes beside the river. It does not know you are watching.';
     $('begin').disabled = false; if (hasSave()) $('cont').style.display = '';
