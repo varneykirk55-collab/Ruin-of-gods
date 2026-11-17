@@ -26,3 +26,8 @@ assert.strictEqual(audio.music.muted, false);
 audio.startMusic();
 assert.strictEqual(audio.music.plays, 5);
 console.log('Music starts, cycles all four tracks, repeats, and follows mute.');
+
+audio.setVolume('music', 0.4);
+assert.strictEqual(audio.music.volume, 0.1);
+audio.setVolume('effects', 0);
+assert.strictEqual(audio.music.volume, 0.1);

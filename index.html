@@ -209,8 +209,10 @@
     color: #462600;
     box-shadow: 0 1px 0 rgba(84, 58, 30, 0.22);
   }
+  .sound-levels { display: grid; }
   .sound-level { display: flex; gap: 6px; align-items: center; font-size: 12px; font-weight: 700; }
-  .sound-level input { width: 76px; min-height: 36px; accent-color: var(--sky); }
+  .sound-level output { min-width: 3.5ch; text-align: right; }
+  .sound-level input { margin-left: auto; width: 76px; min-height: 36px; accent-color: var(--sky); }
   @media (max-width: 899px), (max-height: 519px) {
     .sound-level { min-height: 44px; padding: 0 6px; }
     .sound-level input { flex: 1; min-width: 44px; height: 44px; }
@@ -737,7 +739,10 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3.6 9h16.8M3.6 15h16.8M12 3a13 13 0 0 0 0 18M12 3a13 13 0 0 1 0 18"/></svg>
       <span>New world</span>
     </button>
-    <label class="sound-level" for="master-volume">Volume <input type="range" id="master-volume" min="0" max="100" value="100" aria-label="Master volume"><output id="volume-value" for="master-volume">100%</output></label>
+    <div class="sound-levels">
+      <label class="sound-level" for="music-volume">Music <input type="range" id="music-volume" min="0" max="100" value="100" aria-label="Music volume"><output id="music-value" for="music-volume">100%</output></label>
+      <label class="sound-level" for="effects-volume">Effects <input type="range" id="effects-volume" min="0" max="100" value="100" aria-label="Effects volume"><output id="effects-value" for="effects-volume">100%</output></label>
+    </div>
     <button type="button" id="mute" title="Sound (M)"></button>
     <button type="button" id="helpb" title="Controls (H)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 4.8.8c0 1.7-2.3 2.2-2.3 3.7"/><circle cx="12" cy="17" r=".8" fill="currentColor"/></svg>
@@ -2363,7 +2368,7 @@ class Renderer {
 
 // ===================== GOD SIM — procedural audio (WebAudio, placeholder synthesis) =====================
 class AudioEngine {
-  constructor() { this.ctx = null; this.on = false; this.muted = false; this.volume = 1; this.background = false; this.last = {}; this.loops = {}; }
+  constructor() { this.ctx = null; this.on = false; this.muted = false; this.levels = { music: 1, effects: 1 }; this.background = false; this.last = {}; this.loops = {}; }
   startMusic() {
     if (!this.music) {
       this.musicTracks = ['assets/music/track-1.mp3', 'assets/music/track-2.mp3', 'assets/music/track-3.mp3', 'assets/music/track-4.mp3'];
@@ -2374,13 +2379,12 @@ class AudioEngine {
       if (this.output && location.protocol !== 'file:') {
         // Mobile Safari uses hardware volume for media elements. Mix the track
         // through Web Audio so the in-game slider controls it on phones too.
-        const musicGain = this.ctx.createGain();
-        musicGain.gain.value = 0.25;
+        this.musicGain = this.ctx.createGain();
         this.musicSource = this.ctx.createMediaElementSource(this.music);
-        this.musicSource.connect(musicGain);
-        musicGain.connect(this.output);
-      } else this.music.volume = 0.25 * this.volume;
-      this.music.muted = this.muted;
+        this.musicSource.connect(this.musicGain);
+        this.musicGain.connect(this.output);
+      }
+      this.syncVolume();
       this.music.addEventListener('ended', () => {
         this.musicIndex = (this.musicIndex + 1) % this.musicTracks.length;
         this.music.src = this.musicTracks[this.musicIndex];
@@ -2396,7 +2400,8 @@ class AudioEngine {
     const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
     const c = this.ctx = new AC(); this.master = c.createGain(); this.master.gain.value = 0.8;
     const comp = c.createDynamicsCompressor(); this.master.connect(comp); this.output = c.createGain();
-    comp.connect(this.output); this.output.connect(c.destination); this.syncVolume();
+    this.effectsGain = c.createGain();
+    comp.connect(this.effectsGain); this.effectsGain.connect(this.output); this.output.connect(c.destination); this.syncVolume();
     this.bus = { amb: c.createGain(), sfx: c.createGain(), voice: c.createGain() }; this.bus.amb.gain.value = 0.9; this.bus.sfx.gain.value = 1; this.bus.voice.gain.value = 0.7;
     for (const k in this.bus) this.bus[k].connect(this.master);
     const len = c.sampleRate * 2, buf = c.createBuffer(1, len, c.sampleRate), d = buf.getChannelData(0); for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1; this.noise = buf;
@@ -2406,14 +2411,17 @@ class AudioEngine {
     this.on = true; this.amb = { t: 0 };
   }
   syncVolume() {
-    if (this.output) this.output.gain.value = this.muted || this.background ? 0 : this.volume;
+    if (this.output) this.output.gain.value = this.muted || this.background ? 0 : 1;
+    if (this.effectsGain) this.effectsGain.gain.value = this.levels.effects;
+    if (this.musicGain) this.musicGain.gain.value = 0.25 * this.levels.music;
     if (this.music) {
       this.music.muted = this.muted || this.background;
-      if (!this.musicSource) this.music.volume = 0.25 * this.volume;
+      if (!this.musicSource) this.music.volume = 0.25 * this.levels.music;
     }
   }
-  setVolume(value) {
-    if (Number.isFinite(value)) this.volume = Math.min(1, Math.max(0, value));
+  setVolume(channel, value) {
+    if (!Object.hasOwn(this.levels, channel) || !Number.isFinite(value)) return;
+    this.levels[channel] = Math.min(1, Math.max(0, value));
     this.syncVolume();
   }
   setMuted(muted) { this.muted = muted; this.syncVolume(); }
@@ -2892,7 +2900,7 @@ class AudioEngine {
       return;
     }
     if (k === 'h' || k === '?') { setHelpOpen(!isHelpOpen()); return; }
-    if (isMenuOpen() || isHelpOpen() || e.target === $('master-volume')) return;
+    if (isMenuOpen() || isHelpOpen() || e.target.matches?.('.sound-level input')) return;
     keys[k] = true;
     if (/^[1-8]$/.test(k)) setTool(TOOLS[+k - 1].id);
     else if (k === ' ' || k === 'p') { setSpeed(paused ? 1 : 0); e.preventDefault(); }
@@ -2932,7 +2940,7 @@ class AudioEngine {
     $('mute-quick').setAttribute('aria-pressed', audio.muted ? 'true' : 'false');
   }
   function saveSoundSettings() {
-    try { localStorage.setItem('ruin-sound', JSON.stringify({ volume: audio.volume, muted: audio.muted })); } catch (_) {}
+    try { localStorage.setItem('ruin-sound', JSON.stringify({ ...audio.levels, muted: audio.muted })); } catch (_) {}
   }
   function toggleMute() { audio.setMuted(!audio.muted); syncMuteUI(); saveSoundSettings(); }
 
@@ -3150,18 +3158,21 @@ class AudioEngine {
       }
     });
 
-    try {
-      const saved = JSON.parse(localStorage.getItem('ruin-sound'));
-      if (saved) { audio.setVolume(saved.volume); audio.setMuted(saved.muted === true); }
-    } catch (_) {}
-    const volume = $('master-volume');
-    volume.value = Math.round(audio.volume * 100);
-    $('volume-value').textContent = volume.value + '%';
-    volume.oninput = () => {
-      audio.setVolume(Number(volume.value) / 100);
-      $('volume-value').textContent = volume.value + '%';
-      saveSoundSettings();
-    };
+    let savedSound = {};
+    try { savedSound = JSON.parse(localStorage.getItem('ruin-sound')) || {}; } catch (_) {}
+    audio.setMuted(savedSound.muted === true);
+    for (const channel of ['music', 'effects']) {
+      audio.setVolume(channel, savedSound[channel] ?? savedSound.volume);
+      const slider = $(channel + '-volume');
+      const value = $(channel + '-value');
+      slider.value = Math.round(audio.levels[channel] * 100);
+      value.textContent = slider.value + '%';
+      slider.oninput = () => {
+        audio.setVolume(channel, Number(slider.value) / 100);
+        value.textContent = slider.value + '%';
+        saveSoundSettings();
+      };
+    }
     newWorld(); setInt(0.6); setTool('observe'); setSpeed(1); syncMuteUI(); syncLayout();
     $('start-msg').textContent = 'A village wakes beside the river. It does not know you are watching.';
     $('begin').disabled = false; if (hasSave()) $('cont').style.display = '';

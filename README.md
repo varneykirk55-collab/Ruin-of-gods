@@ -7,7 +7,7 @@ A browser god-sim destruction sandbox. You are the god: break a living valley wi
 ## Play
 Open `index.html` in any WebGL2 browser. Keep the `assets/music` folder alongside it for the soundtrack. No server or dependencies are required.
 
-The four music tracks play in sequence and repeat while you play. Volume adjusts music, ambience and effects together. On phones, open the menu to adjust it. Leaving the game pauses its audio. Returning resumes the track from the same position, with your volume and mute settings preserved.
+The four music tracks play in sequence and repeat while you play. Music adjusts the soundtrack. Effects adjusts ambience, voices and sound effects. On phones, both sliders are in the menu. Leaving the game pauses its audio. Returning resumes the track from the same position, with your volume and mute settings preserved.
 
 ## Controls
 | Input | Action |

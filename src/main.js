@@ -420,7 +420,7 @@
       return;
     }
     if (k === 'h' || k === '?') { setHelpOpen(!isHelpOpen()); return; }
-    if (isMenuOpen() || isHelpOpen() || e.target === $('master-volume')) return;
+    if (isMenuOpen() || isHelpOpen() || e.target.matches?.('.sound-level input')) return;
     keys[k] = true;
     if (/^[1-8]$/.test(k)) setTool(TOOLS[+k - 1].id);
     else if (k === ' ' || k === 'p') { setSpeed(paused ? 1 : 0); e.preventDefault(); }
@@ -460,7 +460,7 @@
     $('mute-quick').setAttribute('aria-pressed', audio.muted ? 'true' : 'false');
   }
   function saveSoundSettings() {
-    try { localStorage.setItem('ruin-sound', JSON.stringify({ volume: audio.volume, muted: audio.muted })); } catch (_) {}
+    try { localStorage.setItem('ruin-sound', JSON.stringify({ ...audio.levels, muted: audio.muted })); } catch (_) {}
   }
   function toggleMute() { audio.setMuted(!audio.muted); syncMuteUI(); saveSoundSettings(); }
 
@@ -678,18 +678,21 @@
       }
     });
 
-    try {
-      const saved = JSON.parse(localStorage.getItem('ruin-sound'));
-      if (saved) { audio.setVolume(saved.volume); audio.setMuted(saved.muted === true); }
-    } catch (_) {}
-    const volume = $('master-volume');
-    volume.value = Math.round(audio.volume * 100);
-    $('volume-value').textContent = volume.value + '%';
-    volume.oninput = () => {
-      audio.setVolume(Number(volume.value) / 100);
-      $('volume-value').textContent = volume.value + '%';
-      saveSoundSettings();
-    };
+    let savedSound = {};
+    try { savedSound = JSON.parse(localStorage.getItem('ruin-sound')) || {}; } catch (_) {}
+    audio.setMuted(savedSound.muted === true);
+    for (const channel of ['music', 'effects']) {
+      audio.setVolume(channel, savedSound[channel] ?? savedSound.volume);
+      const slider = $(channel + '-volume');
+      const value = $(channel + '-value');
+      slider.value = Math.round(audio.levels[channel] * 100);
+      value.textContent = slider.value + '%';
+      slider.oninput = () => {
+        audio.setVolume(channel, Number(slider.value) / 100);
+        value.textContent = slider.value + '%';
+        saveSoundSettings();
+      };
+    }
     newWorld(); setInt(0.6); setTool('observe'); setSpeed(1); syncMuteUI(); syncLayout();
     $('start-msg').textContent = 'A village wakes beside the river. It does not know you are watching.';
     $('begin').disabled = false; if (hasSave()) $('cont').style.display = '';

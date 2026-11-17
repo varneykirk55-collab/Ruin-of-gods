@@ -209,8 +209,10 @@
     color: #462600;
     box-shadow: 0 1px 0 rgba(84, 58, 30, 0.22);
   }
+  .sound-levels { display: grid; }
   .sound-level { display: flex; gap: 6px; align-items: center; font-size: 12px; font-weight: 700; }
-  .sound-level input { width: 76px; min-height: 36px; accent-color: var(--sky); }
+  .sound-level output { min-width: 3.5ch; text-align: right; }
+  .sound-level input { margin-left: auto; width: 76px; min-height: 36px; accent-color: var(--sky); }
   @media (max-width: 899px), (max-height: 519px) {
     .sound-level { min-height: 44px; padding: 0 6px; }
     .sound-level input { flex: 1; min-width: 44px; height: 44px; }
@@ -737,7 +739,10 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3.6 9h16.8M3.6 15h16.8M12 3a13 13 0 0 0 0 18M12 3a13 13 0 0 1 0 18"/></svg>
       <span>New world</span>
     </button>
-    <label class="sound-level" for="master-volume">Volume <input type="range" id="master-volume" min="0" max="100" value="100" aria-label="Master volume"><output id="volume-value" for="master-volume">100%</output></label>
+    <div class="sound-levels">
+      <label class="sound-level" for="music-volume">Music <input type="range" id="music-volume" min="0" max="100" value="100" aria-label="Music volume"><output id="music-value" for="music-volume">100%</output></label>
+      <label class="sound-level" for="effects-volume">Effects <input type="range" id="effects-volume" min="0" max="100" value="100" aria-label="Effects volume"><output id="effects-value" for="effects-volume">100%</output></label>
+    </div>
     <button type="button" id="mute" title="Sound (M)"></button>
     <button type="button" id="helpb" title="Controls (H)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 4.8.8c0 1.7-2.3 2.2-2.3 3.7"/><circle cx="12" cy="17" r=".8" fill="currentColor"/></svg>
