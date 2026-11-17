@@ -222,7 +222,7 @@ class Renderer {
   visibleBox(x,y,z,rx,ry,rz) {
     // Reject only if the entire box is outside one clip plane.
     const m=this.VP;
-    for (let axis=0;axis<3;axis++) for (const sign of [-1,1]) {
+    for (let axis=0;axis<3;axis++) for (let sign=-1;sign<=1;sign+=2) {
       const a=m[3]+sign*m[axis], b=m[7]+sign*m[4+axis], c=m[11]+sign*m[8+axis];
       if (a*x+b*y+c*z+m[15]+sign*m[12+axis]+Math.abs(a)*rx+Math.abs(b)*ry+Math.abs(c)*rz<0) return false;
     }

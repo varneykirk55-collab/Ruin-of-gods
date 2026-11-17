@@ -204,9 +204,18 @@ class World {
       const bed = 0.045*dz;
       const land = bed + 3.8 + (hills-0.45)*6 + ridge + Math.max(0,cone);
       const bank = sstep(1.2+lake,6+lake,river);
-      const height = -2 + shore*(2 + bed-0.8 + bank*(land-bed+0.8));
+      // A spring-fed lake beside the ridge spills east through a shallow sill.
+      const basin=Math.hypot((x-25)/8,(z-251)/10);
+      const outlet=sstep(25,30,x)*sstep(45,38,x)*sstep(4,1,Math.abs(z-251));
+      const lakeLevel=5.4;
+      const bottom=Math.min(land, lakeLevel-1.7+1.1*basin*basin);
+      let ground=bed-0.8+bank*(land-bed+0.8);
+      ground+=sstep(1.65,0.85,basin)*(Math.min(ground,bottom)-ground);
+      ground+=outlet*(Math.min(ground,lakeLevel-0.4-0.07*(x-25))-ground);
+      const height = -2 + shore*(2 + ground);
       this.h[i] = height;
       this.w[i] = Math.max(0,-height, shore*(bed+0.15)-height);
+      if (basin<1.5) this.w[i]=Math.max(this.w[i],lakeLevel-height);
       if (height < 0) this.flag[i] |= 2;
       const region = z < 225 ? 0 : 1, town = villages[region];
       const clearing = Math.hypot(x-town.x,z-town.z)<15;
@@ -227,17 +236,28 @@ class World {
     this.frontierBuildingStart = this.buildings.length;
     for (const [index,town] of villages.entries()) {
       const first = this.buildings.length;
-      for (const [dx,dz] of [[-5,-6],[5,-6],[-6,1],[4,4],[-4,8]]) {
+      const plots = index === 0 ? [[-5,-6],[5,-6],[-6,1],[4,4],[-4,8]]
+        : [[-8,-6],[3,-8],[-5,1],[5,3],[-11,7]];
+      for (const [dx,dz] of plots) {
         this.addB('house',town.x+dx,town.z+dz,true,[dx<0?1:-1,0],true);
       }
       this.addB(index ? 'mill' : 'barn',town.x+12,town.z+9,true,[-1,0],true);
+      // Short lanes lead from each door to the common road between villages.
+      for (const b of this.buildings.slice(first)) {
+        const z=Math.round(b.doorZ), road=Math.round(82+28*clamp((z-200)/46,0,1));
+        const door=Math.round(b.doorX);
+        for (let x=Math.min(door,road); x<=Math.max(door,road); x++) {
+          const i=z*N+x;
+          if (!this.bmap[i] && this.w[i]<0.04) { this.kind[i]=K.ROAD; this.tree[i]=0; this.fuel[i]=0; }
+        }
+      }
       const jobs = work[index];
       const firstResident=this.npcs.length;
       this.populate(this.buildings.slice(first),random,jobs.farms,jobs.woods,jobs.banks,town.x,town.z);
       for (let n=firstResident;n<this.npcs.length;n++) this.npcs[n].plaza=town;
     }
     this.genCount = this.buildings.length;
-    this.spring.push(this.ci(creek(297),297));
+    this.spring.push(this.ci(creek(297),297),this.ci(24,250));
   }
 
   wakeVolcano() {
@@ -568,7 +588,7 @@ class World {
     const own = this.ci(n.x,n.z);
     if (this.w[own] > 0.45 && !this.bridgeOK(own)) return {x:n.x,z:n.z,r:7};
     const xi = (n.x + 0.5) | 0, zi = (n.z + 0.5) | 0; let sx = 0, sz = 0, c = 0;
-    for (let k = 0; k < SCAN.length; k += 2) { const x = xi + SCAN[k], z = zi + SCAN[k + 1]; if (x < 0 || z < 0 || x >= N || z >= ROWS) continue; const i = z * N + x; if (this.burn[i] > 0 || (this.w[i] > 0.18 && this.w[i] - this.wb[i] > 0.15 && !this.bridgeOK(i))) { sx += x; sz += z; c++; } }
+    for (let k = 0; k < SCAN.length; k += 2) { const x = xi + SCAN[k], z = zi + SCAN[k + 1]; if (x < 0 || z < 0 || x >= N || z >= ROWS) continue; const i = z * N + x; if (this.burn[i] > 0 || (this.lava.size && this.lava.has(i)) || (this.w[i] > 0.18 && this.w[i] - this.wb[i] > 0.15 && !this.bridgeOK(i))) { sx += x; sz += z; c++; } }
     if (c) { this._dg.x = sx / c; this._dg.z = sz / c; this._dg.r = 7; return this._dg; }
     return null;
   }
@@ -1160,8 +1180,8 @@ class World {
       // New permanent buildings precede shelters. Shift only legacy shelter IDs.
       const base=w.frontierBuildingStart, extra=w.genCount-base;
       const id = old => old>=base ? old+extra : old;
-      const buildings=s.B.slice();
-      buildings.splice(base,0,...w.serialize().B.slice(base,w.genCount));
+      const buildings=new Array(s.B.length+extra);
+      s.B.forEach((building,k)=>{ buildings[id(k)]=building; });
       s={...s,B:buildings,P:s.P.map(entry=>{ const row=entry.slice(); row[4]=id(row[4]); return row; }),
         quakes:(s.quakes||[]).map(q=>({...q,bl:q.bl.map(e=>({...e,id:id(e.id)}))}))};
     }

@@ -17,7 +17,7 @@ check('gentle coastline join',world.h.slice(N*N,N*(N+1)).every((h,x)=>Math.abs(h
 const coast=world.ci(44,160), start=world.w[coast];
 for(let k=0;k<30;k++){world.emitWater(44,157,1,0.1);world.flowStep();}
 check('Flood crosses the old edge',world.w[coast]>start+0.05);
-const resident=world.npcs.at(-1), initial=[resident.x,resident.z];
+const resident=world.npcs.at(-1);
 for(let k=0;k<600;k++) world.tick(1/60);
 check('frontier residents travel locally',world.npcs.slice(old.npcs.length).some(n=>n.moving || n.working) && resident.z>160);
 const {x,z}=world.volcano;
@@ -53,4 +53,16 @@ check('legacy damage, water and NPC state restored',Math.abs(migrated.h[1234]-ol
 const legacyV1={...oldSave,v:1,w:Buffer.from(Int16Array.from(old.w,d=>Math.round(d*1000)).buffer).toString('base64')};
 delete legacyV1.w32;
 check('real-size v1 water migrates',Math.abs(World.load(legacyV1).w[1234]-old.w[1234])<.001);
+const target=loaded.ci(87,214), ground=loaded.h[target];
+loaded.fingerPress(87,214,1);
+check('Divine Finger deforms frontier terrain',loaded.h[target]<ground);
+const meteor=loaded.meteor(87,214,.7);loaded.impact(meteor);
+check('Meteor excavates frontier terrain',loaded.h[target]<ground-2);
+loaded.lightning(90,210,.5);
+check('Lightning targets the frontier',loaded.storms.some(s=>s.z===210));
+check('Tornado spawns on the frontier',loaded.spawnTornado(112,250,.5).z===250);
+const fireSite=loaded.tree.findIndex((v,i)=>i>N*N && v===1 && !loaded.w[i]);
+loaded.ignite(fireSite%N,Math.floor(fireSite/N),.5);
+check('Firestorm ignites the frontier',loaded.burn[fireSite]>0);
+check('frontier lake contains water',loaded.w[loaded.ci(25,251)]>0.4);
 console.log(count,'frontier checks passed. Dimensions',N,ROWS);

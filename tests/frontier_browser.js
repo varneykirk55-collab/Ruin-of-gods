@@ -45,6 +45,12 @@ fs.mkdirSync(out,{recursive:true});
         };
         for(let i=0;i<3;i++)await drag();
         assert.ok(await page.evaluate(()=>__game.R.cam.gtz>250 && __game.world.quakes.length===0));
+        const zoomBefore=await page.evaluate(()=>__game.R.cam.gdist);
+        const pair=span=>[{x:195-span,y:420,id:1},{x:195+span,y:420,id:2}];
+        await touch.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:pair(28)});
+        for(const span of [40,54,68])await touch.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:pair(span)});
+        await touch.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+        assert.ok(await page.evaluate(before=>__game.R.cam.gdist<before && __game.world.quakes.length===0,zoomBefore));
         await page.locator('[data-t="observe"]').tap();
         await page.evaluate(()=>{
           const c=__game.R.cam,v=__game.world.volcano;
