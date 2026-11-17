@@ -1,6 +1,6 @@
 'use strict';
 // ===================== GOD SIM — simulation core (no DOM) =====================
-const N = 160, ROWS = 320, NN = N * ROWS;
+const N = 160, ROWS = 480, NN = N * ROWS;
 const K = { GRASS: 0, FOREST: 1, FARM: 2, ROAD: 3, ROCK: 4, DAM: 5, SAND: 6 };
 const ROUTINE = 0, PANIC = 1, STUMBLE = 2, SHAKEN = 3, DEAD = 4;
 const DAYLEN = 360;
@@ -58,6 +58,7 @@ class World {
     this._hi = new Int32Array(NN * 4); this._hf = new Float32Array(NN * 4);
     this.gen();
     this.genFrontier();
+    this.genArctic();
   }
 
   // ------------------------------------------------------------ generation
@@ -181,7 +182,7 @@ class World {
   // At the old southern shore this tidal channel now has a simulated neighbour.
   // Retain the saved seabed and let its water move across the former edge.
   inEstuary(i) {
-    return i>=146*N && i<175*N && i%N>=35 && i%N<=54;
+    return (i>=146*N && i<175*N && i%N>=35 && i%N<=54) || (i>=306*N && i<335*N && i%N>=30 && i%N<=90);
   }
 
   genFrontier() {
@@ -192,9 +193,9 @@ class World {
     const random = rngMaker(this.seed ^ 0x51ad);
     const creek = z => 44 + 12 * Math.sin((z-170)/26);
     const work = villages.map(() => ({farms:[], woods:[], banks:[]}));
-    for (let z = N; z < ROWS; z++) for (let x = 0; x < N; x++) {
+    for (let z = N; z < 320; z++) for (let x = 0; x < N; x++) {
       const i = z*N+x, dz = z-N, river = Math.abs(x-creek(z));
-      const shore = sstep(0,12,Math.min(dz+1,x,N-1-x,ROWS-1-z));
+      const shore = sstep(0,12,Math.min(dz+1,x,N-1-x,319-z));
       const hills = fbm(x*0.046,z*0.046,this.seed+37,3);
       const r = Math.hypot(x-110,z-280);
       const notch = sstep(6,0,Math.abs(x-110)) * sstep(280,275,z);
@@ -231,8 +232,8 @@ class World {
       if (Math.hypot(x-town.x,z-town.z)<21 && this.kind[i]===K.GRASS) work[region].woods.push(i);
       if (river<8 && !this.w[i] && Math.abs(z-town.z)<7) work[region].banks.push(i);
     }
-    this.h0.set(this.h.subarray(N*N),N*N);
-    this.wb.set(this.w.subarray(N*N),N*N);
+    this.h0.set(this.h.subarray(N*N,320*N),N*N);
+    this.wb.set(this.w.subarray(N*N,320*N),N*N);
     this.frontierBuildingStart = this.buildings.length;
     for (const [index,town] of villages.entries()) {
       const first = this.buildings.length;
@@ -258,6 +259,128 @@ class World {
     }
     this.genCount = this.buildings.length;
     this.spring.push(this.ci(creek(297),297),this.ci(24,250));
+  }
+
+  genArctic() {
+    this.cold = new Uint8Array(NN);
+    this.snow = new Uint8Array(NN);
+    // Ice is a frozen portion of w, never an additional water source.
+    this.ice = new Float32Array(NN);
+    this.thaw = new Float32Array(NN);
+    this.coldStep = 0; this.coldBand = 0;
+    this.blizzard = {x:55,z:414,r:27,remaining:0,next:55,phase:0};
+    this.arcticBuildingStart=this.buildings.length;
+    const random=rngMaker(this.seed ^ 0x1ceab);
+    const towns=[{x:79,z:376},{x:104,z:431}];
+    for (let z=320;z<ROWS;z++) for (let x=0;x<N;x++) {
+      const i=z*N+x, d=z-320;
+      const noise=fbm(x*.043,z*.043,this.seed+819,3);
+      const shore=sstep(0,12,Math.min(d+1,x,N-1-x,ROWS-1-z));
+      const river=42+9*Math.sin(d/24);
+      const valley=Math.abs(x-river);
+      const ridge=29*Math.exp(-((x-127)**2/210+(z-396)**2/1400))*(.65+.35*Math.cos((z-390)/9)**2)*(1-.65*Math.exp(-((z-404)**2)/20));
+      const peak=24*Math.exp(-((x-15)**2/160+(z-446)**2/360));
+      const glacier=3*Math.floor(5*Math.exp(-((x-125)**2/300+(z-458)**2/240)));
+      const lake=Math.hypot((x-66)/19,(z-414)/15);
+      const land=4.2+noise*5+ridge+peak+glacier;
+      let ground=land;
+      if (valley<7) ground=3.5+sstep(1.3,7,valley)*(land-3.5);
+      ground+=sstep(1.5,.85,lake)*(Math.min(ground,3.2+lake*lake)-ground);
+      this.h[i]=-2+shore*(ground+2);
+      this.w[i]=Math.max(0,-this.h[i],shore*4.8-this.h[i]);
+      if (this.h[i]<0) this.flag[i]|=2;
+      const climate=sstep(4,55,d+9*Math.sin(x*.063)+12*(noise-.5));
+      this.cold[i]=Math.round(255*climate);
+      this.snow[i]=this.w[i]>.04 ? 0 : Math.round(255*climate*(.65+.35*noise));
+      this.ice[i]=this.w[i]>.08 && !(this.flag[i]&2) ? Math.min(this.w[i],.65)*climate : 0;
+      // The central river retains a fast exposed channel.
+      if (valley<1.5) this.ice[i]=0;
+      const clearing=towns.some(t=>Math.hypot(x-t.x,z-t.z)<16);
+      const roadX=79+25*clamp((z-376)/55,0,1);
+      const road=z>=368&&z<=440&&Math.abs(x-roadX)<1.4;
+      this.kind[i]=this.w[i]>.04 ? K.SAND : road ? K.ROAD : ridge+peak+glacier>10 ? K.ROCK : !clearing&&noise>.37 ? K.FOREST : K.GRASS;
+      if(this.kind[i]===K.FOREST&&random()<.24)this.tree[i]=1;
+      this.fuel[i]=this.tree[i]?1:this.kind[i]===K.GRASS?.16:0;
+    }
+    this.h0.set(this.h.subarray(320*N),320*N);
+    this.wb.set(this.w.subarray(320*N),320*N);
+    for (const town of towns) {
+      const first=this.buildings.length;
+      for(const [dx,dz] of [[-6,-6],[4,-6],[-6,3],[5,4]])this.addB('house',town.x+dx,town.z+dz,true,[dx<0?1:-1,0],true);
+      this.addB('barn',town.x+12,town.z+10,true,[-1,0],true);
+      const woods=[],banks=[];
+      for(let z=town.z-20;z<town.z+20;z++)for(let x=town.x-20;x<town.x+20;x++){
+        const i=z*N+x;
+        if(this.kind[i]===K.GRASS&&!this.w[i])woods.push(i);
+        if(this.w[i]<.04&&this.kind[i]===K.SAND)banks.push(i);
+      }
+      for (const b of this.buildings.slice(first)) {
+        for (const part of b.parts) {
+          if(part.role==='roof'){part.sy*=1.3;part.oy+=.12;part.c=[.28,.37,.49];}
+          if(part.role==='wall')part.c=[.48,.28,.17];
+        }
+        if(b.type==='house')for(const side of [-1,1])b.parts.push({role:'wall',g:0,ox:side*(b.w/2+1),oy:.45,oz:b.d/2+1,sx:1.2,sy:.7,sz:.12,ry:0,c:[.42,.29,.22],hp:.5,st:0,char:0,lean:0,dep:-1,ls:side});
+        const door=Math.round(b.doorX), z=Math.round(b.doorZ), road=Math.round(79+25*clamp((z-376)/55,0,1));
+        for(let x=Math.min(door,road);x<=Math.max(door,road);x++){
+          const i=z*N+x;if(!this.bmap[i]&&this.w[i]<.04){this.kind[i]=K.ROAD;this.tree[i]=0;this.fuel[i]=0;}
+        }
+      }
+      const firstNPC=this.npcs.length;
+      this.populate(this.buildings.slice(first),random,[],woods,banks,town.x,town.z);
+      for(let i=firstNPC;i<this.npcs.length;i++)this.npcs[i].plaza=town;
+    }
+    this.genCount=this.buildings.length;
+    this.spring.push(this.ci(42+9*Math.sin(130/24),450));
+  }
+
+  blizzardAt(x,z) {
+    const b=this.blizzard;
+    return b.remaining>0 ? Math.max(0,1-Math.hypot(x-b.x,z-b.z)/b.r)*Math.min(1,b.remaining/4,b.phase/4) : 0;
+  }
+
+  meltCell(i,heat,fracture=false) {
+    if (!this.cold || !this.cold[i]) return;
+    const snow=Math.min(this.snow[i],Math.ceil(heat*255));
+    this.snow[i]-=snow;
+    if(this.tree[i]&&snow)this.staticDirty=true;
+    this.w[i]+=snow/255*.16;
+    this.ice[i]=Math.max(0,this.ice[i]-heat);
+    this.thaw[i]=Math.max(this.thaw[i],fracture?45:24);
+    if (fracture) this.crack[i]=Math.max(this.crack[i],100);
+    this.terrDirty=true;
+  }
+
+  stepCold(dt) {
+    const b=this.blizzard;
+    if(b.remaining>0){b.remaining-=dt;b.phase+=dt;}
+    else {
+      b.next-=dt;
+      if(b.next<=0){b.x=45+hash2(this.day,this.tickN,this.seed)*60;b.z=391+hash2(this.tickN,this.day,this.seed)*50;b.remaining=32;b.phase=0;b.next=105;this.fx.log('A blizzard crosses the Arctic');}
+    }
+    this.coldStep+=dt;
+    if(this.coldStep<.5)return;
+    this.coldStep-=.5;
+    const start=320*N+this.coldBand++%4, elapsed=2;
+    let changed=false;
+    for(let i=start;i<NN;i+=4){
+      if(!this.cold[i])continue;
+      const x=i%N,z=Math.floor(i/N), last=this.snow[i];
+      let heat=this.burn[i]>0 || (this.lava.get(i)||0)>.04;
+      if(x>0&&x<N-1&&z<ROWS-1)for(const j of [i-1,i+1,i-N,i+N]) heat ||= this.burn[j]>0||(this.lava.get(j)||0)>.04;
+      const bi=this.bmap[i], building=bi?this.buildings[bi-1]:null;
+      heat ||= building&&building.fire>0;
+      if(heat){this.meltCell(i,.3);continue;}
+      if(this.thaw[i]>0){this.thaw[i]=Math.max(0,this.thaw[i]-elapsed);continue;}
+      const climate=this.cold[i]/255;
+      if(this.w[i]>.05 && !(this.flag[i]&2)) {
+        const rapid=this.flow[i]>.018;
+        this.ice[i]=Math.min(this.w[i],Math.max(0,this.ice[i]+(rapid?-.08:.035*climate)));
+      } else this.ice[i]=Math.min(this.ice[i],this.w[i]);
+      if(this.w[i]<.04&&!this.burn[i])this.snow[i]=Math.min(this.cold[i],last+1+Math.round(5*this.blizzardAt(x,z)));
+      if(this.tree[i]&&(last>>5)!==(this.snow[i]>>5))this.coldTreesDirty=true;
+      changed ||= this.snow[i]!==last;
+    }
+    if(changed)this.coldDirty=true;
   }
 
   wakeVolcano() {
@@ -301,6 +424,7 @@ class World {
         next.set(lowest,(next.get(lowest)||0)+transfer);
       }
       if (heat>0.09) {
+        this.meltCell(i,heat);
         this.igniteCell(i);
         const b=this.buildings[this.bmap[i]-1];
         if (b && !b.ruin && !b.gone) { this.igniteB(b); this.damage(b,0.12,'fire',x,z); }
@@ -382,20 +506,20 @@ class World {
   // ------------------------------------------------------------ water
   stepWater() { this.flowStep(); this.flowStep(); this.flowStep(); if (!this.settling) this.waterExtras(); }
   flowStep() {
-    const h = this.h, w = this.w, dw = this.dw, fl = this.flow, flx = this.flx, flz = this.flz;
+    const h = this.h, w = this.w, dw = this.dw, fl = this.flow, flx = this.flx, flz = this.flz, ice=this.ice;
     const rows = this.settling ? N : ROWS;
     for (let z = 0; z < rows; z++) {
       let i = z * N;
       for (let x = 0; x < N; x++, i++) {
-        const wi = w[i]; let a = 0, bq = 0;
-        if (x < N - 1) { const j = i + 1, wj = w[j]; if (wi > 0 || wj > 0) { const dl = h[i] + wi - h[j] - wj; let f; if (dl > 0) { f = dl * 0.12 * Math.min(1.6, 0.08 + wi * 2.3); const m = wi * 0.24; if (f > m) f = m; } else { f = dl * 0.12 * Math.min(1.6, 0.08 + wj * 2.3); const m = -wj * 0.24; if (f < m) f = m; } dw[i] -= f; dw[j] += f; a = f; } }
-        if (z < rows - 1) { const j = i + N, wj = w[j]; if (wi > 0 || wj > 0) { const dl = h[i] + wi - h[j] - wj; let f; if (dl > 0) { f = dl * 0.12 * Math.min(1.6, 0.08 + wi * 2.3); const m = wi * 0.24; if (f > m) f = m; } else { f = dl * 0.12 * Math.min(1.6, 0.08 + wj * 2.3); const m = -wj * 0.24; if (f < m) f = m; } dw[i] -= f; dw[j] += f; bq = f; } }
+        const wi = (i<320*N||!ice?w[i]:Math.max(0,w[i]-ice[i])); let a = 0, bq = 0;
+        if (x < N - 1) { const j = i + 1, wj = (j<320*N||!ice?w[j]:Math.max(0,w[j]-ice[j])); if (wi > 0 || wj > 0) { const dl = h[i] + w[i] - h[j] - w[j]; let f; if (dl > 0) { f = dl * 0.12 * Math.min(1.6, 0.08 + wi * 2.3); const m = wi * 0.24; if (f > m) f = m; } else { f = dl * 0.12 * Math.min(1.6, 0.08 + wj * 2.3); const m = -wj * 0.24; if (f < m) f = m; } dw[i] -= f; dw[j] += f; a = f; } }
+        if (z < rows - 1) { const j = i + N, wj = (j<320*N||!ice?w[j]:Math.max(0,w[j]-ice[j])); if (wi > 0 || wj > 0) { const dl = h[i] + w[i] - h[j] - w[j]; let f; if (dl > 0) { f = dl * 0.12 * Math.min(1.6, 0.08 + wi * 2.3); const m = wi * 0.24; if (f > m) f = m; } else { f = dl * 0.12 * Math.min(1.6, 0.08 + wj * 2.3); const m = -wj * 0.24; if (f < m) f = m; } dw[i] -= f; dw[j] += f; bq = f; } }
         flx[i] = flx[i] * 0.9 + a * 0.1; flz[i] = flz[i] * 0.9 + bq * 0.1;
         fl[i] = Math.abs(flx[i]) + Math.abs(flz[i]);
       }
     }
     const flag = this.flag;
-    for (let i = 0; i < rows * N; i++) { let v = w[i] + dw[i]; dw[i] = 0; if ((flag[i] & 2) && (this.settling || !this.inEstuary(i))) v = Math.max(0, -h[i]); else if (v < 0) v = 0; w[i] = v; }
+    for (let i = 0; i < rows * N; i++) { let v = w[i] + dw[i]; dw[i] = 0; if ((flag[i] & 2) && (this.settling || !this.inEstuary(i))) v = Math.max(0, -h[i]); else if (v < 0) v = 0; w[i] = v; if(i>=320*N&&ice)ice[i]=Math.min(ice[i],v); }
     for (const i of this.spring) w[i] += 0.013;
   }
   waterExtras() {
@@ -416,7 +540,7 @@ class World {
   }
 
   // ------------------------------------------------------------ fire
-  igniteCell(i) { if (this.burn[i] > 0 || this.fuel[i] < 0.03 || this.w[i] > 0.03) return false; this.burn[i] = 0.3; this.fires.push(i); if (this.tree[i] === 1) { this.tree[i] = 2; this.staticDirty = true; } this.terrDirty = true; return true; }
+  igniteCell(i) { this.meltCell(i,.32); if (this.burn[i] > 0 || this.fuel[i] < 0.03 || this.w[i] > 0.03) return false; this.burn[i] = 0.3; this.fires.push(i); if (this.tree[i] === 1) { this.tree[i] = 2; this.staticDirty = true; } this.terrDirty = true; return true; }
   igniteB(b) { if (b.gone || b.fire > 0 || b.fuel <= 0 || b.ruin || b.wet > 0.4 || b.cells.some(i => this.w[i] > 0.4 && this.h[i] + this.w[i] > b.y + 0.4)) return; b.fire = 0.2; b.active = true; this.addThreat(b.x, b.z, 6, 5); if (!b.logF) { b.logF = true; this.fx.log(this.bname(b) + ' is on fire'); } }
   bname(b) { return b.type === 'house' ? 'A house' : 'The ' + b.type; }
   stepFire(dt) {
@@ -827,7 +951,7 @@ class World {
       const x = ax + (bx - ax) * s / st, z = az + (bz - az) * s / st, xi = Math.round(x), zi = Math.round(z);
       for (let dz = -R; dz <= R; dz++) for (let dx = -R; dx <= R; dx++) {
         const X = xi + dx, Z = zi + dz; if (X < 2 || Z < 2 || X > N - 3 || Z > ROWS - 3) continue; const i = Z * N + X; if (this.flag[i] & 2) continue; const d = Math.hypot(X - x, Z - z);
-        if (d < wd) { const nc = depth * (1 - (d / wd) * (d / wd)), oc = this.crack[i] / 255 * 5; if (nc > oc) { this.h[i] -= nc - oc; this.crack[i] = Math.min(255, nc / 5 * 255); this.fuel[i] = 0; if (this.tree[i]) this.tree[i] = 0; const bi = this.bmap[i]; if (bi) this.damage(this.buildings[bi - 1], 0.25, 'quake', x, z); } }
+        if (d < wd) { this.meltCell(i,1,true); const nc = depth * (1 - (d / wd) * (d / wd)), oc = this.crack[i] / 255 * 5; if (nc > oc) { this.h[i] -= nc - oc; this.crack[i] = Math.min(255, nc / 5 * 255); this.fuel[i] = 0; if (this.tree[i]) this.tree[i] = 0; const bi = this.bmap[i]; if (bi) this.damage(this.buildings[bi - 1], 0.25, 'quake', x, z); } }
         else { if (d < wd + 1.15 && this.crack[i] < 18 && !(this.flag[i] & 2)) { this.h[i] += (0.08 + 0.14 * I) * (1 - (d - wd) / 1.15); this.crack[i] = Math.max(this.crack[i], 36); } if (d < wd + 2 && this.tree[i] === 1 && rnd() < 0.08 * I) this.tree[i] = 4; }
       }
     }
@@ -852,6 +976,7 @@ class World {
     let steam = false;
     for (let dz = -RR; dz <= RR; dz++) for (let dx = -RR; dx <= RR; dx++) {
       const X = xi + dx, Z = zi + dz; if (X < 2 || Z < 2 || X > N - 3 || Z > ROWS - 3) continue; const i = Z * N + X; if (this.flag[i] & 2) continue; const d = Math.hypot(X - m.x, Z - m.z), u = d / R;
+      if(u<2.1)this.meltCell(i,1,true);
       if (u < 1.6) { let dh = 0; if (u < 1) { dh = -depth * Math.pow(1 - u * u, 1.3); if (this.w[i] > 0.05) steam = true; this.w[i] = 0; this.fuel[i] = 0; if (this.burn[i] > 0) this.burn[i] = 0.01; if (!(this.flag[i] & 1)) { this.flag[i] |= 1; this.craterCells.push(i); } } const e = (u - 1.05) / 0.2; dh += depth * 0.2 * Math.exp(-e * e); this.h[i] += dh; }
       if (u < 1.35) { this.scorch[i] = 255; this.tree[i] = 0; }
       else if (u < 2.3) { this.scorch[i] = Math.max(this.scorch[i], 150); if (this.tree[i] === 1 || this.tree[i] === 2) this.tree[i] = rnd() < 0.6 ? 4 : 3; if (rnd() < 0.3) this.igniteCell(i); }
@@ -886,6 +1011,7 @@ class World {
   }
 
   fingerPress(x, z, I) {
+    this.meltCell(this.ci(x,z),1,true);
     const R = 1.6 + 2.4 * I, depth = 0.5 + 1.1 * I, xi = Math.round(x), zi = Math.round(z), RR = Math.ceil(R * 1.5), rnd = this.rnd;
     for (let dz = -RR; dz <= RR; dz++) for (let dx = -RR; dx <= RR; dx++) {
       const X = xi + dx, Z = zi + dz; if (X < 2 || Z < 2 || X > N - 3 || Z > ROWS - 3) continue; const i = Z * N + X; if (this.flag[i] & 2) continue; const u = Math.hypot(X - x, Z - z) / R;
@@ -1112,7 +1238,7 @@ class World {
 
   // ------------------------------------------------------------ main tick
   tick(dt) {
-    this.tickN++; this.clock += dt; this.stepVolcano(dt);
+    this.tickN++; this.clock += dt; this.stepVolcano(dt); this.stepCold(dt);
     this.time += dt / DAYLEN; if (this.time >= 1) { this.time -= 1; this.day++; }
     this.windA += (Math.sin(this.clock * 0.05) * 0.3 + Math.sin(this.clock * 0.013 + 2) * 0.5) * dt * 0.05; this.windS = 0.6 + 0.35 * Math.sin(this.clock * 0.021 + 1);
     this.wind[0] = Math.cos(this.windA) * this.windS; this.wind[1] = Math.sin(this.windA) * this.windS;
@@ -1150,7 +1276,7 @@ class World {
     const q8 = a => { const o = new Uint8Array(NN); for (let i = 0; i < NN; i++) o[i] = clamp(Math.round(a[i] * 255), 0, 255); return b64enc(o); };
     const r2 = v => Math.round(v * 100) / 100;
     return {
-      v: 3, rows: ROWS, volcano: {...this.volcano}, lava: [...this.lava], basalt: b64enc(this.basalt), seed: this.seed, time: this.time, day: this.day, clock: this.clock, windA: this.windA, damBroken: this.damBroken, camps: this.camps.filter(c => !c.dead),
+      v: 4, rows: ROWS, snow:b64enc(this.snow), ice32:b64enc(new Uint8Array(this.ice.buffer)), thaw32:b64enc(new Uint8Array(this.thaw.buffer)), blizzard:{...this.blizzard}, coldStep:this.coldStep, coldBand:this.coldBand, volcano: {...this.volcano}, lava: [...this.lava], basalt: b64enc(this.basalt), seed: this.seed, time: this.time, day: this.day, clock: this.clock, windA: this.windA, damBroken: this.damBroken, camps: this.camps.filter(c => !c.dead),
       h: q16(this.h, 100), w32: b64enc(new Uint8Array(this.w.buffer)), fuel: q8(this.fuel), burn: q8(this.burn), scorch: b64enc(this.scorch), crack: b64enc(this.crack), mud: b64enc(this.mud), tree: b64enc(this.tree), flag: b64enc(this.flag),
       B: this.buildings.map(b => ({ t: b.type, x: b.x, z: b.z, y: r2(b.y), f: r2(b.fire), fu: r2(b.fuel), r: (b.ruin || b.gone) ? 1 : 0, g: b.gone ? 1 : 0, dx: r2(b.doorX), dz: r2(b.doorZ), p: b.parts.map(p => [p.st, Math.round(p.hp * 100), Math.round(p.char * 100), Math.round(p.lean * 100)]) })),
       R: this.rubble.map(r => r.map(r2)),
@@ -1165,7 +1291,7 @@ class World {
   static load(s) {
     const w = new World(s.seed);
     const extent = b64dec(s.tree).length;
-    if (extent !== N*N && extent !== NN) throw new Error('Unsupported saved world dimensions');
+    if (extent !== N*N && extent !== 320*N && extent !== NN) throw new Error('Unsupported saved world dimensions');
     const d16 = (str,a,scale) => {
       const data = new Int16Array(b64dec(str).buffer);
       if (data.length !== extent) throw new Error('Incomplete saved grid');
@@ -1176,15 +1302,20 @@ class World {
       if (data.length !== extent) throw new Error('Incomplete saved grid');
       for (let i=0;i<extent;i++) a[i]=data[i]/255;
     };
-    if (extent === N*N) {
+    if (extent < NN) {
       // New permanent buildings precede shelters. Shift only legacy shelter IDs.
-      const base=w.frontierBuildingStart, extra=w.genCount-base;
+      const base=extent===N*N?w.frontierBuildingStart:w.arcticBuildingStart, extra=w.genCount-base;
       const id = old => old>=base ? old+extra : old;
       const buildings=new Array(s.B.length+extra);
       s.B.forEach((building,k)=>{ buildings[id(k)]=building; });
       s={...s,B:buildings,P:s.P.map(entry=>{ const row=entry.slice(); row[4]=id(row[4]); return row; }),
         quakes:(s.quakes||[]).map(q=>({...q,bl:q.bl.map(e=>({...e,id:id(e.id)}))}))};
     }
+    if(s.snow)w.snow.set(b64dec(s.snow));
+    if(s.ice32)w.ice.set(new Float32Array(b64dec(s.ice32).buffer));
+    if(s.thaw32)w.thaw.set(new Float32Array(b64dec(s.thaw32).buffer));
+    if(s.blizzard)Object.assign(w.blizzard,s.blizzard);
+    w.coldStep=s.coldStep||0;w.coldBand=s.coldBand||0;
     if (s.volcano) Object.assign(w.volcano,s.volcano);
     if (s.lava) w.lava=new Map(s.lava);
     if (s.basalt) w.basalt.set(b64dec(s.basalt));

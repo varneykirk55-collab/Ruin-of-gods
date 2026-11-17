@@ -1,7 +1,7 @@
 name: Disaster regression
 on:
   push:
-    branches: [astra/water-disaster-survival, astra/volcanic-frontier]
+    branches: [astra/water-disaster-survival, astra/volcanic-frontier, astra/arctic-frontier]
   pull_request:
     branches: [main]
 permissions:
@@ -25,6 +25,10 @@ jobs:
         run: |
           git show f21ec4ecc68e9ed422d5b5cf5ebc08c663caa98c:src/sim.js > "$RUNNER_TEMP/legacy-valley.cjs"
           LEGACY_SIM="$RUNNER_TEMP/legacy-valley.cjs" node tests/frontier.js
+      - name: Arctic thermal and v3 save regression
+        run: |
+          git show f5751a1107c580a913fda9828a67a606ca18d7aa:src/sim.js > "$RUNNER_TEMP/volcanic-valley.cjs"
+          ARCTIC_BASE_SIM="$RUNNER_TEMP/volcanic-valley.cjs" node tests/arctic.js
       - name: Existing simulation regression
         run: node tests/test_sim.js 1234
       - name: Water and survival regression
@@ -45,10 +49,10 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Build
         run: node build.js
-      - name: Portrait before and after, crater interaction and camera
+      - name: Arctic portrait baseline, navigation and frozen interactions
         run: |
-          git show f21ec4ecc68e9ed422d5b5cf5ebc08c663caa98c:index.html > baseline.html
-          FRONTIER_BASE_HTML="$PWD/baseline.html" node tests/frontier_browser.js
+          git show f5751a1107c580a913fda9828a67a606ca18d7aa:index.html > baseline.html
+          ARCTIC_BASE_HTML="$PWD/baseline.html" node tests/arctic_browser.js
       - name: Browser power combinations and persistence
         run: node tests/browser_powers.js
       - uses: actions/upload-artifact@v4

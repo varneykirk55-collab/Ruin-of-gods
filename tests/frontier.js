@@ -10,7 +10,7 @@ for (const key of ['h','h0','w','tree','bmap','kind','flag','fuel']) {
 }
 assert.deepEqual(old.buildings,world.buildings.slice(0,old.buildings.length));
 assert.deepEqual(old.npcs,world.npcs.slice(0,old.npcs.length));
-check('two inhabited settlements',world.npcs.length-old.npcs.length===34 && world.genCount-old.genCount===12);
+check('two inhabited settlements',world.npcs.filter(n=>n.z<320).length-old.npcs.length===34 && world.arcticBuildingStart-old.genCount===12);
 const oldLand=old.h.filter(v=>v>0).length, newLand=world.h.filter(v=>v>0).length;
 console.log('Above-sea cells',oldLand,newLand);
 check('gentle coastline join',world.h.slice(N*N,N*(N+1)).every((h,x)=>Math.abs(h-old.h[(N-1)*N+x])<0.25));
