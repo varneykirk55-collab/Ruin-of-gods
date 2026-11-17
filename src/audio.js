@@ -2,7 +2,23 @@
 // ===================== GOD SIM — procedural audio (WebAudio, placeholder synthesis) =====================
 class AudioEngine {
   constructor() { this.ctx = null; this.on = false; this.muted = false; this.last = {}; this.loops = {}; }
+  startMusic() {
+    if (!this.music) {
+      this.musicTracks = ['assets/music/track-1.mp3', 'assets/music/track-2.mp3', 'assets/music/track-3.mp3', 'assets/music/track-4.mp3'];
+      this.musicIndex = 0;
+      this.music = new Audio(this.musicTracks[0]);
+      this.music.volume = 0.25;
+      this.music.muted = this.muted;
+      this.music.addEventListener('ended', () => {
+        this.musicIndex = (this.musicIndex + 1) % this.musicTracks.length;
+        this.music.src = this.musicTracks[this.musicIndex];
+        this.music.play().catch(() => {});
+      });
+    }
+    if (this.music.paused) this.music.play().catch(() => {});
+  }
   start() {
+    if (this.music && this.music.paused) this.startMusic();
     if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; }
     const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
     const c = this.ctx = new AC(); this.master = c.createGain(); this.master.gain.value = 0.8;
@@ -15,7 +31,7 @@ class AudioEngine {
     const o = c.createOscillator(); o.type = 'sine'; o.frequency.value = 36; const og = c.createGain(); og.gain.value = 0; o.connect(og); og.connect(this.bus.amb); o.start(); this.loops.sub = { g: og };
     this.on = true; this.amb = { t: 0 };
   }
-  setMuted(m) { this.muted = m; if (this.master) this.master.gain.value = m ? 0 : 0.8; }
+  setMuted(m) { this.muted = m; if (this.master) this.master.gain.value = m ? 0 : 0.8; if (this.music) this.music.muted = m; }
   mix(m) { // continuous layers, values 0..1
     if (!this.on) return; const t = this.ctx.currentTime, L = this.loops, S = (n, v) => L[n].g.gain.setTargetAtTime(v, t, 0.25);
     const gale = m.tornado || 0;

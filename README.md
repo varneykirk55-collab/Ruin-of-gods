@@ -5,7 +5,9 @@ A browser god-sim destruction sandbox. You are the god: break a living valley wi
 ![Aftermath](docs/aftermath.png)
 
 ## Play
-Open `index.html` in any WebGL2 browser. It is one self-contained file, with no server and no dependencies.
+Open `index.html` in any WebGL2 browser. Keep the `assets/music` folder alongside it for the soundtrack. No server or dependencies are required.
+
+The four music tracks play in sequence and repeat while you play. The sound control and M key mute both music and effects.
 
 ## Controls
 | Input | Action |
@@ -29,7 +31,8 @@ Flood (3) emits additional water while clicked or held. Drag to move the source.
 ## Layout
 - `src/sim.js`: simulation core (no DOM): terrain, water, fire, structures, villagers, powers, save/load
 - `src/render.js`: WebGL2 renderer and particles
-- `src/audio.js`: procedural WebAudio
+- `src/audio.js`: procedural WebAudio and soundtrack playback
+- `assets/music/`: compressed versions of the four supplied soundtrack WAVs
 - `src/main.js`, `src/template.html`: input, HUD, game loop, page shell
 - `build.js`: bundles `src/` into `index.html` (`node build.js`)
 - `tests/test_sim.js`: headless simulation tests (`node tests/test_sim.js [seed]`)
