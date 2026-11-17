@@ -2,18 +2,19 @@
 const assert=require('node:assert/strict');
 const {World,N,ROWS,ROUTINE,PANIC}=require('../src/sim.js');
 const Legacy=require(process.env.LEGACY_SIM).World;
+const {index,buildings}=require('./legacy_grid');
 const old=new Legacy(1234), world=new World(1234);
 let count=0;
 function check(name,result) { assert.ok(result,name); count++; console.log('ok',name); }
 for (const key of ['h','h0','w','tree','bmap','kind','flag','fuel']) {
-  check('original '+key, old[key].every((v,i)=>v===world[key][i]));
+  check('original '+key, old[key].every((v,i)=>v===world[key][index(i)]));
 }
-assert.deepEqual(old.buildings,world.buildings.slice(0,old.buildings.length));
+assert.deepEqual(buildings(old.buildings),world.buildings.slice(0,old.buildings.length));
 assert.deepEqual(old.npcs,world.npcs.slice(0,old.npcs.length));
-check('two inhabited settlements',world.npcs.filter(n=>n.z<320).length-old.npcs.length===34 && world.arcticBuildingStart-old.genCount===12);
+check('two inhabited settlements',world.npcs.filter(n=>n.z<320&&n.x<160).length-old.npcs.length===34 && world.arcticBuildingStart-old.genCount===12);
 const oldLand=old.h.filter(v=>v>0).length, newLand=world.h.filter(v=>v>0).length;
 console.log('Above-sea cells',oldLand,newLand);
-check('gentle coastline join',world.h.slice(N*N,N*(N+1)).every((h,x)=>Math.abs(h-old.h[(N-1)*N+x])<0.25));
+check('gentle coastline join',world.h.slice(160*N,160*N+160).every((h,x)=>Math.abs(h-old.h[159*160+x])<0.25));
 const coast=world.ci(44,160), start=world.w[coast];
 for(let k=0;k<30;k++){world.emitWater(44,157,1,0.1);world.flowStep();}
 check('Flood crosses the old edge',world.w[coast]>start+0.05);
@@ -23,7 +24,7 @@ check('frontier residents travel locally',world.npcs.slice(old.npcs.length).some
 const {x,z}=world.volcano;
 const vent=world.ci(x,z-4);
 world.quake(x-8,z,x+8,z,1);
-check('nearby quake wakes crater',world.volcano.state==='restless' && world.quakes[0].ci.some(i=>i>=N*N));
+check('nearby quake wakes crater',world.volcano.state==='restless' && world.quakes[0].ci.some(i=>i>=160*N));
 for(let i=0;i<36;i++) world.stepVolcano(0.2);
 check('eruption starts',world.volcano.state==='erupting' && world.lava.size>0);
 for(let i=0;i<70;i++) world.stepVolcano(0.2);
@@ -38,7 +39,7 @@ for(let i=0;i<3000&&loaded.lava.size;i++) loaded.stepVolcano(.2);
 check('flows cool into lasting rock',loaded.lava.size===0 && loaded.basalt.some(Boolean) && loaded.volcano.state==='dormant');
 const building=loaded.buildings[loaded.frontierBuildingStart], victim=loaded.npcs.at(-1);
 victim.x=building.x;victim.z=building.z;victim.inside=false;victim.st=ROUTINE;
-const hot=loaded.ci(victim.x,victim.z), tree=loaded.tree.findIndex((v,i)=>i>N*N && v===1 && loaded.w[i]===0);
+const hot=loaded.ci(victim.x,victim.z), tree=loaded.tree.findIndex((v,i)=>i>160*N && v===1 && loaded.w[i]===0);
 loaded.lava.set(hot,3);loaded.lava.set(tree,2);loaded.stepVolcano(.2);
 check('lava damages a building',building.fire>0 || building.parts.some(p=>p.hp<1));
 check('lava ignites vegetation',loaded.burn[tree]>0);
@@ -51,10 +52,10 @@ const tent=old.addB('tent',130,113,true,[1,0],true);assert.ok(tent);
 old.npcs[0].home=tent.id;old.h[1234]-=2;old.w[1234]+=1;old.npcs[1].hp=.56;old.ignite(119,110,.8);
 const oldSave=old.serialize();const migrated=World.load(oldSave);
 check('real v2 save preserves a legacy tent reference',migrated.buildings[migrated.npcs[0].home].type==='tent' && migrated.buildings[migrated.npcs[0].home].x===tent.x);
-check('legacy damage, water and NPC state restored',Math.abs(migrated.h[1234]-old.h[1234])<.006 && migrated.w[1234]===old.w[1234] && migrated.npcs[1].hp===.56);
+check('legacy damage, water and NPC state restored',Math.abs(migrated.h[index(1234)]-old.h[1234])<.006 && migrated.w[index(1234)]===old.w[1234] && migrated.npcs[1].hp===.56);
 const legacyV1={...oldSave,v:1,w:Buffer.from(Int16Array.from(old.w,d=>Math.round(d*1000)).buffer).toString('base64')};
 delete legacyV1.w32;
-check('real-size v1 water migrates',Math.abs(World.load(legacyV1).w[1234]-old.w[1234])<.001);
+check('real-size v1 water migrates',Math.abs(World.load(legacyV1).w[index(1234)]-old.w[1234])<.001);
 const target=loaded.ci(87,214), ground=loaded.h[target];
 loaded.fingerPress(87,214,1);
 check('Divine Finger deforms frontier terrain',loaded.h[target]<ground);
@@ -63,7 +64,7 @@ check('Meteor excavates frontier terrain',loaded.h[target]<ground-2);
 loaded.lightning(90,210,.5);
 check('Lightning targets the frontier',loaded.storms.some(s=>s.z===210));
 check('Tornado spawns on the frontier',loaded.spawnTornado(112,250,.5).z===250);
-const fireSite=loaded.tree.findIndex((v,i)=>i>N*N && v===1 && !loaded.w[i]);
+const fireSite=loaded.tree.findIndex((v,i)=>i>160*N && v===1 && !loaded.w[i]);
 loaded.ignite(fireSite%N,Math.floor(fireSite/N),.5);
 check('Firestorm ignites the frontier',loaded.burn[fireSite]>0);
 check('frontier lake contains water',loaded.w[loaded.ci(25,251)]>0.4);

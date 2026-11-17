@@ -1,7 +1,7 @@
 name: Disaster regression
 on:
   push:
-    branches: [astra/water-disaster-survival, astra/volcanic-frontier, astra/arctic-frontier, astra/wider-lava-power]
+    branches: [astra/water-disaster-survival, astra/volcanic-frontier, astra/arctic-frontier, astra/wider-lava-power, codex/tropical-frontier]
   pull_request:
     branches: [main]
 permissions:
@@ -33,6 +33,10 @@ jobs:
         run: |
           git show dee990a1983a85977d8054002fedd28ee9ae5c65:src/sim.js > "$RUNNER_TEMP/lava-before.cjs"
           LAVA_BASE_SIM="$RUNNER_TEMP/lava-before.cjs" node tests/lava.js
+      - name: Tropical grid expansion and v4 save migration
+        run: |
+          git show 5748753:src/sim.js > "$RUNNER_TEMP/tropical-base.cjs"
+          TROPICAL_BASE_SIM="$RUNNER_TEMP/tropical-base.cjs" node tests/tropical.js
       - name: Existing simulation regression
         run: node tests/test_sim.js 1234
       - name: Water and survival regression
@@ -53,6 +57,8 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Build
         run: node build.js
+      - name: Tropical touch and desktop navigation
+        run: node tests/tropical_browser.js
       - name: Lava touch and desktop power
         run: node tests/lava_browser.js
       - name: Arctic portrait baseline, navigation and frozen interactions

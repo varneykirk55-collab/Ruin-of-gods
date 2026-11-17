@@ -1,6 +1,7 @@
 'use strict';
 // ===================== GOD SIM — simulation core (no DOM) =====================
-const N = 160, ROWS = 480, NN = N * ROWS;
+const LEGACY_WIDTH = 160;
+const N = 288, ROWS = 480, NN = N * ROWS;
 const K = { GRASS: 0, FOREST: 1, FARM: 2, ROAD: 3, ROCK: 4, DAM: 5, SAND: 6 };
 const ROUTINE = 0, PANIC = 1, STUMBLE = 2, SHAKEN = 3, DEAD = 4;
 const DAYLEN = 360;
@@ -59,6 +60,7 @@ class World {
     this.gen();
     this.genFrontier();
     this.genArctic();
+    this.genTropics();
   }
 
   // ------------------------------------------------------------ generation
@@ -72,7 +74,7 @@ class World {
     const h = this.h, kind = this.kind;
     const vcz = 100, vcx = Math.round(this.rx(vcz) + 16); this.vc = { x: vcx, z: vcz };
     const lk = { x: clamp(Math.round(this.rx(120) - 40), 18, 60), z: 122 }; this.lake = lk;
-    for (let z = 0; z < N; z++) for (let x = 0; x < N; x++) {
+    for (let z = 0; z < LEGACY_WIDTH; z++) for (let x = 0; x < LEGACY_WIDTH; x++) {
       const i = z * N + x, d = this.rdist(x, z), zc = z < 20 ? 20 : z;
       const dv = Math.hypot(x - vcx, z - vcz);
       const roll = (fbm(x * 0.035, z * 0.035, s, 4) - 0.5) * (1 - 0.8 * sstep(26, 10, dv));
@@ -83,14 +85,14 @@ class World {
       v += m * (rd * rd * 22 + 3) * sstep(5, 16, d);
       const dl = Math.hypot(x - lk.x, z - lk.z); v -= 2.8 * sstep(9, 3, dl);
       if (z >= 57 && z <= 59 && d < 17) { v = Math.max(v, this.bed(57) + (d < 1.6 ? 6.2 : 7.2)); kind[i] = K.DAM; }
-      const ed = Math.min(x, z, N - 1 - x, N - 1 - z); v = -2 + (v + 2) * sstep(0, 9, ed);
+      const ed = Math.min(x, z, LEGACY_WIDTH - 1 - x, LEGACY_WIDTH - 1 - z); v = -2 + (v + 2) * sstep(0, 9, ed);
       h[i] = v;
     }
     // surface kinds
     const farms = [[Math.round(this.rx(98) - 22), 97, 9, 7], [vcx + 22, vcz + 24, 10, 5], [vcx + 32, vcz - 17, 6, 6]];
     const roadx = z => z < vcz - 12 ? Math.round(vcx + this.rx(z) - this.rx(vcz - 12)) : z > vcz + 12 ? Math.round(vcx + this.rx(z) - this.rx(vcz + 12)) : vcx;
     this.farmCells = [];
-    for (let z = 0; z < N; z++) for (let x = 0; x < N; x++) {
+    for (let z = 0; z < LEGACY_WIDTH; z++) for (let x = 0; x < LEGACY_WIDTH; x++) {
       const i = z * N + x; if (kind[i] === K.DAM) continue;
       const d = this.rdist(x, z), dv = Math.hypot(x - vcx, z - vcz), v = h[i];
       let k = K.GRASS;
@@ -107,10 +109,10 @@ class World {
       kind[i] = k; if (k === K.FARM) this.farmCells.push(i);
     }
     // roads
-    const road = (x, z) => { if (x < 2 || z < 2 || x > N - 3 || z > N - 3) return false; const i = z * N + x; if (this.rdist(x, z) < 5.2) return false; kind[i] = K.ROAD; this.tree[i] = 0; return true; };
+    const road = (x, z) => { if (x < 2 || z < 2 || x > LEGACY_WIDTH - 3 || z > LEGACY_WIDTH - 3) return false; const i = z * N + x; if (this.rdist(x, z) < 5.2) return false; kind[i] = K.ROAD; this.tree[i] = 0; return true; };
     for (let z = vcz; z >= vcz - 30; z--) { if (!road(roadx(z), z)) break; road(roadx(z) + 1, z); }
     for (let z = vcz; z <= vcz + 36; z++) { if (!road(roadx(z), z)) break; road(roadx(z) + 1, z); }
-    for (let x = vcx; x <= Math.min(N - 14, vcx + 46); x++) { road(x, vcz); road(x, vcz + 1); }
+    for (let x = vcx; x <= Math.min(LEGACY_WIDTH - 14, vcx + 46); x++) { road(x, vcz); road(x, vcz + 1); }
     const bxa = Math.floor(this.rx(vcz) - 6), bxb = Math.ceil(this.rx(vcz + 1) + 6);
     for (let x = vcx; x >= bxb; x--) { road(x, vcz); road(x, vcz + 1); }
     for (let x = bxa; x >= bxa - 9; x--) { road(x, vcz); road(x, vcz + 1); }
@@ -133,10 +135,10 @@ class World {
     for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) { const i = (Math.round(this.well.z) + dz) * N + Math.round(this.well.x) + dx; this.tree[i] = 0; if (kind[i] === K.GRASS) kind[i] = K.ROAD; }
     this.genCount = this.buildings.length;
     // fuel
-    for (let i = 0; i < N*N; i++) { const k = kind[i]; this.fuel[i] = k === K.GRASS ? 0.18 : k === K.FOREST ? (this.tree[i] ? 1 : 0.55) : k === K.FARM ? 0.5 : k === K.SAND ? 0.03 : 0; if (this.tree[i] && k !== K.FOREST) this.fuel[i] = 0.7; if (this.bmap[i]) { this.fuel[i] = 0; this.tree[i] = 0; } if (h[i] < 0) { this.flag[i] |= 2; this.tree[i] = 0; } }
+    for (let z=0;z<LEGACY_WIDTH;z++) for(let x=0;x<LEGACY_WIDTH;x++) { const i=z*N+x; const k = kind[i]; this.fuel[i] = k === K.GRASS ? 0.18 : k === K.FOREST ? (this.tree[i] ? 1 : 0.55) : k === K.FARM ? 0.5 : k === K.SAND ? 0.03 : 0; if (this.tree[i] && k !== K.FOREST) this.fuel[i] = 0.7; if (this.bmap[i]) { this.fuel[i] = 0; this.tree[i] = 0; } if (h[i] < 0) { this.flag[i] |= 2; this.tree[i] = 0; } }
     // water prefill
     const L = this.bed(57) + 6.2;
-    for (let z = 22; z < N; z++) for (let x = 0; x < N; x++) {
+    for (let z = 22; z < LEGACY_WIDTH; z++) for (let x = 0; x < LEGACY_WIDTH; x++) {
       const i = z * N + x, d = this.rdist(x, z);
       if (z < 57 && z > 18 && d < 18 && h[i] < L + 0.04) this.w[i] = L + 0.04 - h[i];
       else if (d < 3 && h[i] > 0) this.w[i] = Math.max(0, this.bed(z) + 0.5 - h[i]);
@@ -149,7 +151,7 @@ class World {
     this.wb.set(this.w); this.f0.set(this.flow);
     // work spots
     this.forestEdge = []; this.bankCells = [];
-    for (let z = 4; z < N - 4; z++) for (let x = 4; x < N - 4; x++) {
+    for (let z = 4; z < LEGACY_WIDTH - 4; z++) for (let x = 4; x < LEGACY_WIDTH - 4; x++) {
       const i = z * N + x, dv = Math.hypot(x - vcx, z - vcz); if (dv > 48 || this.w[i] > 0.05) continue;
       if (kind[i] === K.GRASS && (kind[i + 1] === K.FOREST || kind[i - 1] === K.FOREST || kind[i + N] === K.FOREST || kind[i - N] === K.FOREST)) this.forestEdge.push(i);
       if (kind[i] === K.SAND && this.rdist(x, z) > 3.6 && dv < 34 && h[i] > 0.5) this.bankCells.push(i);
@@ -193,9 +195,9 @@ class World {
     const random = rngMaker(this.seed ^ 0x51ad);
     const creek = z => 44 + 12 * Math.sin((z-170)/26);
     const work = villages.map(() => ({farms:[], woods:[], banks:[]}));
-    for (let z = N; z < 320; z++) for (let x = 0; x < N; x++) {
-      const i = z*N+x, dz = z-N, river = Math.abs(x-creek(z));
-      const shore = sstep(0,12,Math.min(dz+1,x,N-1-x,319-z));
+    for (let z = LEGACY_WIDTH; z < 320; z++) for (let x = 0; x < LEGACY_WIDTH; x++) {
+      const i = z*N+x, dz = z-LEGACY_WIDTH, river = Math.abs(x-creek(z));
+      const shore = sstep(0,12,Math.min(dz+1,x,LEGACY_WIDTH-1-x,319-z));
       const hills = fbm(x*0.046,z*0.046,this.seed+37,3);
       const r = Math.hypot(x-110,z-280);
       const notch = sstep(6,0,Math.abs(x-110)) * sstep(280,275,z);
@@ -232,8 +234,8 @@ class World {
       if (Math.hypot(x-town.x,z-town.z)<21 && this.kind[i]===K.GRASS) work[region].woods.push(i);
       if (river<8 && !this.w[i] && Math.abs(z-town.z)<7) work[region].banks.push(i);
     }
-    this.h0.set(this.h.subarray(N*N,320*N),N*N);
-    this.wb.set(this.w.subarray(N*N,320*N),N*N);
+    this.h0.set(this.h.subarray(LEGACY_WIDTH*N,320*N),LEGACY_WIDTH*N);
+    this.wb.set(this.w.subarray(LEGACY_WIDTH*N,320*N),LEGACY_WIDTH*N);
     this.frontierBuildingStart = this.buildings.length;
     for (const [index,town] of villages.entries()) {
       const first = this.buildings.length;
@@ -272,10 +274,10 @@ class World {
     this.arcticBuildingStart=this.buildings.length;
     const random=rngMaker(this.seed ^ 0x1ceab);
     const towns=[{x:79,z:376},{x:104,z:431}];
-    for (let z=320;z<ROWS;z++) for (let x=0;x<N;x++) {
+    for (let z=320;z<ROWS;z++) for (let x=0;x<LEGACY_WIDTH;x++) {
       const i=z*N+x, d=z-320;
       const noise=fbm(x*.043,z*.043,this.seed+819,3);
-      const shore=sstep(0,12,Math.min(d+1,x,N-1-x,ROWS-1-z));
+      const shore=sstep(0,12,Math.min(d+1,x,LEGACY_WIDTH-1-x,ROWS-1-z));
       const river=42+9*Math.sin(d/24);
       const valley=Math.abs(x-river);
       const ridge=29*Math.exp(-((x-127)**2/210+(z-396)**2/1400))*(.65+.35*Math.cos((z-390)/9)**2)*(1-.65*Math.exp(-((z-404)**2)/20));
@@ -331,6 +333,69 @@ class World {
     }
     this.genCount=this.buildings.length;
     this.spring.push(this.ci(42+9*Math.sin(130/24),450));
+  }
+
+  // Eastern archipelago beside the frontier / Arctic coast. Old land is untouched.
+  genTropics() {
+    this.tropicalBuildingStart=this.buildings.length;
+    const random=rngMaker(this.seed^0x7a0b1c);
+    const towns=[{x:217,z:280},{x:235,z:375}];
+    for(let z=0;z<ROWS;z++)for(let x=LEGACY_WIDTH;x<N;x++){
+      const i=z*N+x, noise=fbm(x*.055,z*.055,this.seed+740,3);
+      const a=Math.hypot((x-221)/47,(z-285)/65);
+      const b=Math.hypot((x-236)/32,(z-378)/35);
+      const c=Math.hypot((x-190)/16,(z-216)/21);
+      const d=Math.min(a,b,c), rim=d+(noise-.45)*.15;
+      let h=-2;
+      if(rim<1.12) h=-1.3+9*sstep(1.12,.56,rim)+(noise-.4)*1.5;
+      // Sheltered turquoise lagoon with a gap to the sea on its eastern side.
+      const lagoon=Math.hypot((x-243)/12,(z-304)/17);
+      if(lagoon<1.25)h=Math.min(h,-.7+2*sstep(.7,1.25,lagoon));
+      if(x>242&&Math.abs(z-306)<4)h=Math.min(h,-.6);
+      // A jungle ridge and a freshwater basin, separate from the lagoon.
+      if(a<.65)h+=7*Math.exp(-((x-210)**2/120+(z-253)**2/140));
+      if(Math.hypot(x-211,z-251)<6)h=7.8;
+      this.h[i]=this.h0[i]=h;
+      this.w[i]=Math.max(0,-h);
+      if(Math.hypot(x-211,z-251)<6)this.w[i]=8.5-h;
+      this.wb[i]=this.w[i];
+      if(h<0)this.flag[i]|=2;
+      const clearing=towns.some(t=>Math.hypot(x-t.x,z-t.z)<13);
+      const farm=towns.some(t=>Math.abs(x-t.x-10)<4&&Math.abs(z-t.z)<5);
+      const road=towns.some(t=>Math.abs(x-t.x)<1.3&&Math.abs(z-t.z)<13);
+      const beach=h<1.8;
+      this.kind[i]=beach||this.w[i]>.04?K.SAND:road?K.ROAD:farm?K.FARM:h>12?K.ROCK:!clearing?K.FOREST:K.GRASS;
+      if(h>0.35&&this.w[i]<.04&&!clearing&&!farm&&h<12&&random()<(beach?.12:.24))this.tree[i]=1;
+      this.fuel[i]=this.tree[i]?1:this.kind[i]===K.FARM?.55:this.kind[i]===K.FOREST?.5:this.kind[i]===K.GRASS?.22:0;
+    }
+    for(const town of towns){
+      const first=this.buildings.length;
+      for(const [dx,dz]of [[-5,-7],[5,-7],[-5,3],[5,5]])this.addB('house',town.x+dx,town.z+dz,true,[dx<0?1:-1,0],true);
+      this.addB('barn',town.x+11,town.z+10,true,[-1,0],true);
+      const farms=[],woods=[],banks=[];
+      for(let z=town.z-20;z<town.z+20;z++)for(let x=town.x-20;x<town.x+20;x++){
+        const i=this.ci(x,z);if(this.w[i]>.04)continue;
+        if(this.kind[i]===K.FARM)farms.push(i);
+        if(this.kind[i]===K.GRASS)woods.push(i);
+        if(this.kind[i]===K.SAND&&this.h[i]>.2)banks.push(i);
+      }
+      for(const b of this.buildings.slice(first)){
+        for(const p of b.parts){
+          if(p.role==='roof')p.c=[.82,.64,.28];
+          if(p.role==='wall')p.c=[.76,.49,.28];
+          if(p.role==='sup')p.c=[.42,.25,.12];
+        }
+        const z=Math.round(b.doorZ),door=Math.round(b.doorX);
+        for(let x=Math.min(door,town.x);x<=Math.max(door,town.x);x++){
+          const i=this.ci(x,z);if(!this.bmap[i]&&this.w[i]<.04){this.kind[i]=K.ROAD;this.tree[i]=0;this.fuel[i]=0;}
+        }
+      }
+      const firstNPC=this.npcs.length;
+      this.populate(this.buildings.slice(first),random,farms,woods,banks,town.x,town.z);
+      for(let i=firstNPC;i<this.npcs.length;i++)this.npcs[i].plaza=town;
+    }
+    this.spring.push(this.ci(211,251));
+    this.genCount=this.buildings.length;
   }
 
   blizzardAt(x,z) {
@@ -527,12 +592,12 @@ class World {
   stepWater() { this.flowStep(); this.flowStep(); this.flowStep(); if (!this.settling) this.waterExtras(); }
   flowStep() {
     const h = this.h, w = this.w, dw = this.dw, fl = this.flow, flx = this.flx, flz = this.flz, ice=this.ice;
-    const rows = this.settling ? N : ROWS;
+    const rows = this.settling ? LEGACY_WIDTH : ROWS, columns = this.settling ? LEGACY_WIDTH : N;
     for (let z = 0; z < rows; z++) {
       let i = z * N;
-      for (let x = 0; x < N; x++, i++) {
+      for (let x = 0; x < columns; x++, i++) {
         const wi = (i<320*N||!ice?w[i]:Math.max(0,w[i]-ice[i])); let a = 0, bq = 0;
-        if (x < N - 1) { const j = i + 1, wj = (j<320*N||!ice?w[j]:Math.max(0,w[j]-ice[j])); if (wi > 0 || wj > 0) { const dl = h[i] + w[i] - h[j] - w[j]; let f; if (dl > 0) { f = dl * 0.12 * Math.min(1.6, 0.08 + wi * 2.3); const m = wi * 0.24; if (f > m) f = m; } else { f = dl * 0.12 * Math.min(1.6, 0.08 + wj * 2.3); const m = -wj * 0.24; if (f < m) f = m; } dw[i] -= f; dw[j] += f; a = f; } }
+        if (x < columns - 1) { const j = i + 1, wj = (j<320*N||!ice?w[j]:Math.max(0,w[j]-ice[j])); if (wi > 0 || wj > 0) { const dl = h[i] + w[i] - h[j] - w[j]; let f; if (dl > 0) { f = dl * 0.12 * Math.min(1.6, 0.08 + wi * 2.3); const m = wi * 0.24; if (f > m) f = m; } else { f = dl * 0.12 * Math.min(1.6, 0.08 + wj * 2.3); const m = -wj * 0.24; if (f < m) f = m; } dw[i] -= f; dw[j] += f; a = f; } }
         if (z < rows - 1) { const j = i + N, wj = (j<320*N||!ice?w[j]:Math.max(0,w[j]-ice[j])); if (wi > 0 || wj > 0) { const dl = h[i] + w[i] - h[j] - w[j]; let f; if (dl > 0) { f = dl * 0.12 * Math.min(1.6, 0.08 + wi * 2.3); const m = wi * 0.24; if (f > m) f = m; } else { f = dl * 0.12 * Math.min(1.6, 0.08 + wj * 2.3); const m = -wj * 0.24; if (f < m) f = m; } dw[i] -= f; dw[j] += f; bq = f; } }
         flx[i] = flx[i] * 0.9 + a * 0.1; flz[i] = flz[i] * 0.9 + bq * 0.1;
         fl[i] = Math.abs(flx[i]) + Math.abs(flz[i]);
@@ -1296,7 +1361,7 @@ class World {
     const q8 = a => { const o = new Uint8Array(NN); for (let i = 0; i < NN; i++) o[i] = clamp(Math.round(a[i] * 255), 0, 255); return b64enc(o); };
     const r2 = v => Math.round(v * 100) / 100;
     return {
-      v: 4, rows: ROWS, snow:b64enc(this.snow), ice32:b64enc(new Uint8Array(this.ice.buffer)), thaw32:b64enc(new Uint8Array(this.thaw.buffer)), blizzard:{...this.blizzard}, coldStep:this.coldStep, coldBand:this.coldBand, volcano: {...this.volcano}, lava: [...this.lava], basalt: b64enc(this.basalt), seed: this.seed, time: this.time, day: this.day, clock: this.clock, windA: this.windA, damBroken: this.damBroken, camps: this.camps.filter(c => !c.dead),
+      v: 5, width: N, rows: ROWS, snow:b64enc(this.snow), ice32:b64enc(new Uint8Array(this.ice.buffer)), thaw32:b64enc(new Uint8Array(this.thaw.buffer)), blizzard:{...this.blizzard}, coldStep:this.coldStep, coldBand:this.coldBand, volcano: {...this.volcano}, lava: [...this.lava], basalt: b64enc(this.basalt), seed: this.seed, time: this.time, day: this.day, clock: this.clock, windA: this.windA, damBroken: this.damBroken, camps: this.camps.filter(c => !c.dead),
       h: q16(this.h, 100), w32: b64enc(new Uint8Array(this.w.buffer)), fuel: q8(this.fuel), burn: q8(this.burn), scorch: b64enc(this.scorch), crack: b64enc(this.crack), mud: b64enc(this.mud), tree: b64enc(this.tree), flag: b64enc(this.flag),
       B: this.buildings.map(b => ({ t: b.type, x: b.x, z: b.z, y: r2(b.y), f: r2(b.fire), fu: r2(b.fuel), r: (b.ruin || b.gone) ? 1 : 0, g: b.gone ? 1 : 0, dx: r2(b.doorX), dz: r2(b.doorZ), p: b.parts.map(p => [p.st, Math.round(p.hp * 100), Math.round(p.char * 100), Math.round(p.lean * 100)]) })),
       R: this.rubble.map(r => r.map(r2)),
@@ -1310,38 +1375,41 @@ class World {
   }
   static load(s) {
     const w = new World(s.seed);
-    const extent = b64dec(s.tree).length;
-    if (extent !== N*N && extent !== 320*N && extent !== NN) throw new Error('Unsupported saved world dimensions');
+    const extent = b64dec(s.tree).length, width=s.width||LEGACY_WIDTH;
+    const rows=extent/width;
+    if (![LEGACY_WIDTH,N].includes(width) || ![160,320,ROWS].includes(rows) || (width===N&&rows!==ROWS)) throw new Error('Unsupported saved world dimensions');
+    const index=i=>Math.floor(i/width)*N+i%width;
+    const copy=(data,target)=>{if(data.length!==extent)throw new Error('Incomplete saved grid');for(let i=0;i<extent;i++)target[index(i)]=data[i];};
     const d16 = (str,a,scale) => {
       const data = new Int16Array(b64dec(str).buffer);
       if (data.length !== extent) throw new Error('Incomplete saved grid');
-      for (let i=0;i<extent;i++) a[i]=data[i]/scale;
+      for (let i=0;i<extent;i++) a[index(i)]=data[i]/scale;
     };
     const d8 = (str,a) => {
       const data=b64dec(str);
       if (data.length !== extent) throw new Error('Incomplete saved grid');
-      for (let i=0;i<extent;i++) a[i]=data[i]/255;
+      for (let i=0;i<extent;i++) a[index(i)]=data[i]/255;
     };
     if (extent < NN) {
       // New permanent buildings precede shelters. Shift only legacy shelter IDs.
-      const base=extent===N*N?w.frontierBuildingStart:w.arcticBuildingStart, extra=w.genCount-base;
+      const base=rows===160?w.frontierBuildingStart:rows===320?w.arcticBuildingStart:w.tropicalBuildingStart, extra=w.genCount-base;
       const id = old => old>=base ? old+extra : old;
       const buildings=new Array(s.B.length+extra);
       s.B.forEach((building,k)=>{ buildings[id(k)]=building; });
       s={...s,B:buildings,P:s.P.map(entry=>{ const row=entry.slice(); row[4]=id(row[4]); return row; }),
         quakes:(s.quakes||[]).map(q=>({...q,bl:q.bl.map(e=>({...e,id:id(e.id)}))}))};
     }
-    if(s.snow)w.snow.set(b64dec(s.snow));
-    if(s.ice32)w.ice.set(new Float32Array(b64dec(s.ice32).buffer));
-    if(s.thaw32)w.thaw.set(new Float32Array(b64dec(s.thaw32).buffer));
+    if(s.snow)copy(b64dec(s.snow),w.snow);
+    if(s.ice32)copy(new Float32Array(b64dec(s.ice32).buffer),w.ice);
+    if(s.thaw32)copy(new Float32Array(b64dec(s.thaw32).buffer),w.thaw);
     if(s.blizzard)Object.assign(w.blizzard,s.blizzard);
     w.coldStep=s.coldStep||0;w.coldBand=s.coldBand||0;
     if (s.volcano) Object.assign(w.volcano,s.volcano);
-    if (s.lava) w.lava=new Map(s.lava);
-    if (s.basalt) w.basalt.set(b64dec(s.basalt));
+    if (s.lava) w.lava=new Map(s.lava.map(([i,v])=>[index(i),v]));
+    if (s.basalt) copy(b64dec(s.basalt),w.basalt);
     for (let k = w.genCount; k < s.B.length; k++) { const e = s.B[k]; if (e.t === 'tent') { const sv = w.w; w.w = new Float32Array(NN); const b = w.addB('tent', e.x, e.z, true, [1, 0], true); w.w = sv; if (!b) { const dummy = { id: w.buildings.length, type: 'tent', x: e.x, z: e.z, y: e.y, w: 1, d: 1, hgt: 1, parts: [], ruin: true, cells: [], fire: 0, fuel: 0, tough: 1, flam: 1, doorX: e.x, doorZ: e.z }; w.buildings.push(dummy); } } }
-    d16(s.h, w.h, 100); if (s.w32) w.w.set(new Float32Array(b64dec(s.w32).buffer)); else d16(s.w, w.w, 1000); d8(s.fuel, w.fuel); d8(s.burn, w.burn);
-    w.scorch.set(b64dec(s.scorch)); w.crack.set(b64dec(s.crack)); w.mud.set(b64dec(s.mud)); w.tree.set(b64dec(s.tree)); w.flag.set(b64dec(s.flag));
+    d16(s.h, w.h, 100); if (s.w32) copy(new Float32Array(b64dec(s.w32).buffer),w.w); else d16(s.w, w.w, 1000); d8(s.fuel, w.fuel); d8(s.burn, w.burn);
+    copy(b64dec(s.scorch),w.scorch); copy(b64dec(s.crack),w.crack); copy(b64dec(s.mud),w.mud); copy(b64dec(s.tree),w.tree); copy(b64dec(s.flag),w.flag);
     w.wb.set(w.w); w.fires = []; w.craterCells = [];
     for (let i = 0; i < NN; i++) { if (w.burn[i] > 0) w.fires.push(i); if (w.flag[i] & 1) w.craterCells.push(i); }
     s.B.forEach((e, k) => { const b = w.buildings[k]; if (!b) return; b.y = e.y; b.fire = e.f; b.fuel = e.fu; b.ruin = !!e.r; b.gone = !!e.g; b.doorX = e.dx; b.doorZ = e.dz; b.logged = b.logF = b.logW = true; e.p.forEach((q, j) => { const p = b.parts[j]; if (!p) return; p.st = q[0]; p.hp = q[1] / 100; p.char = q[2] / 100; p.lean = q[3] / 100; }); if (b.gone) { b.ruin = true; b.fire = 0; b.active = false; for (const i of b.cells) if (w.bmap[i] === b.id + 1) w.bmap[i] = 0; for (const p of b.parts) p.st = 1; } else b.active = !b.ruin; });
@@ -1355,7 +1423,7 @@ class World {
     w.tickN=s.tickN || 0; w.rain=s.rain || 0; w.rainT=s.rainT ?? w.rainT;
     w.storms=s.storms || []; w.debris=s.debris || [];
     w.threats=s.threats||[]; w.tornados=s.tornados||[]; w.meteors=s.meteors||[];
-    w.quakes=(s.quakes||[]).map(q => ({...q,bl:q.bl.map(e=>({b:w.buildings[e.id],d:e.d})).filter(e=>e.b)}));
+    w.quakes=(s.quakes||[]).map(q => ({...q,ci:q.ci.map(index),bl:q.bl.map(e=>({b:w.buildings[e.id],d:e.d})).filter(e=>e.b)}));
     w.rebuildHazards();
     w.terrDirty = true; w.staticDirty = true; return w;
   }
