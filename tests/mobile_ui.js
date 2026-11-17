@@ -320,12 +320,8 @@ async function dispatchTwoFingerPinch(page, cx, cy, d0, d1, staggerMs = 25) {
   const ps = await box(mp, '#stats'), py = await box(mp, '#sys'), pb = await box(mp, '#bar'), pr = await box(mp, '#rotate-tip');
   ok(insideViewport(ps, 390, 844) && insideViewport(py, 390, 844) && insideViewport(pb, 390, 844), 'portrait 390x844 HUD fits inside viewport');
   ok(!overlaps(ps, py) && !overlaps(ps, pb) && !overlaps(py, pb), 'portrait 390x844 HUD elements do not overlap');
-  ok(!!pr && insideViewport(pr, 390, 844) && !overlaps(pr, ps) && !overlaps(pr, py), 'nonintrusive rotate-to-landscape hint appears cleanly in portrait');
+  ok(pr === null, 'portrait view has no rotate-to-landscape overlay');
   await mp.screenshot({ path: path.join(out, '07_mobile_portrait.png') });
-
-  const rd = await box(mp, '#rotate-dismiss');
-  await mp.touchscreen.tap(rd.left + rd.width / 2, rd.top + rd.height / 2);
-  ok((await box(mp, '#rotate-tip')) === null, 'rotate hint dismisses cleanly');
 
   // Rotate back to landscape & then tablet
   await mp.setViewportSize({ width: 844, height: 390 });

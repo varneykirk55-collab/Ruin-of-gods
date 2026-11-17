@@ -45,4 +45,10 @@ Frame rate is unmeasured on real GPUs, sound and touch have not been tested by e
 
 Run `node build.js`, `node tests/test_sim.js 1234`, and `node tests/disaster_survival.js`. Browser checks: install Playwright with `npm install --no-save --package-lock=false playwright@1.56.1`, run `npx playwright install chromium`, then `node tests/browser_powers.js`. Set `CHROME_PATH` to use an existing Chrome executable; screenshots and video go to `artifacts/` by default.
 
-Saves load older version 1 data. New version 2 saves retain exact Float32 water depths, NPC panic/recovery and airborne state, and active earthquake, meteor and tornado hazards. Springs, rain, crater seepage, the sea boundary reservoir and meteor vaporisation are defined water sources/sinks. Ordinary flow conserves water up to Float32 rounding. Shallow water is no longer discarded or evaporated implicitly. Storm lightning and loose airborne debris are not resumed by a save; permanent damage and settled rubble are retained.
+## Southern frontier
+
+The valley spans 160 columns and 320 rows. Pan south across the estuary to reach the farm village, forest settlement and volcano. In Observe, tap the glowing crater to start a seven-second warning. A nearby earthquake or the volcano’s own timer can also wake it. An eruption feeds lava for 26 simulation seconds. Hot material follows the lowest neighbouring surface, ignites vegetation, damages structures and cools into basalt. Water accelerates cooling.
+
+The original 160 rows retain their indices and seeded generation sequence. Both halves share water, pathfinding, fire, building damage and hazard grids. Rendering culls terrain and vegetation in 32-cell tiles while offscreen hazards continue to advance. The portrait starting view is wider and the camera target can travel the entire length of the valley.
+
+Version 3 saves include both regions, active lava, cooled basalt, storm schedules and loose debris. Versions 1 and 2 load the original valley in place, append the frontier and remap legacy shelter references. Browser storage still uses one save slot.

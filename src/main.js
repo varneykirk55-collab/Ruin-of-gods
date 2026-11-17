@@ -20,7 +20,7 @@
   const SND_OFF_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M22 9l-6 6M16 9l6 6"/></svg>';
 
   const TOOLS = [
-    { id: 'observe', short: 'Observe', name: 'Observe', hint: 'Drag to pan. Tap or click a villager to follow them.' },
+    { id: 'observe', short: 'Observe', name: 'Observe', hint: 'Drag to pan. Tap a villager to follow. Tap the southern crater to wake it.' },
     { id: 'quake', short: 'Quake', name: 'Earthquake', hint: 'Drag a fault line across the land, then release.' },
     { id: 'flood', short: 'Flood', name: 'Flood', hint: 'Tap or drag to pour water downhill across the valley.' },
     { id: 'meteor', short: 'Meteor', name: 'Meteor', hint: 'Tap or click to call down a meteor.' },
@@ -32,7 +32,7 @@
 
   let R, world, audio = new AudioEngine(), tool = 'observe', intensity = 0.6, paused = false, speed = 1, started = false, memSave = null;
   let last = 0, acc = 0, frameN = 0, hudT = 0, follow = false, lastHour = -1;
-  let orbitMode = false, panMode = false, statsUserSet = false, rotateDismissed = false;
+  let orbitMode = false, panMode = false, statsUserSet = false;
   let canvasRect = { left: 0, top: 0, width: 1, height: 1 };
   const mouse = { nx: 0, ny: 0, px: 0, py: 0, down: false, mode: '', hit: null, moved: 0, inside: false };
   const keys = {}; const ptrs = new Map();
@@ -63,8 +63,8 @@
     const compact = isCompact();
     if (!compact && isMenuOpen()) setMenuOpen(false);
     if (!statsUserSet) setStatsCollapsed(compact, false);
-    const portraitSmall = window.innerHeight > window.innerWidth && window.innerWidth < 600;
-    $('rotate-tip').classList.toggle('show', portraitSmall && !rotateDismissed && started);
+
+
     if (R) R.resize();
   }
 
@@ -177,7 +177,7 @@
   function newWorld(seed) {
     bindWorld(new World(seed || ((Math.random() * 1e9) | 0)));
     const c = R.cam; c.gtx = c.tx = world.vc.x; c.gtz = c.tz = world.vc.z;
-    c.gdist = 62; c.gpitch = 0.72; c.gyaw = 0.5; R.parts.n = 0;
+    c.gdist = canvasRect.height > canvasRect.width ? 92 : 62; c.gpitch = 0.72; c.gyaw = 0.5; R.parts.n = 0;
   }
 
   // ------------------------------------------------------------ input
@@ -196,7 +196,7 @@
   function pan(dx, dy, touch = false) {
     const c = R.cam, s = c.gdist * (touch ? 1.15 / Math.min(canvasRect.width, canvasRect.height) : 0.0019), cy = Math.cos(c.gyaw), sy = Math.sin(c.gyaw);
     c.gtx = clamp(c.gtx + (-dx * cy - dy * sy) * s, 2, N - 3);
-    c.gtz = clamp(c.gtz + (dx * sy - dy * cy) * s, 2, N - 3);
+    c.gtz = clamp(c.gtz + (dx * sy - dy * cy) * s, 2, ROWS - 3);
     follow = false;
   }
   function beginAction() {
@@ -393,8 +393,12 @@
     if (mouse.mode === 'act') {
       if (e.type === 'pointercancel') { qStart = null; lastCarve = null; }
       else endAction();
-    } else if (mouse.mode === 'pan' && tool === 'observe' && !panMode && mouse.moved < (isTouch ? 12 : 6)) {
-      trySelect(isTouch ? 44 : 30);
+    } else if (e.type === 'pointerup' && mouse.mode === 'pan' && tool === 'observe' && !panMode && mouse.moved < (isTouch ? 12 : 6)) {
+      const hit = R.pick(mouse.nx, mouse.ny, world);
+      if (hit && Math.hypot(hit.x-world.volcano.x, hit.z-world.volcano.z) < 6) {
+        world.wakeVolcano();
+        R.hand.cast(hit);
+      } else trySelect(isTouch ? 44 : 30);
     }
     mouse.mode = '';
     if (isTouch && ptrs.size === 0) { mouse.inside = false; }
@@ -516,6 +520,13 @@
   // ------------------------------------------------------------ continuous effects
   function emitFx(dt) {
     const P = R.parts, w = world, rnd = Math.random, k = dt * 60, F = w.fires;
+    const v=w.volcano, vy=w.hAt(v.x,v.z);
+    if (R.visibleBox(v.x,vy+7,v.z,12,18,12)) {
+      const active=v.state==='erupting', restless=v.state==='restless';
+      if (rnd()<dt*(active?18:restless?7:1.3)) P.burst('smoke',v.x,vy+1,v.z,active?6:2,2,active?2:0.7);
+      if (active) { P.burst('ember',v.x,vy+2,v.z,3,3,2); P.burst('fire',v.x,vy+1,v.z,2,2,2); }
+      if (restless && rnd()<dt*1.5) R.cam.shake=Math.max(R.cam.shake,0.22);
+    }
     if (F.length) { const n = Math.min(70, 4 + F.length * 0.08) * k; for (let q = 0; q < n; q++) { const i = F[(rnd() * F.length) | 0], x = i % N, z = (i / N) | 0, t = w.tree[i] === 2, y = w.h[i] + (t ? 0.6 + rnd() * 1.4 : 0.2); P.burst('fire', x, y, z, 1, 0.5, t ? 1.3 : 0.8); if (rnd() < 0.3) P.burst('smoke', x, y + 0.8, z, 1, 0.4, 1); if (rnd() < 0.06) P.burst('ember', x, y + 1, z, 1, 0.3, 1); } }
     for (const b of w.buildings) if (b.fire > 0 && rnd() < 0.9 * k) { const x = b.x + (rnd() - .5) * b.w, z = b.z + (rnd() - .5) * b.d; P.burst('fire', x, b.y + b.hgt * (0.4 + rnd() * 0.8), z, 2, 0.4, 1.2 + b.fire); if (rnd() < 0.5) P.burst('smoke', x, b.y + b.hgt + 1, z, 1, 0.5, 1.4); if (rnd() < 0.15) P.burst('ember', x, b.y + b.hgt, z, 1, 0.5, 1); }
     for (const m of w.meteors) { P.burst('fire', m.px, m.py, m.pz, 5, 0.6 + m.I, 1.5); P.burst('smoke', m.px, m.py, m.pz, 1, 0.5, 0.6); P.burst('spark', m.px, m.py, m.pz, 1, 0.5, 0.6); }
@@ -527,7 +538,7 @@
     const c = R.cam;
     if (w.rain > 0) { const rr = Math.min(60, c.dist * 0.7 + 8); P.burst('rain', c.tx, Math.max(0, w.hAt(c.tx, c.tz)) + 9, c.tz, (40 * k) | 0, rr, 1); }
     for (const cp of w.camps) if (!cp.dead && rnd() < 0.5 * k) P.burst('fire', cp.x, w.hAt(cp.x, cp.z) + 0.3, cp.z, 1, 0.12, 0.45);
-    for (let q = 0; q < 14 * k; q++) { const x = (c.tx + (rnd() - .5) * (c.dist + 20)) | 0, z = (c.tz + (rnd() - .5) * (c.dist + 20)) | 0; if (x < 1 || z < 1 || x > N - 2 || z > N - 2) continue; const i = z * N + x; if (w.flow[i] > 0.035 && w.w[i] > 0.15 && w.w[i] - w.wb[i] > 0.12) P.burst('splash', x, w.h[i] + w.w[i], z, 1, 0.5, 0.7); }
+    for (let q = 0; q < 14 * k; q++) { const x = (c.tx + (rnd() - .5) * (c.dist + 20)) | 0, z = (c.tz + (rnd() - .5) * (c.dist + 20)) | 0; if (x < 1 || z < 1 || x > N - 2 || z > ROWS - 2) continue; const i = z * N + x; if (w.flow[i] > 0.035 && w.w[i] > 0.15 && w.w[i] - w.wb[i] > 0.12) P.burst('splash', x, w.h[i] + w.w[i], z, 1, 0.5, 0.7); }
     for (const n of w.npcs) if (n.onFire > 0 && n.st !== DEAD && rnd() < 0.5) P.burst('fire', n.x, n.y + 0.5, n.z, 1, 0.15, 0.5);
   }
 
@@ -664,13 +675,13 @@
       b.onclick = () => { R.cam.gpitch = +b.dataset.tilt; setMenuOpen(false); };
     }
     $('cam-reset').onclick = () => {
-      R.cam.gtx = world.vc.x; R.cam.gtz = world.vc.z; R.cam.gdist = 62; R.cam.gpitch = 0.72; R.cam.gyaw = 0.5;
+      R.cam.gtx = world.vc.x; R.cam.gtz = world.vc.z; R.cam.gdist = canvasRect.height > canvasRect.width ? 92 : 62; R.cam.gpitch = 0.72; R.cam.gyaw = 0.5;
       follow = false; setMenuOpen(false);
     };
 
     $('stats-toggle').onclick = () => setStatsCollapsed(!$('stats').classList.contains('collapsed'), true);
     $('card-close').onclick = () => { R.sel = null; follow = false; };
-    $('rotate-dismiss').onclick = () => { rotateDismissed = true; $('rotate-tip').classList.remove('show'); };
+
 
     document.addEventListener('pointerdown', e => {
       if ($('bar').classList.contains('inten-open') && !$('bar').contains(e.target)) {

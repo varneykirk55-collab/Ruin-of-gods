@@ -69,7 +69,7 @@ function geoPyr() { const a = [-.5, -.5, -.5], b = [.5, -.5, -.5], c = [.5, -.5,
 function geoPrism() { const a = [-.5, -.5, -.5], b = [.5, -.5, -.5], c = [.5, -.5, .5], d = [-.5, -.5, .5], r0 = [0, .5, -.5], r1 = [0, .5, .5]; return triGeo([[a, r0, b], [d, c, r1], [b, r0, r1], [b, r1, c], [a, d, r1], [a, r1, r0], [a, b, c], [a, c, d]]); }
 
 class Batch {
-  constructor(gl, prog, geo) { this.gl = gl; this.n = 0; this.cap = 2048; this.data = new Float32Array(this.cap * 13); this.vc = geo.p.length / 3; this.vao = gl.createVertexArray(); gl.bindVertexArray(this.vao); const vb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vb); const d = new Float32Array(this.vc * 6); for (let i = 0; i < this.vc; i++) { d.set(geo.p.slice(i * 3, i * 3 + 3), i * 6); d.set(geo.n.slice(i * 3, i * 3 + 3), i * 6 + 3); } gl.bufferData(gl.ARRAY_BUFFER, d, gl.STATIC_DRAW); const A = (nm, sz, st, off, div) => { const l = gl.getAttribLocation(prog, nm); if (l < 0) return; gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, sz, gl.FLOAT, false, st, off); gl.vertexAttribDivisor(l, div); }; A('aPos', 3, 24, 0, 0); A('aNor', 3, 24, 12, 0); this.ib = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, this.ib); gl.bufferData(gl.ARRAY_BUFFER, this.data.byteLength, gl.DYNAMIC_DRAW); A('iPos', 3, 52, 0, 1); A('iScl', 3, 52, 12, 1); A('iRot', 3, 52, 24, 1); A('iCol', 4, 52, 36, 1); gl.bindVertexArray(null); this.bufCap = this.cap; }
+  constructor(gl, prog, geo, capacity = 2048) { this.gl = gl; this.n = 0; this.cap = capacity; this.data = new Float32Array(this.cap * 13); this.vc = geo.p.length / 3; this.vao = gl.createVertexArray(); gl.bindVertexArray(this.vao); const vb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vb); const d = new Float32Array(this.vc * 6); for (let i = 0; i < this.vc; i++) { d.set(geo.p.slice(i * 3, i * 3 + 3), i * 6); d.set(geo.n.slice(i * 3, i * 3 + 3), i * 6 + 3); } gl.bufferData(gl.ARRAY_BUFFER, d, gl.STATIC_DRAW); const A = (nm, sz, st, off, div) => { const l = gl.getAttribLocation(prog, nm); if (l < 0) return; gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, sz, gl.FLOAT, false, st, off); gl.vertexAttribDivisor(l, div); }; A('aPos', 3, 24, 0, 0); A('aNor', 3, 24, 12, 0); this.ib = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, this.ib); gl.bufferData(gl.ARRAY_BUFFER, this.data.byteLength, gl.DYNAMIC_DRAW); A('iPos', 3, 52, 0, 1); A('iScl', 3, 52, 12, 1); A('iRot', 3, 52, 24, 1); A('iCol', 4, 52, 36, 1); gl.bindVertexArray(null); this.bufCap = this.cap; }
   begin() { this.n = 0; }
   push(x, y, z, sx, sy, sz, rx, ry, rz, r, g, b, e) { if (this.n >= this.cap) { this.cap *= 2; const d = new Float32Array(this.cap * 13); d.set(this.data); this.data = d; } const o = this.n * 13, D = this.data; D[o] = x; D[o + 1] = y; D[o + 2] = z; D[o + 3] = sx; D[o + 4] = sy; D[o + 5] = sz; D[o + 6] = rx; D[o + 7] = ry; D[o + 8] = rz; D[o + 9] = r; D[o + 10] = g; D[o + 11] = b; D[o + 12] = e; this.n++; }
   upload() { const gl = this.gl; gl.bindBuffer(gl.ARRAY_BUFFER, this.ib); if (this.bufCap < this.cap) { gl.bufferData(gl.ARRAY_BUFFER, this.data.byteLength, gl.DYNAMIC_DRAW); this.bufCap = this.cap; } gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.data, 0, this.n * 13); }
@@ -125,16 +125,25 @@ class Renderer {
     this.hand = new GodHand(gl, mk);
     // terrain
     this.tv = new Float32Array(NN * 7); this.wv = new Float32Array(NN * 5);
-    const idx = new Uint32Array((N - 1) * (N - 1) * 6); let k = 0;
-    for (let z = 0; z < N - 1; z++) for (let x = 0; x < N - 1; x++) { const a = z * N + x, b = a + 1, c = a + N, d = c + 1; if ((x + z) & 1) { idx[k++] = a; idx[k++] = c; idx[k++] = b; idx[k++] = b; idx[k++] = c; idx[k++] = d; } else { idx[k++] = a; idx[k++] = c; idx[k++] = d; idx[k++] = a; idx[k++] = d; idx[k++] = b; } }
+    const idx = new Uint32Array((N - 1) * (ROWS - 1) * 6); let k = 0;
+    this.tiles = [];
+    for (let z0=0; z0<ROWS-1; z0+=32) for (let x0=0; x0<N-1; x0+=32) {
+      const start=k, x1=Math.min(N-1,x0+32), z1=Math.min(ROWS-1,z0+32);
+      for (let z=z0; z<z1; z++) for (let x=x0; x<x1; x++) {
+        const a=z*N+x, b=a+1, c=a+N, d=c+1;
+        idx.set((x+z)&1 ? [a,c,b,b,c,d] : [a,c,d,a,d,b],k); k+=6;
+      }
+      this.tiles.push({x0,z0,x1,z1,offset:start*4,count:k-start,minY:-5,maxY:48});
+    }
     const mkGrid = (prog, data, attrs, stride) => { const vao = gl.createVertexArray(); gl.bindVertexArray(vao); const vb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vb); gl.bufferData(gl.ARRAY_BUFFER, data.byteLength, gl.DYNAMIC_DRAW); for (const [nm, sz, off] of attrs) { const l = gl.getAttribLocation(prog, nm); gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, sz, gl.FLOAT, false, stride, off); } const eb = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, eb); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, idx, gl.STATIC_DRAW); gl.bindVertexArray(null); return { vao, vb }; };
     this.tm = mkGrid(this.pT, this.tv, [['aPos', 3, 0], ['aCol', 3, 12], ['aGlow', 1, 24]], 28);
     this.wm = mkGrid(this.pW, this.wv, [['aPos', 3, 0], ['aDF', 2, 12]], 20);
-    this.ic = idx.length;
+    this.tileColumns = Math.ceil((N-1)/32);
     // sea quad
     this.sea = gl.createVertexArray(); gl.bindVertexArray(this.sea); const sb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, sb); const S = 900, y = -0.04; gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-S, y, -S, 3, 0, N + S, y, -S, 3, 0, N + S, y, N + S, 3, 0, -S, y, -S, 3, 0, N + S, y, N + S, 3, 0, -S, y, N + S, 3, 0]), gl.STATIC_DRAW); { const l = gl.getAttribLocation(this.pW, 'aPos'); gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, 3, gl.FLOAT, false, 20, 0); const m = gl.getAttribLocation(this.pW, 'aDF'); gl.enableVertexAttribArray(m); gl.vertexAttribPointer(m, 2, gl.FLOAT, false, 20, 12); } gl.bindVertexArray(null);
     const G = [geoBox(), geoPyr(), geoPrism()];
     this.st = G.map(g => new Batch(gl, this.pI, g)); this.dy = G.map(g => new Batch(gl, this.pI, g));
+    this.groves = this.tiles.map(() => G.slice(0,2).map(g => new Batch(gl,this.pI,g,64)));
     // particles
     this.pvao = gl.createVertexArray(); gl.bindVertexArray(this.pvao); this.pb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, this.pb); gl.bufferData(gl.ARRAY_BUFFER, 7000 * 32, gl.DYNAMIC_DRAW); { const l = gl.getAttribLocation(this.pP, 'aPS'); gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, 4, gl.FLOAT, false, 32, 0); const m = gl.getAttribLocation(this.pP, 'aCol'); gl.enableVertexAttribArray(m); gl.vertexAttribPointer(m, 4, gl.FLOAT, false, 32, 16); } gl.bindVertexArray(null);
     this.parts = new Particles(7000);
@@ -146,14 +155,14 @@ class Renderer {
 
   updateCam(dt, world) {
     const c = this.cam, k = 1 - Math.exp(-dt * 6.4);
-    c.gtx = clamp(c.gtx, 2, N - 3); c.gtz = clamp(c.gtz, 2, N - 3); c.gpitch = clamp(c.gpitch, 0.3, 1.45); c.gdist = clamp(c.gdist, 7, 230);
+    c.gtx = clamp(c.gtx, 2, N - 3); c.gtz = clamp(c.gtz, 2, ROWS - 3); c.gpitch = clamp(c.gpitch, 0.3, 1.45); c.gdist = clamp(c.gdist, 7, 230);
     c.tx += (c.gtx - c.tx) * k; c.tz += (c.gtz - c.tz) * k; c.yaw += (c.gyaw - c.yaw) * k; c.pitch += (c.gpitch - c.pitch) * k; c.dist += (c.gdist - c.dist) * k;
     c.shake = Math.max(0, c.shake - dt * 2.2);
     const ty = Math.max(0, world.hAt(c.tx, c.tz)) + 0.5, cp = Math.cos(c.pitch), sh = c.shake * c.shake * Math.min(3, c.dist * 0.03 + 0.4);
     const tx = c.tx + (Math.random() - .5) * sh, tz = c.tz + (Math.random() - .5) * sh, tyy = ty + (Math.random() - .5) * sh;
     this.tgt = [tx, tyy, tz];
     this.eye = [tx + Math.sin(c.yaw) * cp * c.dist, tyy + Math.sin(c.pitch) * c.dist, tz + Math.cos(c.yaw) * cp * c.dist];
-    const gy = world.hAt(clamp(this.eye[0], 0, N - 1), clamp(this.eye[2], 0, N - 1)) + 1.5; if (this.eye[1] < gy) this.eye[1] = gy;
+    const gy = world.hAt(clamp(this.eye[0], 0, N - 1), clamp(this.eye[2], 0, ROWS - 1)) + 1.5; if (this.eye[1] < gy) this.eye[1] = gy;
     const asp = this.canvas.width / this.canvas.height; this.asp = asp;
     this.P = M4.persp(this.fov, asp, 0.5, 1200); this.V = M4.look(this.eye, this.tgt, [0, 1, 0]); this.VP = M4.mul(this.P, this.V);
   }
@@ -163,18 +172,18 @@ class Renderer {
     const th = Math.tan(this.fov / 2); let dx = fx + rx * mx * th * this.asp + ux * my * th, dy = fy + uy * my * th, dz = fz + rz * mx * th * this.asp + uz * my * th; l = Math.hypot(dx, dy, dz); return [dx / l, dy / l, dz / l];
   }
   pick(mx, my, world) {
-    const d = this.ray(mx, my), e = this.eye; let t = 0, pt = 0; const inside = (x, z) => x >= 0 && z >= 0 && x <= N - 1 && z <= N - 1;
+    const d = this.ray(mx, my), e = this.eye; let t = 0, pt = 0; const inside = (x, z) => x >= 0 && z >= 0 && x <= N - 1 && z <= ROWS - 1;
     for (let s = 0; s < 900; s++) { pt = t; t += 0.4 + t * 0.012; const x = e[0] + d[0] * t, y = e[1] + d[1] * t, z = e[2] + d[2] * t; if (y < -3) return null; if (inside(x, z) && y < world.hAt(x, z)) { let a = pt, b = t; for (let k = 0; k < 10; k++) { const m = (a + b) / 2, X = e[0] + d[0] * m, Z = e[2] + d[2] * m; if (inside(X, Z) && e[1] + d[1] * m < world.hAt(X, Z)) b = m; else a = m; } return { x: e[0] + d[0] * b, z: e[2] + d[2] * b, y: e[1] + d[1] * b }; } }
     return null;
   }
   project(x, y, z) { const m = this.VP, w = m[3] * x + m[7] * y + m[11] * z + m[15]; return [(m[0] * x + m[4] * y + m[8] * z + m[12]) / w, (m[1] * x + m[5] * y + m[9] * z + m[13]) / w, w]; }
 
-  buildTerrain(w) {
+  buildTerrain(w, firstRow=0, lastRow=ROWS-1) {
     const tv = this.tv, h = w.h, kind = w.kind;
-    for (let z = 0; z < N; z++) for (let x = 0; x < N; x++) {
+    for (let z = firstRow; z <= lastRow; z++) for (let x = 0; x < N; x++) {
       const i = z * N + x, o = i * 7, hv = h[i], nz = hash2(x, z, 7), k = kind[i];
       let r, g, b;
-      const xm = x > 0 ? i - 1 : i, xp = x < N - 1 ? i + 1 : i, zm = z > 0 ? i - N : i, zp = z < N - 1 ? i + N : i;
+      const xm = x > 0 ? i - 1 : i, xp = x < N - 1 ? i + 1 : i, zm = z > 0 ? i - N : i, zp = z < ROWS - 1 ? i + N : i;
       const sl = Math.max(Math.abs(h[xp] - h[xm]), Math.abs(h[zp] - h[zm])) * 0.5;
       if (k === K.GRASS) { r = 0.34 + nz * 0.06; g = 0.55 + nz * 0.07; b = 0.24; }
       else if (k === K.FOREST) { r = 0.22 + nz * 0.04; g = 0.40 + nz * 0.06; b = 0.19; }
@@ -187,25 +196,81 @@ class Renderer {
         const rk = clamp((sl - 0.75) * 2.5, 0, 1) + clamp((hv - 15) * 0.4, 0, 1); if (rk > 0) { const t = Math.min(1, rk), q = 0.44 + nz * 0.1; r += (q - r) * t; g += (q * 0.97 - g) * t; b += (q * 0.94 - b) * t; }
         if (hv > 21) { const t = clamp((hv - 21) * 0.5, 0, 1) * (sl < 2.2 ? 1 : 0.3); r += (0.93 - r) * t; g += (0.95 - g) * t; b += (0.98 - b) * t; }
       }
+      const volcanic = z>248 && (x-110)**2+(z-280)**2 < 29**2;
+      let glow=w.burn[i];
+      if (volcanic) {
+        r=0.42+nz*0.09; g=0.30+nz*0.08; b=0.38+nz*0.08;
+        if ((x-110)**2+(z-280)**2<17) { r=1; g=0.32+nz*0.3; b=0.025; glow=0.9; }
+      }
+      if (w.basalt[i]) { r=0.25+nz*0.09; g=0.20; b=0.27; }
       const m = w.mud[i]; if (m) { const t = m / 255 * 0.8; r += (0.42 - r) * t; g += (0.33 - g) * t; b += (0.22 - b) * t; }
       const c = w.crack[i]; if (c) { const t = Math.min(0.96, c / 255 * 1.7 + 0.34); r += (0.11 - r) * t; g += (0.08 - g) * t; b += (0.07 - b) * t; }
       const s = w.scorch[i]; if (s) { const t = s / 255 * 0.9; r += (0.09 - r) * t; g += (0.08 - g) * t; b += (0.075 - b) * t; }
       if (hv < 0.25) { const t = clamp((0.25 - hv) * 1.2, 0, 1); r += (0.55 - r) * t; g += (0.52 - g) * t; b += (0.4 - b) * t; }
       if (w.w[i] > 0.08) { r *= 0.72; g *= 0.76; b *= 0.8; }
-      tv[o] = x; tv[o + 1] = hv; tv[o + 2] = z; tv[o + 3] = r; tv[o + 4] = g; tv[o + 5] = b; tv[o + 6] = w.burn[i];
+      const heat=w.basalt[i] ? w.lava.get(i) : 0;
+      if (heat) {
+        const hot=Math.min(1,heat*1.5);
+        r=0.82+0.18*hot; g=0.08+0.55*hot; b=0.025; glow=0.6+0.4*hot;
+      }
+      tv[o] = x; tv[o + 1] = hv; tv[o + 2] = z; tv[o + 3] = r; tv[o + 4] = g; tv[o + 5] = b; tv[o + 6] = glow;
     }
-    const gl = this.gl; gl.bindBuffer(gl.ARRAY_BUFFER, this.tm.vb); gl.bufferSubData(gl.ARRAY_BUFFER, 0, tv);
+    for (const tile of this.tiles) {
+      if (tile.z1<firstRow || tile.z0>lastRow) continue;
+      let lo=Infinity, hi=-Infinity;
+      for (let z=tile.z0; z<=tile.z1; z++) for (let x=tile.x0; x<=tile.x1; x++) {
+        const i=z*N+x; lo=Math.min(lo,h[i]); hi=Math.max(hi,h[i]+w.w[i]);
+      }
+      tile.minY=lo-1; tile.maxY=hi+32;
+    }
+    const gl = this.gl; gl.bindBuffer(gl.ARRAY_BUFFER, this.tm.vb); const offset=firstRow*N*7;
+    gl.bufferSubData(gl.ARRAY_BUFFER,offset*4,tv,offset,(lastRow-firstRow+1)*N*7);
   }
+  visibleBox(x,y,z,rx,ry,rz) {
+    // Reject only if the entire box is outside one clip plane.
+    const m=this.VP;
+    for (let axis=0;axis<3;axis++) for (let sign=-1;sign<=1;sign+=2) {
+      const a=m[3]+sign*m[axis], b=m[7]+sign*m[4+axis], c=m[11]+sign*m[8+axis];
+      if (a*x+b*y+c*z+m[15]+sign*m[12+axis]+Math.abs(a)*rx+Math.abs(b)*ry+Math.abs(c)*rz<0) return false;
+    }
+    return true;
+  }
+
   buildWater(w) {
-    const wv = this.wv, h = w.h, ww = w.w, fl = w.flow;
-    for (let i = 0, o = 0; i < NN; i++, o += 5) { const d = ww[i]; wv[o] = i % N; wv[o + 1] = h[i] + d - (d < 0.03 ? 0.06 : 0); wv[o + 2] = (i / N) | 0; wv[o + 3] = d; wv[o + 4] = (w.flag[i] & 2) ? 0 : fl[i]; }
-    const gl = this.gl; gl.bindBuffer(gl.ARRAY_BUFFER, this.wm.vb); gl.bufferSubData(gl.ARRAY_BUFFER, 0, wv);
+    const gl=this.gl, vertices=this.wv;
+    gl.bindBuffer(gl.ARRAY_BUFFER,this.wm.vb);
+    for (const tile of this.tiles) {
+      const {x0,z0,x1,z1,minY,maxY}=tile;
+      // Water can be piled up above the terrain; keep that range in the cull.
+      tile.visible=this.visibleBox((x0+x1)/2,(minY+maxY)/2,(z0+z1)/2,(x1-x0)/2,(maxY-minY)/2,(z1-z0)/2);
+    }
+    // Contiguous row uploads also cover shared edges when a tile enters view.
+    for (let band=0;band<this.tiles.length;band+=this.tileColumns) {
+      let visible=false;
+      for (let k=band;k<band+this.tileColumns;k++) visible ||= this.tiles[k].visible;
+      if (!visible) continue;
+      const start=this.tiles[band].z0*N, end=(this.tiles[band].z1+1)*N;
+      for (let i=start;i<end;i++) {
+        const o=i*5,d=w.w[i];
+        vertices[o]=i%N; vertices[o+1]=w.h[i]+d-(d<0.03?0.06:0);
+        vertices[o+2]=Math.floor(i/N); vertices[o+3]=d; vertices[o+4]=(w.flag[i]&2)?0:w.flow[i];
+      }
+      gl.bufferSubData(gl.ARRAY_BUFFER,start*20,vertices,start*5,(end-start)*5);
+    }
   }
+
+  drawGrid(vao) {
+    const gl=this.gl; gl.bindVertexArray(vao);
+    for (const tile of this.tiles) if (tile.visible) gl.drawElements(gl.TRIANGLES,tile.count,gl.UNSIGNED_INT,tile.offset);
+  }
+
   buildStatic(w) {
     const [B, P, R] = this.st; B.begin(); P.begin(); R.begin();
+    for (const grove of this.groves) for (const batch of grove) batch.begin();
     const tree = w.tree, h = w.h;
     for (let i = 0; i < NN; i++) {
       const t = tree[i]; if (!t) continue; const x = i % N, z = (i / N) | 0, a = hash2(x, z, 3), b = hash2(x, z, 4), c = hash2(x, z, 5);
+      const [B,P] = this.groves[Math.min(this.groves.length/this.tileColumns-1,z>>5)*this.tileColumns+Math.min(this.tileColumns-1,x>>5)];
       const px = x + a * 0.7 - 0.35, pz = z + b * 0.7 - 0.35, y = h[i] - 0.05, s = 0.8 + c * 0.7, ry = c * 6.28;
       if (t === 1 || t === 2) {
         const e = t === 2 ? 0.7 : 0; B.push(px, y + 0.3 * s, pz, 0.16 * s, 0.6 * s, 0.16 * s, 0, ry, 0, 0.36, 0.25, 0.16, 0);
@@ -218,12 +283,14 @@ class Renderer {
     }
     for (const r of w.rubble) this.st[r[9]].push(r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7], r[8], r[10], r[11], r[12], 0);
     const wl = w.well, wy = w.hAt(wl.x, wl.z); if (wl && !wl.gone) { B.push(wl.x, wy + 0.3, wl.z, 1.1, 0.6, 1.1, 0, 0.3, 0, 0.55, 0.53, 0.5, 0); B.push(wl.x - 0.5, wy + 0.9, wl.z, 0.1, 1.2, 0.1, 0, 0.3, 0, 0.36, 0.25, 0.17, 0); B.push(wl.x + 0.5, wy + 0.9, wl.z, 0.1, 1.2, 0.1, 0, 0.3, 0, 0.36, 0.25, 0.17, 0); R.push(wl.x, wy + 1.65, wl.z, 1.5, 0.45, 1.3, 0, 0.3, 0, 0.5, 0.3, 0.24, 0); }
+    for (const grove of this.groves) for (const batch of grove) if (batch.n) batch.upload();
     for (const b of this.st) b.upload();
   }
   buildDynamic(w) {
     const D = this.dy; for (const b of D) b.begin(); const [B, P] = D, T = this.time;
     const night = w.time < 0.24 || w.time > 0.8;
     for (const b of w.buildings) {
+      if (!this.visibleBox(b.x,b.y+3,b.z,b.w/2+2,7,b.d/2+2)) continue;
       const sh = b.shake || 0, fl = b.fire > 0 ? b.fire * (0.3 + 0.2 * Math.sin(T * 17 + b.id)) : 0;
       for (let j = 0; j < b.parts.length; j++) {
         const p = b.parts[j]; if (p.st) continue; const ch = p.char * 0.85; let r = p.c[0] * (1 - ch) + 0.08 * ch, g = p.c[1] * (1 - ch) + 0.07 * ch, bl = p.c[2] * (1 - ch) + 0.07 * ch, e = p.role === 'base' ? 0 : fl;
@@ -236,7 +303,7 @@ class Renderer {
     }
     for (const d of w.debris) D[d.g].push(d.x, d.y, d.z, d.sx, d.sy, d.sz, d.rx, d.ry, d.rz, d.c[0], d.c[1], d.c[2], d.hot ? 0.8 : 0);
     for (const n of w.npcs) {
-      if (n.erased || n.inside) continue; const s = n.child ? 0.68 : 1, c = n.c;
+      if (n.erased || n.inside || !this.visibleBox(n.x,n.y+1,n.z,1,2,1)) continue; const s = n.child ? 0.68 : 1, c = n.c;
       if (n.st === DEAD) { if (n.deadT >= 999) continue; if (n.flat) B.push(n.x, n.y + 0.03, n.z, 0.5, 0.04, 0.3, 0, n.face, 0, c[0] * 0.5, c[1] * 0.3, c[2] * 0.3, 0); else { B.push(n.x, n.y + 0.1, n.z, 0.26 * s, 0.44 * s, 0.18 * s, Math.PI / 2, n.face, 0, c[0] * 0.55, c[1] * 0.55, c[2] * 0.55, 0); B.push(n.x + Math.sin(n.face) * 0.32 * s, n.y + 0.1, n.z + Math.cos(n.face) * 0.32 * s, 0.18 * s, 0.18 * s, 0.18 * s, 0, n.face, 0, 0.62, 0.5, 0.42, 0); } continue; }
       const ci = w.ci(n.x, n.z), wd = w.bridgeOK(ci) ? 0 : w.w[ci]; let y = n.y, rx = 0;
       const e = n.onFire > 0 ? 0.8 : 0, pan = n.st === PANIC;
@@ -285,7 +352,7 @@ class Renderer {
     const L = []; for (const m of w.meteors) L.push([m.px, m.py, m.pz, 5]);
     for (const b of w.buildings) if (b.fire > 0) L.push([b.x, b.y + b.hgt + 1, b.z, 1.2 + b.fire * 1.8]);
     for (const c of w.camps) if (!c.dead) L.push([c.x, w.hAt(c.x, c.z) + 0.8, c.z, 0.9]);
-    if (w.fires.length) { const bk = this._bk || (this._bk = new Float32Array(100 * 3)); bk.fill(0); const F = w.fires, st = Math.max(1, (F.length / 600) | 0); for (let k = 0; k < F.length; k += st) { const i = F[k], x = i % N, z = (i / N) | 0, q = ((z >> 4) * 10 + (x >> 4)) * 3; bk[q] += x; bk[q + 1] += z; bk[q + 2] += 1; } for (let q = 0; q < 300; q += 3) if (bk[q + 2] > 0) { const x = bk[q] / bk[q + 2], z = bk[q + 1] / bk[q + 2]; L.push([x, w.hAt(x, z) + 2.5, z, Math.min(3.5, 0.5 + bk[q + 2] * st * 0.03)]); } }
+    if (w.fires.length) { const bk = this._bk || (this._bk = new Float32Array(Math.ceil(N/16)*Math.ceil(ROWS/16)*3)); bk.fill(0); const F = w.fires, st = Math.max(1, (F.length / 600) | 0); for (let k = 0; k < F.length; k += st) { const i = F[k], x = i % N, z = (i / N) | 0, q = ((z >> 4) * Math.ceil(N/16) + (x >> 4)) * 3; bk[q] += x; bk[q + 1] += z; bk[q + 2] += 1; } for (let q = 0; q < bk.length; q += 3) if (bk[q + 2] > 0) { const x = bk[q] / bk[q + 2], z = bk[q + 1] / bk[q + 2]; L.push([x, w.hAt(x, z) + 2.5, z, Math.min(3.5, 0.5 + bk[q + 2] * st * 0.03)]); } }
     const c = this.cam; L.sort((a, b) => (b[3] / (1 + Math.hypot(b[0] - c.tx, b[2] - c.tz) * 0.02)) - (a[3] / (1 + Math.hypot(a[0] - c.tx, a[2] - c.tz) * 0.02)));
     const fl = 0.85 + 0.15 * Math.sin(this.time * 19); for (let k = 0; k < 6; k++) { const o = k * 4, e = L[k]; if (e) { this.lights[o] = e[0]; this.lights[o + 1] = e[1]; this.lights[o + 2] = e[2]; this.lights[o + 3] = e[3] * fl; } else this.lights[o + 3] = 0; }
   }
@@ -293,6 +360,14 @@ class Renderer {
   draw(w, dt) {
     const gl = this.gl; this.time += dt; this.resize();
     if (w.terrDirty) { this.buildTerrain(w); w.terrDirty = false; }
+    else if (this.lastLava!==w.lava) {
+      let first=ROWS,last=-1;
+      for (const patch of [this.lastLava,w.lava]) if (patch) for (const i of patch.keys()) {
+        const row=Math.floor(i/N); first=Math.min(first,row); last=Math.max(last,row);
+      }
+      if (first<=last) this.buildTerrain(w,first,last);
+    }
+    this.lastLava=w.lava;
     if (w.staticDirty) { this.buildStatic(w); w.staticDirty = false; }
     this.buildWater(w); this.buildDynamic(w); this.env(w); this.setLights(w);
     gl.viewport(0, 0, this.canvas.width, this.canvas.height); gl.clearColor(this.fogC[0], this.fogC[1], this.fogC[2], 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -300,10 +375,12 @@ class Renderer {
     const fogD = 0.0000028 + (w.rain > 0 ? 0.000004 : 0);
     const common = p => { gl.useProgram(p); gl.uniformMatrix4fv(p.u.uVP, false, this.VP); if (p.u.uSun) gl.uniform3fv(p.u.uSun, this.sun); if (p.u.uSunC) gl.uniform3fv(p.u.uSunC, this.sunC); if (p.u.uAmb) gl.uniform3fv(p.u.uAmb, this.amb); if (p.u.uFog) gl.uniform3fv(p.u.uFog, this.fogC); if (p.u.uCam) gl.uniform3fv(p.u.uCam, this.eye); if (p.u.uFogD) gl.uniform1f(p.u.uFogD, fogD); if (p.u.uLights) gl.uniform4fv(p.u.uLights, this.lights); if (p.u.uTime) gl.uniform1f(p.u.uTime, this.time); };
     common(this.pT); gl.uniform4fv(this.pT.u.uMark, this.mark); gl.uniform4fv(this.pT.u.uMarkC, this.markC); gl.uniform4fv(this.pT.u.uShadow, this.shadow);
-    gl.bindVertexArray(this.tm.vao); gl.drawElements(gl.TRIANGLES, this.ic, gl.UNSIGNED_INT, 0);
-    common(this.pI); for (const b of this.st) b.draw(); for (const b of this.dy) b.draw();
+    this.drawGrid(this.tm.vao);
+    common(this.pI);
+    for (let i=0;i<this.tiles.length;i++) if (this.tiles[i].visible) for (const batch of this.groves[i]) batch.draw();
+    for (const b of this.st) b.draw(); for (const b of this.dy) b.draw();
     gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
-    common(this.pW); gl.bindVertexArray(this.sea); gl.drawArrays(gl.TRIANGLES, 0, 6); gl.bindVertexArray(this.wm.vao); gl.drawElements(gl.TRIANGLES, this.ic, gl.UNSIGNED_INT, 0);
+    common(this.pW); gl.bindVertexArray(this.sea); gl.drawArrays(gl.TRIANGLES, 0, 6); this.drawGrid(this.wm.vao);
     const ps = this.parts; ps.update(dt, w.wind[0], w.wind[1]);
     gl.useProgram(this.pP); gl.uniformMatrix4fv(this.pP.u.uVP, false, this.VP); gl.uniform1f(this.pP.u.uPx, this.canvas.height * this.P[5] * 0.5);
     gl.bindVertexArray(this.pvao); gl.bindBuffer(gl.ARRAY_BUFFER, this.pb);
