@@ -639,6 +639,7 @@
   /* Portrait phone layout */
   @media (orientation: portrait) and (max-width: 599px) {
     #stats { max-width: calc(100vw - var(--sal) - var(--sar) - 188px); padding: 5px 8px; }
+    #stats-head { gap: 3px; }
     #stats-title h1 { display: none; }
     #s-mood-mini, #s-wind-mini { display: none; }
     #speed button { padding: 4px 7px; min-width: 28px; font-size: 12px; }
@@ -647,6 +648,10 @@
     #bar { width: calc(100vw - var(--sal) - var(--sar) - 14px); }
     #log { bottom: calc(var(--sab) + 78px); width: calc(100vw - var(--sal) - var(--sar) - 20px); max-width: 300px; }
     #log div:nth-last-child(n+3) { display: none; }
+  }
+
+  @media (orientation: portrait) and (max-width: 365px) {
+    #stats .st-pills { display: none; }
   }
 
   /* Very narrow portrait (<380px) */
@@ -2383,9 +2388,9 @@ class Renderer {
   }
   project(x, y, z) { const m = this.VP, w = m[3] * x + m[7] * y + m[11] * z + m[15]; return [(m[0] * x + m[4] * y + m[8] * z + m[12]) / w, (m[1] * x + m[5] * y + m[9] * z + m[13]) / w, w]; }
 
-  buildTerrain(w) {
+  buildTerrain(w, firstRow=0, lastRow=ROWS-1) {
     const tv = this.tv, h = w.h, kind = w.kind;
-    for (let z = 0; z < ROWS; z++) for (let x = 0; x < N; x++) {
+    for (let z = firstRow; z <= lastRow; z++) for (let x = 0; x < N; x++) {
       const i = z * N + x, o = i * 7, hv = h[i], nz = hash2(x, z, 7), k = kind[i];
       let r, g, b;
       const xm = x > 0 ? i - 1 : i, xp = x < N - 1 ? i + 1 : i, zm = z > 0 ? i - N : i, zp = z < ROWS - 1 ? i + N : i;
@@ -2413,16 +2418,23 @@ class Renderer {
       const s = w.scorch[i]; if (s) { const t = s / 255 * 0.9; r += (0.09 - r) * t; g += (0.08 - g) * t; b += (0.075 - b) * t; }
       if (hv < 0.25) { const t = clamp((0.25 - hv) * 1.2, 0, 1); r += (0.55 - r) * t; g += (0.52 - g) * t; b += (0.4 - b) * t; }
       if (w.w[i] > 0.08) { r *= 0.72; g *= 0.76; b *= 0.8; }
+      const heat=w.basalt[i] ? w.lava.get(i) : 0;
+      if (heat) {
+        const hot=Math.min(1,heat*1.5);
+        r=0.82+0.18*hot; g=0.08+0.55*hot; b=0.025; glow=0.6+0.4*hot;
+      }
       tv[o] = x; tv[o + 1] = hv; tv[o + 2] = z; tv[o + 3] = r; tv[o + 4] = g; tv[o + 5] = b; tv[o + 6] = glow;
     }
     for (const tile of this.tiles) {
+      if (tile.z1<firstRow || tile.z0>lastRow) continue;
       let lo=Infinity, hi=-Infinity;
       for (let z=tile.z0; z<=tile.z1; z++) for (let x=tile.x0; x<=tile.x1; x++) {
         const i=z*N+x; lo=Math.min(lo,h[i]); hi=Math.max(hi,h[i]+w.w[i]);
       }
       tile.minY=lo-1; tile.maxY=hi+32;
     }
-    const gl = this.gl; gl.bindBuffer(gl.ARRAY_BUFFER, this.tm.vb); gl.bufferSubData(gl.ARRAY_BUFFER, 0, tv);
+    const gl = this.gl; gl.bindBuffer(gl.ARRAY_BUFFER, this.tm.vb); const offset=firstRow*N*7;
+    gl.bufferSubData(gl.ARRAY_BUFFER,offset*4,tv,offset,(lastRow-firstRow+1)*N*7);
   }
   visibleBox(x,y,z,rx,ry,rz) {
     // Reject only if the entire box is outside one clip plane.
@@ -2486,10 +2498,6 @@ class Renderer {
   }
   buildDynamic(w) {
     const D = this.dy; for (const b of D) b.begin(); const [B, P] = D, T = this.time;
-    for (const [i,heat] of w.lava) {
-      const x=i%N,z=Math.floor(i/N), y=w.h[i]+0.12;
-      if (this.visibleBox(x,y,z,1,1,1)) B.push(x,y,z,1.04,0.22+Math.min(heat,1)*0.15,1.04,0,0,0,1,0.22+0.35*Math.min(1,heat),0.035,0.85);
-    }
     const night = w.time < 0.24 || w.time > 0.8;
     for (const b of w.buildings) {
       if (!this.visibleBox(b.x,b.y+3,b.z,b.w/2+2,7,b.d/2+2)) continue;
@@ -2554,7 +2562,7 @@ class Renderer {
     const L = []; for (const m of w.meteors) L.push([m.px, m.py, m.pz, 5]);
     for (const b of w.buildings) if (b.fire > 0) L.push([b.x, b.y + b.hgt + 1, b.z, 1.2 + b.fire * 1.8]);
     for (const c of w.camps) if (!c.dead) L.push([c.x, w.hAt(c.x, c.z) + 0.8, c.z, 0.9]);
-    if (w.fires.length) { const bk = this._bk || (this._bk = new Float32Array(100 * 3)); bk.fill(0); const F = w.fires, st = Math.max(1, (F.length / 600) | 0); for (let k = 0; k < F.length; k += st) { const i = F[k], x = i % N, z = (i / N) | 0, q = ((z >> 4) * 10 + (x >> 4)) * 3; bk[q] += x; bk[q + 1] += z; bk[q + 2] += 1; } for (let q = 0; q < 300; q += 3) if (bk[q + 2] > 0) { const x = bk[q] / bk[q + 2], z = bk[q + 1] / bk[q + 2]; L.push([x, w.hAt(x, z) + 2.5, z, Math.min(3.5, 0.5 + bk[q + 2] * st * 0.03)]); } }
+    if (w.fires.length) { const bk = this._bk || (this._bk = new Float32Array(Math.ceil(N/16)*Math.ceil(ROWS/16)*3)); bk.fill(0); const F = w.fires, st = Math.max(1, (F.length / 600) | 0); for (let k = 0; k < F.length; k += st) { const i = F[k], x = i % N, z = (i / N) | 0, q = ((z >> 4) * Math.ceil(N/16) + (x >> 4)) * 3; bk[q] += x; bk[q + 1] += z; bk[q + 2] += 1; } for (let q = 0; q < bk.length; q += 3) if (bk[q + 2] > 0) { const x = bk[q] / bk[q + 2], z = bk[q + 1] / bk[q + 2]; L.push([x, w.hAt(x, z) + 2.5, z, Math.min(3.5, 0.5 + bk[q + 2] * st * 0.03)]); } }
     const c = this.cam; L.sort((a, b) => (b[3] / (1 + Math.hypot(b[0] - c.tx, b[2] - c.tz) * 0.02)) - (a[3] / (1 + Math.hypot(a[0] - c.tx, a[2] - c.tz) * 0.02)));
     const fl = 0.85 + 0.15 * Math.sin(this.time * 19); for (let k = 0; k < 6; k++) { const o = k * 4, e = L[k]; if (e) { this.lights[o] = e[0]; this.lights[o + 1] = e[1]; this.lights[o + 2] = e[2]; this.lights[o + 3] = e[3] * fl; } else this.lights[o + 3] = 0; }
   }
@@ -2562,6 +2570,14 @@ class Renderer {
   draw(w, dt) {
     const gl = this.gl; this.time += dt; this.resize();
     if (w.terrDirty) { this.buildTerrain(w); w.terrDirty = false; }
+    else if (this.lastLava!==w.lava) {
+      let first=ROWS,last=-1;
+      for (const patch of [this.lastLava,w.lava]) if (patch) for (const i of patch.keys()) {
+        const row=Math.floor(i/N); first=Math.min(first,row); last=Math.max(last,row);
+      }
+      if (first<=last) this.buildTerrain(w,first,last);
+    }
+    this.lastLava=w.lava;
     if (w.staticDirty) { this.buildStatic(w); w.staticDirty = false; }
     this.buildWater(w); this.buildDynamic(w); this.env(w); this.setLights(w);
     gl.viewport(0, 0, this.canvas.width, this.canvas.height); gl.clearColor(this.fogC[0], this.fogC[1], this.fogC[2], 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);

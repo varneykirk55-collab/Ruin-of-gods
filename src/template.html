@@ -639,6 +639,7 @@
   /* Portrait phone layout */
   @media (orientation: portrait) and (max-width: 599px) {
     #stats { max-width: calc(100vw - var(--sal) - var(--sar) - 188px); padding: 5px 8px; }
+    #stats-head { gap: 3px; }
     #stats-title h1 { display: none; }
     #s-mood-mini, #s-wind-mini { display: none; }
     #speed button { padding: 4px 7px; min-width: 28px; font-size: 12px; }
@@ -647,6 +648,10 @@
     #bar { width: calc(100vw - var(--sal) - var(--sar) - 14px); }
     #log { bottom: calc(var(--sab) + 78px); width: calc(100vw - var(--sal) - var(--sar) - 20px); max-width: 300px; }
     #log div:nth-last-child(n+3) { display: none; }
+  }
+
+  @media (orientation: portrait) and (max-width: 365px) {
+    #stats .st-pills { display: none; }
   }
 
   /* Very narrow portrait (<380px) */
