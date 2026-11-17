@@ -109,7 +109,8 @@ const ok = (c, m) => { if (c) { pass++; console.log('  ok   ' + m); } else { fai
   const t0 = await ev(() => { const t = __game.world.tornados[0]; return { x: t.x, z: t.z }; });
   await p.waitForTimeout(450); await shot('ability_tornado.png');
   const aim = await scr(vc.x + 20, vc.z + 8);
-  await p.mouse.move(aim[0], aim[1]); await p.waitForTimeout(1400);
+  await p.mouse.move(aim[0], aim[1]);
+  await p.waitForFunction(start => { const t=__game.world.tornados[0]; return t && Math.hypot(t.x-start.x,t.z-start.z)>1.2; }, t0, {timeout:20000});
   const t1 = await ev(() => { const t = __game.world.tornados[0]; return t ? { x: t.x, z: t.z, debris: __game.world.debris.length } : null; });
   ok(t1 && Math.hypot(t1.x - t0.x, t1.z - t0.z) > 1.2, 'mouse steered the tornado (' + t0.x.toFixed(1) + ',' + t0.z.toFixed(1) + ' -> ' + (t1 ? t1.x.toFixed(1) + ',' + t1.z.toFixed(1) : 'gone') + ')');
   await ff(2.5);
