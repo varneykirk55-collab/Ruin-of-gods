@@ -520,6 +520,11 @@
   // ------------------------------------------------------------ continuous effects
   function emitFx(dt) {
     const P = R.parts, w = world, rnd = Math.random, k = dt * 60, F = w.fires;
+    const blizzard=w.blizzard;
+    if(blizzard.remaining>0 && R.visibleBox(blizzard.x,12,blizzard.z,blizzard.r,25,blizzard.r)) {
+      const radius=Math.min(blizzard.r,24), x=clamp(R.cam.tx,blizzard.x-radius,blizzard.x+radius), z=clamp(R.cam.tz,blizzard.z-radius,blizzard.z+radius);
+      if(w.blizzardAt(x,z)>0)P.burst('snow',x,w.hAt(x,z)+9,z,Math.min(8,Math.ceil(dt*90)),radius,1);
+    }
     const v=w.volcano, vy=w.hAt(v.x,v.z);
     if (R.visibleBox(v.x,vy+7,v.z,12,18,12)) {
       const active=v.state==='erupting', restless=v.state==='restless';
@@ -534,7 +539,7 @@
     for (const bo of w.bolts) if (bo.ttl > bo.T - 0.3) { for (let q = 0; q < 6; q++) { const g = bo.segs[(rnd() * bo.segs.length) | 0], t = rnd(); P.burst('glow', g[0] + (g[3] - g[0]) * t, g[1] + (g[4] - g[1]) * t, g[2] + (g[5] - g[2]) * t, 1, (bo.main ? 4 : 2) + rnd() * 2, 1); } if (bo.ttl > bo.T - 0.05) P.burst('glow', bo.x, bo.y + 0.5, bo.z, 1, bo.main ? 18 : 8, 1); }
     for (const e of w.emitters) if (rnd() < 0.5 * k) P.burst('smoke', e.x, w.hAt(e.x, e.z) + 0.5, e.z, 1, e.r, 1.3);
     for (const q of w.quakes) if (rnd() < 0.85 * k) { const p = q.pts[(rnd() * Math.max(1, q.done)) | 0]; P.burst('dust', p[0], w.hAt(p[0], p[1]) + 0.35, p[1], 2, 2.8, 1); }
-    for (const t of w.tornados) { const gy = w.hAt(t.x, t.z), n = Math.min(10, 3 + t.I * 4); P.burst('swirl', t.x, gy + 1.2 + rnd() * (6 + t.I * 6), t.z, n, t.R * (0.35 + rnd() * 0.5), 0.8 + t.I); if (rnd() < 0.8) P.burst('dust', t.x, gy + 0.4, t.z, 2, t.R * 0.45, 0.8); }
+    for (const t of w.tornados) { const gy = w.hAt(t.x, t.z), n = Math.min(10, 3 + t.I * 4); P.burst('swirl', t.x, gy + 1.2 + rnd() * (6 + t.I * 6), t.z, n, t.R * (0.35 + rnd() * 0.5), 0.8 + t.I); if(w.snow[w.ci(t.x,t.z)]>50)P.burst('snow',t.x,gy+3,t.z,2,t.R,1); if (rnd() < 0.8) P.burst('dust', t.x, gy + 0.4, t.z, 2, t.R * 0.45, 0.8); }
     const c = R.cam;
     if (w.rain > 0) { const rr = Math.min(60, c.dist * 0.7 + 8); P.burst('rain', c.tx, Math.max(0, w.hAt(c.tx, c.tz)) + 9, c.tz, (40 * k) | 0, rr, 1); }
     for (const cp of w.camps) if (!cp.dead && rnd() < 0.5 * k) P.burst('fire', cp.x, w.hAt(cp.x, cp.z) + 0.3, cp.z, 1, 0.12, 0.45);
@@ -544,14 +549,14 @@
 
   function audioMix(dt) {
     const w = world, c = R.cam, rad = c.dist * 0.6 + 14; let riv = 0, fl = 0, cnt = 0;
-    for (let k = 0; k < 28; k++) { const a = k * 2.4, r = rad * Math.sqrt((k + 0.5) / 28), x = Math.round(c.tx + Math.cos(a) * r), z = Math.round(c.tz + Math.sin(a) * r); if (x < 0 || z < 0 || x >= N || z >= N) continue; const i = z * N + x; cnt++; if (w.w[i] > 0.1 && !(w.flag[i] & 2)) { riv += Math.min(1, w.flow[i] * 40); fl += Math.min(1, Math.max(0, w.w[i] - w.wb[i]) * w.flow[i] * 80); } }
+    for (let k = 0; k < 28; k++) { const a = k * 2.4, r = rad * Math.sqrt((k + 0.5) / 28), x = Math.round(c.tx + Math.cos(a) * r), z = Math.round(c.tz + Math.sin(a) * r); if (x < 0 || z < 0 || x >= N || z >= ROWS) continue; const i = z * N + x; cnt++; if (w.w[i] > 0.1 && !(w.flag[i] & 2)) { riv += Math.min(1, w.flow[i] * 40); fl += Math.min(1, Math.max(0, w.w[i] - w.wb[i]) * w.flow[i] * 80); } }
     let fire = 0; const F = w.fires, st = Math.max(1, (F.length / 300) | 0), R2 = (rad + 25) * (rad + 25); for (let k = 0; k < F.length; k += st) { const i = F[k], dx = i % N - c.tx, dz = ((i / N) | 0) - c.tz; if (dx * dx + dz * dz < R2) fire += st; }
     for (const b of w.buildings) if (b.fire > 0 && Math.hypot(b.x - c.tx, b.z - c.tz) < rad + 25) fire += 30;
     let qk = 0; for (const q of w.quakes) qk = Math.max(qk, q.I * Math.sin(Math.PI * Math.min(1, q.t / q.dur)));
     let tn = 0; for (const t of w.tornados) { const d = Math.hypot(t.x - c.tx, t.z - c.tz); tn = Math.max(tn, (0.35 + 0.65 * t.I) * clamp(1.35 - d / (t.R * 2 + c.dist * 0.45 + 8), 0, 1)); }
     let vil = 0; for (const n of w.npcs) if (n.st !== DEAD && !n.inside && Math.hypot(n.x - c.tx, n.z - c.tz) < rad + 10) vil++;
     const near = clamp(1.2 - c.dist / 160, 0.1, 1), el = Math.sin((w.time - 0.25) * 6.2832);
-    mix.river = clamp(riv / Math.max(1, cnt) * 2.2, 0, 1) * near; mix.flood = clamp(fl / Math.max(1, cnt) * 3, 0, 1); mix.fire = clamp(fire / 220, 0, 1) * (0.4 + 0.6 * near); mix.quake = qk; mix.rain = w.rain > 0 ? 1 : 0; mix.wind = Math.max(w.windS * (0.4 + c.dist / 230), tn); mix.tornado = tn; mix.village = clamp(vil / 14, 0, 1) * near; mix.day = sstep(-0.1, 0.2, el); mix.calm = w.alarm <= 0 && tn < 0.2; mix.near = near;
+    mix.river = clamp(riv / Math.max(1, cnt) * 2.2, 0, 1) * near; mix.flood = clamp(fl / Math.max(1, cnt) * 3, 0, 1); mix.fire = clamp(fire / 220, 0, 1) * (0.4 + 0.6 * near); mix.quake = qk; mix.rain = w.rain > 0 ? 1 : 0; mix.wind = Math.max(w.windS * (0.4 + c.dist / 230), tn); mix.tornado = Math.max(tn,w.blizzardAt(c.tx,c.tz)*.65); mix.village = clamp(vil / 14, 0, 1) * near; mix.day = sstep(-0.1, 0.2, el); mix.calm = w.alarm <= 0 && tn < 0.2; mix.near = near;
     audio.mix(mix); audio.ambient(dt, mix);
     const hr = Math.floor(w.time * 24); if (hr !== lastHour) { if ((hr === 12 || hr === 18 || hr === 6) && lastHour >= 0) { const ch = w.buildings.find(b => b.type === 'church'); if (ch && !ch.ruin) sfx('bell', ch.x, ch.z, 0.9); } lastHour = hr; }
   }

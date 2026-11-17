@@ -7,13 +7,13 @@ const M4 = {
 };
 
 const COMMON = `
-uniform vec3 uSun,uSunC,uAmb,uFog,uCam; uniform float uFogD; uniform vec4 uLights[6];
+uniform vec3 uSun,uSunC,uAmb,uFog,uCam; uniform float uFogD; uniform vec4 uLights[6]; uniform vec4 uBlizzard;
 vec3 shade(vec3 base, vec3 n, vec3 wp){
   float d=max(dot(n,uSun),0.0);
   vec3 c=base*(uAmb*(0.75+0.25*n.y)+uSunC*d);
   for(int i=0;i<6;i++){ vec3 L=uLights[i].xyz-wp; float dd=dot(L,L); float a=uLights[i].w/(1.0+dd*0.035); c+=base*vec3(1.0,0.48,0.14)*a*max(dot(n,normalize(L)),0.25); }
   return c; }
-vec3 fog(vec3 c, vec3 wp){ float fd=distance(wp,uCam); return mix(c,uFog,1.0-exp(-fd*fd*uFogD)); }
+vec3 fog(vec3 c, vec3 wp){ float fd=distance(wp,uCam); float storm=max(0.0,1.0-distance(wp.xz,uBlizzard.xy)/max(1.0,uBlizzard.z))*uBlizzard.w; return mix(mix(c,uFog,1.0-exp(-fd*fd*uFogD)),vec3(0.76,0.87,0.95),storm*0.68); }
 `;
 const TERR_VS = `#version 300 es
 in vec3 aPos; in vec3 aCol; in float aGlow; uniform mat4 uVP; out vec3 vCol; out vec3 vW; out float vGlow;
@@ -37,6 +37,13 @@ const WAT_FS = `#version 300 es
 precision highp float; in vec3 vW; in vec2 vDF; out vec4 o; uniform float uTime;` + COMMON + `
 void main(){ float d=vDF.x; if(d<0.012) discard;
   vec2 p=vW.xz; float t=uTime;
+  if(vDF.y<0.0){
+    float frost=clamp(-vDF.y*2.0,0.0,1.0);
+    float veins=pow(abs(sin(p.x*.8+sin(p.y*1.6)*.22)),22.0)*.2;
+    vec3 ice=mix(vec3(.18,.65,.78),vec3(.66,.9,.98),frost)+veins;
+    vec3 c=ice*(uAmb+uSunC*.65);
+    o=vec4(fog(c,vW),.96);return;
+  }
   vec3 n=normalize(vec3(0.07*sin(p.x*2.1+t*1.7)+0.05*sin(p.y*3.3-t*2.3)+0.03*sin((p.x+p.y)*5.0+t*3.0),1.0,0.07*cos(p.y*2.4+t*1.3)+0.05*sin(p.x*3.7+t*2.1)));
   vec3 base=mix(vec3(0.30,0.58,0.62),vec3(0.07,0.22,0.40),smoothstep(0.0,2.2,d));
   base=mix(base,vec3(0.36,0.30,0.20),clamp(vDF.y*9.0,0.0,0.55));
@@ -91,6 +98,7 @@ class Particles {
         case 'splash': this.one(x + ox, y, z + oz, (R() - .5) * 2.5, 2.5 + R() * 3.5 * pw, (R() - .5) * 2.5, 0.2 + R() * 0.2, 0.2, 0.5 + R() * 0.4, 0.85, 0.92, 1, 0.7, 0, -12, 0.2, 0); break;
         case 'steam': this.one(x + ox, y, z + oz, (R() - .5), 2 + R() * 3, (R() - .5), 1 + R(), 1.8, 2.5 + R() * 2, 0.9, 0.9, 0.9, 0.4, 0, 0.2, 0.4, 1); break;
         case 'ring': { const s = (10 + R() * 5) * pw; this.one(x + Math.cos(a) * 0.5, y + R() * 0.4, z + Math.sin(a) * 0.5, Math.cos(a) * s, 0.5 + R(), Math.sin(a) * s, 1.2 + R() * 1.2, 2.5, 0.7 + R() * 0.5, 0.88, 0.83, 0.74, 0.5, 0, 0, 1.2, 0); break; }
+        case 'snow': this.one(x+ox,y+R()*5,z+oz,2+R()*2,-1.5-R(),1,.15+R()*.16,0,2.4,.93,.97,1,.8,0,0,.08,1.5); break;
         case 'rain': this.one(x + ox, y + R() * 6, z + oz, 0, -26, 0, 0.13, 0, 0.7, 0.7, 0.8, 0.95, 0.5, 0, 0, 0, 0.6); break;
         case 'cloud': this.one(x + ox, y + R() * 5, z + oz, (R() - .5) * 1.5, R() * 0.3, (R() - .5) * 1.5, 7 + R() * 7, 1.5, 2.5 + R() * 2, 0.15, 0.16, 0.2, 0.32, 0, 0, 0.2, 0.6); break;
         case 'glow': this.one(x, y, z, 0, 0, 0, sp, 0, 0.09, 0.65, 0.75, 1, 0.55, 1, 0, 0, 0); break;
@@ -208,6 +216,13 @@ class Renderer {
       const s = w.scorch[i]; if (s) { const t = s / 255 * 0.9; r += (0.09 - r) * t; g += (0.08 - g) * t; b += (0.075 - b) * t; }
       if (hv < 0.25) { const t = clamp((0.25 - hv) * 1.2, 0, 1); r += (0.55 - r) * t; g += (0.52 - g) * t; b += (0.4 - b) * t; }
       if (w.w[i] > 0.08) { r *= 0.72; g *= 0.76; b *= 0.8; }
+      const snow=w.snow[i]/255;
+      if(w.cold[i] && !w.basalt[i]) {
+        const glacier=x>112 && z>442 && w.h[i]>13;
+        if(glacier){r=.30+nz*.12;g=.69+nz*.08;b=.83+nz*.09;}
+        const cover=snow*(k===K.ROAD?.45:Math.max(.1,1-sl*.16));
+        r+=(.91+nz*.06-r)*cover;g+=(.94+nz*.04-g)*cover;b+=(1-b)*cover;
+      }
       const heat=w.basalt[i] ? w.lava.get(i) : 0;
       if (heat) {
         const hot=Math.min(1,heat*1.5);
@@ -253,7 +268,7 @@ class Renderer {
       for (let i=start;i<end;i++) {
         const o=i*5,d=w.w[i];
         vertices[o]=i%N; vertices[o+1]=w.h[i]+d-(d<0.03?0.06:0);
-        vertices[o+2]=Math.floor(i/N); vertices[o+3]=d; vertices[o+4]=(w.flag[i]&2)?0:w.flow[i];
+        vertices[o+2]=Math.floor(i/N); vertices[o+3]=d; vertices[o+4]=w.ice[i]>.06?-w.ice[i]:(w.flag[i]&2)?0:w.flow[i];
       }
       gl.bufferSubData(gl.ARRAY_BUFFER,start*20,vertices,start*5,(end-start)*5);
     }
@@ -277,9 +292,14 @@ class Renderer {
         if (a < 0.62) { const g = t === 2 ? [0.95, 0.45, 0.1] : [0.13 + b * 0.07, 0.36 + c * 0.1, 0.17]; P.push(px, y + 1.1 * s, pz, 0.95 * s, 1.3 * s, 0.95 * s, 0, ry, 0, g[0], g[1], g[2], e); P.push(px, y + 1.85 * s, pz, 0.66 * s, 1.0 * s, 0.66 * s, 0, ry + 0.6, 0, g[0] * 1.1, g[1] * 1.1, g[2] * 1.1, e); }
         else { const g = t === 2 ? [0.95, 0.45, 0.1] : [0.27 + b * 0.1, 0.5 + c * 0.1, 0.18]; B.push(px, y + 1.0 * s, pz, 0.85 * s, 0.75 * s, 0.85 * s, 0, ry, 0, g[0], g[1], g[2], e); B.push(px + 0.15, y + 1.5 * s, pz - 0.1, 0.55 * s, 0.5 * s, 0.55 * s, 0, ry + 0.8, 0, g[0] * 1.08, g[1] * 1.08, g[2] * 1.08, e); }
       }
-      else if (t === 3) { B.push(px, y + 0.5 * s, pz, 0.11 * s, 1.1 * s, 0.11 * s, a * 0.2 - 0.1, ry, b * 0.2 - 0.1, 0.07, 0.06, 0.06, 0); B.push(px + 0.1, y + 0.75 * s, pz, 0.06, 0.45 * s, 0.06, 0, ry, 0.8, 0.07, 0.06, 0.06, 0); }
+      if(t===1 && w.snow[i]>35) {
+        const cap=w.snow[i]/255;
+        P.push(px,y+1.3*s,pz,.98*s,1.25*s*cap,.98*s,0,ry,0,.84,.93,1,0);
+        P.push(px,y+2.02*s,pz,.65*s,.9*s*cap,.65*s,0,ry+.6,0,.94,.97,1,0);
+      }
+      if (t === 3) { B.push(px, y + 0.5 * s, pz, 0.11 * s, 1.1 * s, 0.11 * s, a * 0.2 - 0.1, ry, b * 0.2 - 0.1, 0.07, 0.06, 0.06, 0); B.push(px + 0.1, y + 0.75 * s, pz, 0.06, 0.45 * s, 0.06, 0, ry, 0.8, 0.07, 0.06, 0.06, 0); }
       else if (t === 4) { B.push(px, y + 0.14, pz, 0.16 * s, 1.5 * s, 0.16 * s, Math.PI / 2, ry, 0, 0.33, 0.23, 0.15, 0); P.push(px + Math.sin(ry) * 1.2 * s, y + 0.35, pz + Math.cos(ry) * 1.2 * s, 0.8 * s, 1.2 * s, 0.8 * s, Math.PI / 2, ry, 0, 0.25, 0.33, 0.14, 0); }
-      else B.push(px, y + 0.08, pz, 1.0 * s, 0.07, 1.0 * s, 0, ry, 0, 0.2, 0.27, 0.13, 0);
+      else if(t===5) B.push(px, y + 0.08, pz, 1.0 * s, 0.07, 1.0 * s, 0, ry, 0, 0.2, 0.27, 0.13, 0);
     }
     for (const r of w.rubble) this.st[r[9]].push(r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7], r[8], r[10], r[11], r[12], 0);
     const wl = w.well, wy = w.hAt(wl.x, wl.z); if (wl && !wl.gone) { B.push(wl.x, wy + 0.3, wl.z, 1.1, 0.6, 1.1, 0, 0.3, 0, 0.55, 0.53, 0.5, 0); B.push(wl.x - 0.5, wy + 0.9, wl.z, 0.1, 1.2, 0.1, 0, 0.3, 0, 0.36, 0.25, 0.17, 0); B.push(wl.x + 0.5, wy + 0.9, wl.z, 0.1, 1.2, 0.1, 0, 0.3, 0, 0.36, 0.25, 0.17, 0); R.push(wl.x, wy + 1.65, wl.z, 1.5, 0.45, 1.3, 0, 0.3, 0, 0.5, 0.3, 0.24, 0); }
@@ -291,10 +311,12 @@ class Renderer {
     const night = w.time < 0.24 || w.time > 0.8;
     for (const b of w.buildings) {
       if (!this.visibleBox(b.x,b.y+3,b.z,b.w/2+2,7,b.d/2+2)) continue;
+      const snow=w.snow[w.ci(b.x,b.z)]/255, winter=w.cold[w.ci(b.x,b.z)]>100;
       const sh = b.shake || 0, fl = b.fire > 0 ? b.fire * (0.3 + 0.2 * Math.sin(T * 17 + b.id)) : 0;
       for (let j = 0; j < b.parts.length; j++) {
         const p = b.parts[j]; if (p.st) continue; const ch = p.char * 0.85; let r = p.c[0] * (1 - ch) + 0.08 * ch, g = p.c[1] * (1 - ch) + 0.07 * ch, bl = p.c[2] * (1 - ch) + 0.07 * ch, e = p.role === 'base' ? 0 : fl;
-        if (p.win && night && !b.ruin && b.fire <= 0 && (b.id * 7 + j) % 3) { r = 1; g = 0.78; bl = 0.38; e = 0.9; }
+        if(p.role==='roof' && snow>0){const cover=snow*(1-p.char);r+=(.92-r)*cover;g+=(.96-g)*cover;bl+=(1-bl)*cover;}
+        if (p.win && (night||winter) && !b.ruin && b.fire <= 0 && (b.id * 7 + j) % 3) { r = 1; g = 0.78; bl = 0.38; e = 0.9; }
         let rx = 0, rz = 0, ox = 0, oy = 0; const ln = p.lean;
         if (ln > 0 && p.role !== 'base') { if (p.role === 'wall') { if (p.sx > p.sz) rx = ln * 0.3 * (p.oz < 0 ? -1 : 1); else rz = ln * 0.3 * (p.ox < 0 ? 1 : -1); } else if (p.role === 'sup') { rx = ln * 0.25 * p.ls; rz = ln * 0.2 * -p.ls; } else if (p.role !== 'decor') { rz = ln * 0.16 * p.ls; oy = -ln * 0.18; } }
         if (sh > 0 && p.role !== 'base') { rx += Math.sin(T * 43 + j * 1.7) * sh * 0.06; rz += Math.cos(T * 37 + j * 2.3) * sh * 0.06; ox = Math.sin(T * 51 + j) * sh * 0.07; }
@@ -367,13 +389,14 @@ class Renderer {
       }
       if (first<=last) this.buildTerrain(w,first,last);
     }
+    if(w.coldDirty){this.buildTerrain(w,320,ROWS-1);w.coldDirty=false;}
     this.lastLava=w.lava;
     if (w.staticDirty) { this.buildStatic(w); w.staticDirty = false; }
     this.buildWater(w); this.buildDynamic(w); this.env(w); this.setLights(w);
     gl.viewport(0, 0, this.canvas.width, this.canvas.height); gl.clearColor(this.fogC[0], this.fogC[1], this.fogC[2], 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.disable(gl.BLEND); gl.disable(gl.CULL_FACE);
     const fogD = 0.0000028 + (w.rain > 0 ? 0.000004 : 0);
-    const common = p => { gl.useProgram(p); gl.uniformMatrix4fv(p.u.uVP, false, this.VP); if (p.u.uSun) gl.uniform3fv(p.u.uSun, this.sun); if (p.u.uSunC) gl.uniform3fv(p.u.uSunC, this.sunC); if (p.u.uAmb) gl.uniform3fv(p.u.uAmb, this.amb); if (p.u.uFog) gl.uniform3fv(p.u.uFog, this.fogC); if (p.u.uCam) gl.uniform3fv(p.u.uCam, this.eye); if (p.u.uFogD) gl.uniform1f(p.u.uFogD, fogD); if (p.u.uLights) gl.uniform4fv(p.u.uLights, this.lights); if (p.u.uTime) gl.uniform1f(p.u.uTime, this.time); };
+    const common = p => { gl.useProgram(p); gl.uniformMatrix4fv(p.u.uVP, false, this.VP); if (p.u.uSun) gl.uniform3fv(p.u.uSun, this.sun); if (p.u.uSunC) gl.uniform3fv(p.u.uSunC, this.sunC); if (p.u.uAmb) gl.uniform3fv(p.u.uAmb, this.amb); if (p.u.uFog) gl.uniform3fv(p.u.uFog, this.fogC); if (p.u.uCam) gl.uniform3fv(p.u.uCam, this.eye); if (p.u.uFogD) gl.uniform1f(p.u.uFogD, fogD); if (p.u.uLights) gl.uniform4fv(p.u.uLights, this.lights); if (p.u.uTime) gl.uniform1f(p.u.uTime, this.time); if(p.u.uBlizzard){const b=w.blizzard;gl.uniform4f(p.u.uBlizzard,b.x,b.z,b.r,w.blizzardAt(b.x,b.z));} };
     common(this.pT); gl.uniform4fv(this.pT.u.uMark, this.mark); gl.uniform4fv(this.pT.u.uMarkC, this.markC); gl.uniform4fv(this.pT.u.uShadow, this.shadow);
     this.drawGrid(this.tm.vao);
     common(this.pI);
