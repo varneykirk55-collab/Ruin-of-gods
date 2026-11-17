@@ -738,7 +738,7 @@
     $('start-msg').textContent = 'A village wakes beside the river. It does not know you are watching.';
     $('begin').disabled = false; if (hasSave()) $('cont').style.display = '';
     const go = cont => {
-      audio.start(); if (cont) load();
+      audio.start(); audio.startMusic(); if (cont) load();
       started = true; $('start').classList.add('gone');
       syncLayout();
       log('The valley wakes. ' + world.stats().alive + ' villagers begin their day.');
