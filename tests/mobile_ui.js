@@ -143,9 +143,9 @@ async function dispatchTwoFingerPinch(page, cx, cy, d0, d1, staggerMs = 25) {
       return { id: b.dataset.t, w: r.width, h: r.height };
     });
   });
-  ok(toolMetrics.length === 8 && toolMetrics.every(t => t.w >= 44 && t.h >= 44), 'all 8 ability buttons meet >=44px touch target size');
+  ok(toolMetrics.length === 9 && toolMetrics.every(t => t.w >= 44 && t.h >= 44), 'all 9 ability buttons meet >=44px touch target size');
 
-  const expectedIds = ['observe', 'quake', 'flood', 'meteor', 'finger', 'fire', 'lightning', 'tornado'];
+  const expectedIds = ['observe', 'quake', 'flood', 'meteor', 'finger', 'fire', 'lightning', 'tornado', 'lava'];
   let allSelected = true;
   for (const id of expectedIds) {
     await mp.evaluate(id => {

@@ -391,37 +391,57 @@ class World {
     this.fx.sound('gust',v.x,v.z,0.6);
   }
 
+  emitLava(x,z,I,dt) {
+    if (![x,z,I,dt].every(Number.isFinite) || dt<=0 || x<1 || z<1 || x>=N-1 || z>=ROWS-1) return 0;
+    const strength=clamp(I,.1,1), radius=1.5+2*strength, extent=Math.ceil(radius), cells=[];
+    const xi=Math.round(x),zi=Math.round(z);
+    let weight=0;
+    for(let dz=-extent;dz<=extent;dz++)for(let dx=-extent;dx<=extent;dx++) {
+      const X=xi+dx,Z=zi+dz,distance=Math.hypot(X-x,Z-z);
+      if(X<1||Z<1||X>=N-1||Z>=ROWS-1||distance>=radius)continue;
+      const share=1-distance/radius;
+      cells.push([Z*N+X,share]);weight+=share;
+    }
+    if(!weight)return 0;
+    const amount=(20+60*strength)*Math.min(dt,.2);
+    for(const [i,share] of cells)this.lava.set(i,(this.lava.get(i)||0)+amount*share/weight);
+    return amount;
+  }
+
   stepVolcano(dt) {
     const v = this.volcano;
     v.remaining -= dt;
     if (v.remaining <= 0) {
       if (v.state === 'dormant') this.wakeVolcano();
       else if (v.state === 'restless') {
-        v.state = 'erupting'; v.remaining = 26;
+        v.state = 'erupting'; v.remaining = 90;
         this.fx.log('The volcano erupts'); this.fx.sound('boom',v.x,v.z,1);
-        this.addThreat(v.x,v.z-11,27,18);
+        this.addThreat(v.x,v.z-11,32,90);
       } else { v.state='dormant'; v.remaining=240; }
     }
     v.step += dt;
     if (v.step < 0.2) return;
     v.step -= 0.2;
-    const vent = this.ci(v.x,v.z-4);
-    if (v.state === 'erupting') this.lava.set(vent,(this.lava.get(vent)||0)+3);
+    if (v.state === 'erupting') this.emitLava(v.x,v.z-3,1,.2);
     if (!this.lava.size) return;
     // Flux uses one snapshot, so iteration order cannot carry a parcel several
     // cells in one step. Only hot cells and their four neighbours do work.
     const next = new Map(this.lava);
     for (const [i,heat] of this.lava) {
-      let lowest=i, level=this.h[i]+heat;
-      const x=i%N,z=Math.floor(i/N);
-      for (const j of [x>0?i-1:i,x<N-1?i+1:i,z>0?i-N:i,z<ROWS-1?i+N:i]) {
-        const there=this.h[j]+(this.lava.get(j)||0);
-        if (there<level) { lowest=j; level=there; }
+      const x=i%N,z=Math.floor(i/N), level=this.h[i]+heat, outlets=[];
+      let pressure=0, maxDrop=0;
+      // Divide a bounded outflow among every lower neighbour. Diagonal routes
+      // widen the stream while the shared budget keeps transfers conservative.
+      for(let dz=-1;dz<=1;dz++)for(let dx=-1;dx<=1;dx++) {
+        if((!dx&&!dz)||x+dx<0||x+dx>=N||z+dz<0||z+dz>=ROWS)continue;
+        const j=i+dz*N+dx, drop=(level-this.h[j]-(this.lava.get(j)||0))/Math.hypot(dx,dz);
+        if(drop<=0)continue;
+        outlets.push([j,drop]);pressure+=drop;maxDrop=Math.max(maxDrop,drop);
       }
-      if (lowest!==i) {
-        const transfer=Math.min(heat*0.74,(this.h[i]+heat-level)*0.48);
-        next.set(i,next.get(i)-transfer);
-        next.set(lowest,(next.get(lowest)||0)+transfer);
+      if(pressure>0) {
+        const outflow=Math.min(heat*.8,maxDrop*.36);
+        next.set(i,next.get(i)-outflow);
+        for(const [j,drop] of outlets)next.set(j,(next.get(j)||0)+outflow*drop/pressure);
       }
       if (heat>0.09) {
         this.meltCell(i,heat);
@@ -431,7 +451,7 @@ class World {
       }
     }
     for (const [i,heat] of next) {
-      const wet=this.w[i]>0.08, cool=Math.min(heat,wet ? 0.48 : 0.017);
+      const wet=this.w[i]>0.08, cool=Math.min(heat,wet ? 0.48 : 0.009);
       if (wet && heat>0.12 && this.rnd()<0.12) this.fx.burst('steam',i%N,this.h[i]+this.w[i],Math.floor(i/N),2,0.5,0.5);
       if (heat-cool <= 0.015) next.delete(i);
       else next.set(i,heat-cool);
@@ -446,7 +466,7 @@ class World {
       if ((next.get(i)||0)>0.08) {
         n.cause='lava'; n.hp-=0.16;
         if (n.hp<=0) this.kill(n);
-        else this.panic(n,v.x,v.z,20);
+        else this.panic(n,i%N,Math.floor(i/N),9);
       }
     }
   }

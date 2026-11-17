@@ -24,7 +24,7 @@ const ok = (c, m) => { if (c) { pass++; console.log('  ok   ' + m); } else { fai
   const cam = async o => { await p.evaluate(o => { const c = __game.R.cam; for (const k in o) { c[k] = o[k]; c['g' + k] = o[k]; } }, o); await p.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))); };
   const shot = name => p.screenshot({ path: path.join(out, name) });
   const vc = await ev(() => __game.world.vc);
-  ok(await ev(() => document.querySelectorAll('#tools button').length === 8), 'eight tools from Observe through Tornado');
+  ok(await ev(() => document.querySelectorAll('#tools button').length === 9), 'nine tools including Lava');
   await cam({ tx: vc.x, tz: vc.z, dist: 58, pitch: 0.78, yaw: 0.45 });
   await p.waitForTimeout(500);
 
@@ -109,7 +109,8 @@ const ok = (c, m) => { if (c) { pass++; console.log('  ok   ' + m); } else { fai
   const t0 = await ev(() => { const t = __game.world.tornados[0]; return { x: t.x, z: t.z }; });
   await p.waitForTimeout(450); await shot('ability_tornado.png');
   const aim = await scr(vc.x + 20, vc.z + 8);
-  await p.mouse.move(aim[0], aim[1]); await p.waitForTimeout(1400);
+  await p.mouse.move(aim[0], aim[1]);
+  await p.waitForFunction(start => { const t=__game.world.tornados[0]; return t && Math.hypot(t.x-start.x,t.z-start.z)>1.2; }, t0, {timeout:20000});
   const t1 = await ev(() => { const t = __game.world.tornados[0]; return t ? { x: t.x, z: t.z, debris: __game.world.debris.length } : null; });
   ok(t1 && Math.hypot(t1.x - t0.x, t1.z - t0.z) > 1.2, 'mouse steered the tornado (' + t0.x.toFixed(1) + ',' + t0.z.toFixed(1) + ' -> ' + (t1 ? t1.x.toFixed(1) + ',' + t1.z.toFixed(1) : 'gone') + ')');
   await ff(2.5);
@@ -118,7 +119,7 @@ const ok = (c, m) => { if (c) { pass++; console.log('  ok   ' + m); } else { fai
   ok(tornFx.tossed > 0 || tornFx.debris > 2, 'tornado pulled villagers or loose objects ' + JSON.stringify(tornFx));
 
   await p.keyboard.press('9');
-  ok(await ev(() => __game.tool === 'tornado'), 'retired key 9 leaves Tornado selected');
+  ok(await ev(() => __game.tool === 'lava'), 'key 9 selects the separate Lava power');
   await ev(() => __game.setSpeed(0));
   console.log('persistence');
   const damageSnapshot = () => {
